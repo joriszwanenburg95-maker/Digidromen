@@ -12,19 +12,19 @@ const Inventory: React.FC = () => {
           <h2 className="text-2xl font-bold text-slate-900">Voorraad</h2>
           <p className="text-sm text-slate-500">{inventory.length} voorraadregels zichtbaar</p>
         </div>
-        {user ? (
+        {user && inventory.length > 0 ? (
           <button
             onClick={() =>
               void portalStore.servicePartner.stockMutation({
-                productId: inventory[0]?.productId ?? "product-latitude-14",
+                productId: inventory[0].productId,
                 actorUserId: user.id,
-                reason: "Demo mutatie voorraad +1",
+                reason: "Handmatige voorraadmutatie +1",
                 availableDelta: 1,
               })
             }
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
           >
-            Simuleer voorraadmutatie
+            Voorraadmutatie +1
           </button>
         ) : null}
       </div>

@@ -1,11 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #1a1a1a;
-  background-color: #f9fafb;
+  color: #2D3436;
+  background-color: #FAF8F5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -15,6 +17,32 @@ body {
 }
 
 @theme {
-  --color-digidromen-primary: #005FB8;
-  --color-digidromen-secondary: #F2A900;
+  --color-digidromen-primary: #F2A900;
+  --color-digidromen-secondary: #005FB8;
+  --color-digidromen-dark: #2D3436;
+  --color-digidromen-warm: #FAF8F5;
+  --color-digidromen-cream: #F5F0EB;
+  --color-digidromen-orange-light: #FFF5E0;
+  --color-digidromen-orange-medium: #FFE4A0;
+}
+
+/* Heading font */
+h1, h2, h3, h4 {
+  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+}
+
+/* Subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D1C9BE;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B0A898;
 }

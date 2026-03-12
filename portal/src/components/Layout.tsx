@@ -12,7 +12,6 @@ import {
   RefreshCw,
   Settings,
   ShoppingCart,
-  User,
   Wrench,
   X,
 } from "lucide-react";
@@ -74,8 +73,8 @@ const sidebarLinks = [
 
 const roleLabels: Record<Role, string> = {
   help_org: "Hulporganisatie",
-  digidromen_staff: "Digidromen Medewerker",
-  digidromen_admin: "Digidromen Beheerder",
+  digidromen_staff: "Medewerker",
+  digidromen_admin: "Beheerder",
   service_partner: "Servicepartner",
 };
 
@@ -100,44 +99,41 @@ const Layout: React.FC = () => {
     authMode === "supabase"
       ? "Verbonden met Supabase"
       : supabaseConfigured
-        ? "Supabase vars gevonden; portal draait nog op demo-auth en lokale store"
-        : "Demo data wordt lokaal opgeslagen";
+        ? "Supabase vars gevonden; demo-modus"
+        : "Demo modus";
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-digidromen-warm">
       {sidebarOpen ? (
         <div
-          className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden"
+          className="fixed inset-0 z-20 bg-digidromen-dark/30 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-72 border-r border-slate-200 bg-white transition-transform duration-300 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 w-[17rem] bg-digidromen-dark transition-transform duration-300 lg:static lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Digidromen
-            </p>
-            <p className="text-lg font-bold text-slate-900">Supply & Service Portal</p>
+        <div className="flex h-16 items-center justify-between px-5">
+          <div className="flex items-center gap-3">
+            <img src="/Digidromen logo.png" alt="Digidromen" className="h-8 brightness-0 invert" />
           </div>
-          <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
-            <X size={22} />
+          <button className="text-white/60 hover:text-white lg:hidden" onClick={() => setSidebarOpen(false)}>
+            <X size={20} />
           </button>
         </div>
 
-        <div className="px-4 py-4">
-          <div className="rounded-2xl bg-slate-900 px-4 py-4 text-white">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Actieve persona</p>
-            <p className="mt-2 text-lg font-bold">{roleLabels[snapshot.role]}</p>
-            <p className="mt-1 text-sm text-slate-300">{user?.name}</p>
-          </div>
+        <div className="mx-4 mb-4 rounded-xl bg-white/8 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-digidromen-primary">
+            {roleLabels[snapshot.role]}
+          </p>
+          <p className="mt-0.5 text-sm font-semibold text-white">{user?.name}</p>
+          <p className="text-xs text-white/40">{user?.email}</p>
         </div>
 
-        <nav className="space-y-1 px-3">
+        <nav className="space-y-0.5 px-3">
           {filteredLinks.map((link) => {
             const Icon = link.icon;
             const isActive =
@@ -149,52 +145,55 @@ const Layout: React.FC = () => {
                 key={link.path}
                 to={link.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+                className={`flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all ${
                   isActive
-                    ? "bg-sky-50 text-sky-700"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-digidromen-primary text-digidromen-dark"
+                    : "text-white/60 hover:bg-white/8 hover:text-white"
                 }`}
               >
-                <Icon size={18} className="mr-3" />
+                <Icon size={17} className="mr-3" strokeWidth={isActive ? 2.5 : 1.8} />
                 {link.name}
               </Link>
             );
           })}
         </nav>
+
+        <div className="absolute bottom-0 left-0 right-0 border-t border-white/8 p-4">
+          <p className="text-[10px] text-white/30">{statusCopy}</p>
+        </div>
       </aside>
 
       <div className="flex min-h-screen flex-1 flex-col">
-        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:px-8">
+        <header className="sticky top-0 z-10 border-b border-digidromen-cream bg-digidromen-warm/95 px-4 py-3 backdrop-blur lg:px-8">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
+                className="rounded-lg p-2 text-digidromen-dark/50 hover:bg-digidromen-cream lg:hidden"
                 onClick={() => setSidebarOpen(true)}
               >
-                <Menu size={22} />
+                <Menu size={20} />
               </button>
               <div>
-                <p className="text-sm font-semibold text-slate-900">
+                <h1 className="text-lg font-bold text-digidromen-dark">
                   {sidebarLinks.find((item) =>
                     location.pathname.startsWith(item.path),
                   )?.name ?? "Portal"}
-                </p>
-                <p className="text-xs text-slate-400">{statusCopy}</p>
+                </h1>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {authMode === "demo" ? (
                 <div className="relative">
                   <button
                     onClick={() => setRoleMenuOpen((open) => !open)}
-                    className="flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"
+                    className="flex items-center rounded-full border border-digidromen-cream bg-white px-3 py-1.5 text-xs font-semibold text-digidromen-dark"
                   >
                     {roleLabels[snapshot.role]}
-                    <ChevronDown size={14} className="ml-1" />
+                    <ChevronDown size={14} className="ml-1 text-digidromen-dark/40" />
                   </button>
                   {roleMenuOpen ? (
-                    <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
+                    <div className="absolute right-0 mt-2 w-52 rounded-xl border border-digidromen-cream bg-white p-1.5 shadow-lg">
                       {(Object.keys(roleLabels) as Role[]).map((role) => (
                         <button
                           key={role}
@@ -202,10 +201,10 @@ const Layout: React.FC = () => {
                             setRole(role);
                             setRoleMenuOpen(false);
                           }}
-                          className={`block w-full rounded-xl px-3 py-2 text-left text-sm ${
+                          className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
                             snapshot.role === role
-                              ? "bg-slate-100 font-semibold text-slate-900"
-                              : "text-slate-600 hover:bg-slate-50"
+                              ? "bg-digidromen-orange-light font-semibold text-digidromen-dark"
+                              : "text-digidromen-dark/70 hover:bg-digidromen-cream"
                           }`}
                         >
                           {roleLabels[role]}
@@ -215,45 +214,31 @@ const Layout: React.FC = () => {
                   ) : null}
                 </div>
               ) : (
-                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                <div className="rounded-full border border-digidromen-cream bg-white px-3 py-1.5 text-xs font-semibold text-digidromen-dark">
                   {user ? roleLabels[user.role] : "-"}
                 </div>
               )}
 
               <button
                 onClick={() => navigate("/dashboard")}
-                className="relative rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-100"
+                className="relative rounded-full border border-digidromen-cream bg-white p-2 text-digidromen-dark/50 hover:text-digidromen-dark"
               >
-                <Bell size={18} />
+                <Bell size={17} />
                 {unreadNotifications.length > 0 ? (
-                  <span
-                    className={`absolute -right-1 -top-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusClasses(
-                      "queued",
-                    )}`}
-                  >
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-digidromen-primary text-[9px] font-bold text-digidromen-dark">
                     {unreadNotifications.length}
                   </span>
                 ) : null}
               </button>
-
-              <div className="hidden items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-1.5 md:flex">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-                  <User size={16} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">{user?.name}</p>
-                  <p className="text-xs text-slate-400">{user?.email}</p>
-                </div>
-              </div>
 
               <button
                 onClick={async () => {
                   await logout();
                   navigate("/login");
                 }}
-                className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-100"
+                className="rounded-full border border-digidromen-cream bg-white p-2 text-digidromen-dark/50 hover:text-digidromen-dark"
               >
-                <LogOut size={18} />
+                <LogOut size={17} />
               </button>
             </div>
           </div>

@@ -21,9 +21,7 @@ const Donations: React.FC = () => {
 
   const donors = useMemo(
     () =>
-      (Object.values(snapshot.data.organizations) as Array<{ id: string; name: string; kind?: string; type?: string }>).filter(
-        (organization) => (organization.kind ?? organization.type) === "sponsor",
-      ),
+      Object.values(snapshot.data.organizations) as Array<{ id: string; name: string; kind?: string; type?: string }>,
     [snapshot.data.organizations],
   );
 
