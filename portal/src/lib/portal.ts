@@ -50,6 +50,9 @@ const remoteListeners = new Set<() => void>();
 let remoteViewer: RemoteViewer | null = null;
 let remoteData: PortalData | null = null;
 let remoteError: string | null = null;
+let cachedRemoteSnapshot: LegacySnapshot | null = null;
+let cachedRemoteData: PortalData | null = null;
+let cachedRemoteRole: string | null = null;
 
 function emitRemote(): void {
   remoteListeners.forEach((listener) => listener());
@@ -70,6 +73,9 @@ export function clearRemotePortal(): void {
   remoteViewer = null;
   remoteData = null;
   remoteError = null;
+  cachedRemoteSnapshot = null;
+  cachedRemoteData = null;
+  cachedRemoteRole = null;
   emitRemote();
 }
 
@@ -362,7 +368,14 @@ export const portalStore = {
   },
   getSnapshot(): LegacySnapshot {
     if (remoteViewer && remoteData) {
-      return buildLegacySnapshotFromRaw(remoteData, remoteViewer.role);
+      if (cachedRemoteSnapshot && cachedRemoteData === remoteData && cachedRemoteRole === remoteViewer.role) {
+        return cachedRemoteSnapshot;
+      }
+      const snapshot = buildLegacySnapshotFromRaw(remoteData, remoteViewer.role);
+      cachedRemoteSnapshot = snapshot;
+      cachedRemoteData = remoteData;
+      cachedRemoteRole = remoteViewer.role;
+      return snapshot;
     }
     return getLegacySnapshot();
   },
