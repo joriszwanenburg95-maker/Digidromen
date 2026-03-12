@@ -1,0 +1,9 @@
+.DS_Store
+
+node_modules/
+dist/
+dist-ssr/
+
+portal/node_modules/
+portal/dist/
+portal/dist-ssr/
