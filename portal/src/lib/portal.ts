@@ -126,7 +126,7 @@ function buildLegacySnapshotFromRaw(rawData: PortalData, role: Role): LegacySnap
     data: rawData,
     activeRole: role,
   };
-  const firstProductId = Object.keys(raw.data.products)[0] ?? "product-dell-14";
+  const firstProductId = Object.keys(raw.data.products)[0] ?? undefined;
 
   const products = Object.fromEntries(
     Object.values(raw.data.products).map((item) => {
@@ -791,7 +791,7 @@ export function usePortalContext(): {
       }
       return true;
     })
-    .sort((left: any, right: any) => right.updatedAt.localeCompare(left.updatedAt));
+    .sort((left: any, right: any) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""));
 
   const repairs = Object.values(snapshot.data.repairs)
     .filter((item: any) => {
@@ -803,7 +803,7 @@ export function usePortalContext(): {
       }
       return true;
     })
-    .sort((left: any, right: any) => right.updatedAt.localeCompare(left.updatedAt));
+    .sort((left: any, right: any) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""));
 
   const donations = Object.values(snapshot.data.donations)
     .filter((item: any) => {
@@ -815,10 +815,10 @@ export function usePortalContext(): {
       }
       return true;
     })
-    .sort((left: any, right: any) => right.updatedAt.localeCompare(left.updatedAt));
+    .sort((left: any, right: any) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""));
 
   const inventory = Object.values(snapshot.data.inventoryItems).sort((left: any, right: any) =>
-    right.updatedAt.localeCompare(left.updatedAt),
+    (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""),
   );
   const notifications = Object.values(snapshot.data.notifications).filter((item: any) =>
     item.roleScope.includes(snapshot.role),

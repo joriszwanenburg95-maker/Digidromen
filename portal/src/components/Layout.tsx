@@ -97,9 +97,11 @@ const Layout: React.FC = () => {
   );
 
   const statusCopy =
-    authMode === "demo" && supabaseConfigured
-      ? "Supabase vars gevonden; portal draait nog op demo-auth en lokale store"
-      : "Demo data wordt lokaal opgeslagen";
+    authMode === "supabase"
+      ? "Verbonden met Supabase"
+      : supabaseConfigured
+        ? "Supabase vars gevonden; portal draait nog op demo-auth en lokale store"
+        : "Demo data wordt lokaal opgeslagen";
 
   return (
     <div className="flex min-h-screen bg-slate-50">

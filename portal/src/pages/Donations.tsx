@@ -10,13 +10,13 @@ const Donations: React.FC = () => {
   const [showNewDonation, setShowNewDonation] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [donorOrganizationId, setDonorOrganizationId] = useState("");
-  const [deviceCount, setDeviceCount] = useState(25);
-  const [estimatedPickupDate, setEstimatedPickupDate] = useState("2026-03-18");
-  const [contactName, setContactName] = useState("Operations Desk");
-  const [street, setStreet] = useState("Science Park 10");
-  const [postalCode, setPostalCode] = useState("3584 CM");
-  const [city, setCity] = useState("Utrecht");
-  const [contactEmail, setContactEmail] = useState("impact@techforgood.nl");
+  const [deviceCount, setDeviceCount] = useState(1);
+  const [estimatedPickupDate, setEstimatedPickupDate] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [street, setStreet] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [notes, setNotes] = useState("");
 
   const donors = useMemo(
@@ -37,7 +37,7 @@ const Donations: React.FC = () => {
     const created = await portalStore.createDonation({
       donorOrganizationId: selectedDonor,
       intakeByUserId: user.id,
-      servicePartnerOrganizationId: "org-aces-direct",
+      servicePartnerOrganizationId: undefined,
       deviceCount,
       estimatedPickupDate,
       pickupAddress: {
@@ -193,29 +193,37 @@ const Donations: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {donations.map((donation) => (
-              <tr key={donation.id} className="hover:bg-slate-50">
-                <td className="px-6 py-4 text-sm font-semibold text-green-700">{donation.id}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">
-                  {snapshot.data.organizations[donation.donorOrganizationId]?.name}
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-600">{donation.deviceCount}</td>
-                <td className="px-6 py-4">
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(donation.status)}`}>
-                    {donation.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-600">{formatDate(donation.estimatedPickupDate)}</td>
-                <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => navigate(`/donations/${donation.id}`)}
-                    className="rounded-lg px-3 py-1 text-sm font-semibold text-green-700 hover:bg-green-50"
-                  >
-                    Details
-                  </button>
+            {donations.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
+                  Nog geen donaties.
                 </td>
               </tr>
-            ))}
+            ) : (
+              donations.map((donation) => (
+                <tr key={donation.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-4 text-sm font-semibold text-green-700">{donation.id}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {snapshot.data.organizations[donation.donorOrganizationId]?.name}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{donation.deviceCount}</td>
+                  <td className="px-6 py-4">
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(donation.status)}`}>
+                      {donation.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{formatDate(donation.estimatedPickupDate)}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => navigate(`/donations/${donation.id}`)}
+                      className="rounded-lg px-3 py-1 text-sm font-semibold text-green-700 hover:bg-green-50"
+                    >
+                      Details
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

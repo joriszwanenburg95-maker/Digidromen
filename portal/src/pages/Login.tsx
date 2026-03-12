@@ -19,7 +19,7 @@ const Login: React.FC = () => {
     }
 
     await login(email, password);
-    navigate("/dashboard");
+    // Navigation happens automatically via LoginRoute's redirect when auth state updates
   };
 
   return (

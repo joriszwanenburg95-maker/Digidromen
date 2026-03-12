@@ -9,7 +9,7 @@ const Repairs: React.FC = () => {
   const { snapshot, viewer, user, repairs } = usePortalContext();
   const [showNewRepair, setShowNewRepair] = useState(false);
   const [repairComplete, setRepairComplete] = useState<string | null>(null);
-  const [serialNumber, setSerialNumber] = useState("SN-DD-120045");
+  const [serialNumber, setSerialNumber] = useState("");
   const [productId, setProductId] = useState("");
   const [issueType, setIssueType] =
     useState<"hardware" | "software" | "battery" | "screen" | "accessoireprobleem" | "other">("hardware");
@@ -34,7 +34,7 @@ const Repairs: React.FC = () => {
     const created = await portalStore.createRepair({
       organizationId: viewer.organizationId,
       requesterUserId: user.id,
-      servicePartnerOrganizationId: "org-aces-direct",
+      servicePartnerOrganizationId: undefined,
       productId: selectedProductId,
       serialNumber,
       issueType,
@@ -171,29 +171,37 @@ const Repairs: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {repairs.map((repair) => (
-              <tr key={repair.id} className="hover:bg-slate-50">
-                <td className="px-6 py-4 text-sm font-semibold text-orange-600">{repair.id}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">
-                  {snapshot.data.products[repair.productId]?.name}
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(repair.status)}`}>
-                    {repair.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-600">{repair.issueType}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">{formatDateTime(repair.updatedAt)}</td>
-                <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => navigate(`/repairs/${repair.id}`)}
-                    className="rounded-lg px-3 py-1 text-sm font-semibold text-orange-600 hover:bg-orange-50"
-                  >
-                    Bekijken
-                  </button>
+            {repairs.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
+                  Nog geen reparaties.
                 </td>
               </tr>
-            ))}
+            ) : (
+              repairs.map((repair) => (
+                <tr key={repair.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-4 text-sm font-semibold text-orange-600">{repair.id}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {snapshot.data.products[repair.productId]?.name}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(repair.status)}`}>
+                      {repair.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{repair.issueType}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{formatDateTime(repair.updatedAt)}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => navigate(`/repairs/${repair.id}`)}
+                      className="rounded-lg px-3 py-1 text-sm font-semibold text-orange-600 hover:bg-orange-50"
+                    >
+                      Bekijken
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

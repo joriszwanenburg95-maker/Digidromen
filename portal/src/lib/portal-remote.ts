@@ -39,7 +39,7 @@ function makeId(prefix: string) {
 
 function normalizeServicePartnerId(id?: string) {
   if (!id || id === "org-aces-direct") {
-    return "org-servicepartner";
+    return undefined;
   }
   return id;
 }

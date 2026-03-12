@@ -13,12 +13,12 @@ const Orders: React.FC = () => {
   const [cart, setCart] = useState<Array<{ product: Product; quantity: number }>>([]);
   const [orderComplete, setOrderComplete] = useState<string | null>(null);
   const [priority, setPriority] = useState<"laag" | "normaal" | "hoog" | "spoed">("normaal");
-  const [preferredDeliveryDate, setPreferredDeliveryDate] = useState("2026-03-20");
+  const [preferredDeliveryDate, setPreferredDeliveryDate] = useState("");
   const [motivation, setMotivation] = useState("");
   const [contactName, setContactName] = useState(user?.name ?? "");
-  const [street, setStreet] = useState("Stationsplein 1");
-  const [postalCode, setPostalCode] = useState("5211 AP");
-  const [city, setCity] = useState("Den Bosch");
+  const [street, setStreet] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
 
   const products = useMemo(
     () =>
@@ -54,7 +54,7 @@ const Orders: React.FC = () => {
     const created = await portalStore.createOrder({
       organizationId: viewer.organizationId,
       requesterUserId: user.id,
-      servicePartnerOrganizationId: "org-aces-direct",
+      servicePartnerOrganizationId: undefined,
       priority,
       preferredDeliveryDate,
       motivation: motivation.trim(),
@@ -83,7 +83,7 @@ const Orders: React.FC = () => {
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <CheckCircle size={64} className="text-green-500" />
         <h2 className="mt-4 text-2xl font-bold text-slate-900">Bestelling geplaatst</h2>
-        <p className="mt-2 text-slate-500">Aanvraag {orderComplete} is opgeslagen in de demo-store.</p>
+        <p className="mt-2 text-slate-500">Aanvraag {orderComplete} is succesvol ingediend.</p>
         <button
           onClick={() => navigate(`/orders/${orderComplete}`)}
           className="mt-6 rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
@@ -257,29 +257,37 @@ const Orders: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {orders.map((order) => (
-              <tr key={order.id} className="hover:bg-slate-50">
-                <td className="px-6 py-4 text-sm font-semibold text-sky-700">{order.id}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">
-                  {snapshot.data.organizations[order.organizationId]?.name}
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(order.status)}`}>
-                    {order.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-600">{order.priority}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">{formatDate(order.preferredDeliveryDate)}</td>
-                <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => navigate(`/orders/${order.id}`)}
-                    className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-primary hover:bg-sky-50"
-                  >
-                    Bekijken
-                  </button>
+            {orders.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
+                  Nog geen bestellingen.
                 </td>
               </tr>
-            ))}
+            ) : (
+              orders.map((order) => (
+                <tr key={order.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-4 text-sm font-semibold text-sky-700">{order.id}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {snapshot.data.organizations[order.organizationId]?.name}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(order.status)}`}>
+                      {order.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{order.priority}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{formatDate(order.preferredDeliveryDate)}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => navigate(`/orders/${order.id}`)}
+                      className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-primary hover:bg-sky-50"
+                    >
+                      Bekijken
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

@@ -32,10 +32,10 @@ const Dashboard: React.FC = () => {
   const spotlightRepairs = (repairs as DashboardListItem[]).slice(0, 3);
   const spotlightDonations = (donations as DashboardListItem[]).slice(0, 3);
   const recentDocs = (Object.values(snapshot.data.documents) as DashboardDocument[])
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .sort((left, right) => (right.createdAt ?? "").localeCompare(left.createdAt ?? ""))
     .slice(0, 4);
   const recentEvents = (Object.values(snapshot.data.workflowEvents) as DashboardEvent[])
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .sort((left, right) => (right.createdAt ?? "").localeCompare(left.createdAt ?? ""))
     .slice(0, 6);
 
   const cards =
@@ -185,34 +185,46 @@ const Dashboard: React.FC = () => {
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-bold text-slate-900">Orders</h3>
           <div className="space-y-3">
-            {spotlightOrders.map((order) => (
-              <Link key={order.id} to={`/orders/${order.id}`} className="block rounded-xl bg-slate-50 p-3">
-                <p className="font-semibold text-slate-900">{order.id}</p>
-                <p className="text-sm text-slate-500">{order.status}</p>
-              </Link>
-            ))}
+            {spotlightOrders.length === 0 ? (
+              <p className="text-sm text-slate-400">Nog geen bestellingen.</p>
+            ) : (
+              spotlightOrders.map((order) => (
+                <Link key={order.id} to={`/orders/${order.id}`} className="block rounded-xl bg-slate-50 p-3">
+                  <p className="font-semibold text-slate-900">{order.id}</p>
+                  <p className="text-sm text-slate-500">{order.status}</p>
+                </Link>
+              ))
+            )}
           </div>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-bold text-slate-900">Repairs</h3>
           <div className="space-y-3">
-            {spotlightRepairs.map((repair) => (
-              <Link key={repair.id} to={`/repairs/${repair.id}`} className="block rounded-xl bg-slate-50 p-3">
-                <p className="font-semibold text-slate-900">{repair.id}</p>
-                <p className="text-sm text-slate-500">{repair.status}</p>
-              </Link>
-            ))}
+            {spotlightRepairs.length === 0 ? (
+              <p className="text-sm text-slate-400">Nog geen reparaties.</p>
+            ) : (
+              spotlightRepairs.map((repair) => (
+                <Link key={repair.id} to={`/repairs/${repair.id}`} className="block rounded-xl bg-slate-50 p-3">
+                  <p className="font-semibold text-slate-900">{repair.id}</p>
+                  <p className="text-sm text-slate-500">{repair.status}</p>
+                </Link>
+              ))
+            )}
           </div>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-bold text-slate-900">Donations</h3>
           <div className="space-y-3">
-            {spotlightDonations.map((donation) => (
-              <Link key={donation.id} to={`/donations/${donation.id}`} className="block rounded-xl bg-slate-50 p-3">
-                <p className="font-semibold text-slate-900">{donation.id}</p>
-                <p className="text-sm text-slate-500">{donation.status}</p>
-              </Link>
-            ))}
+            {spotlightDonations.length === 0 ? (
+              <p className="text-sm text-slate-400">Nog geen donaties.</p>
+            ) : (
+              spotlightDonations.map((donation) => (
+                <Link key={donation.id} to={`/donations/${donation.id}`} className="block rounded-xl bg-slate-50 p-3">
+                  <p className="font-semibold text-slate-900">{donation.id}</p>
+                  <p className="text-sm text-slate-500">{donation.status}</p>
+                </Link>
+              ))
+            )}
           </div>
         </div>
       </div>

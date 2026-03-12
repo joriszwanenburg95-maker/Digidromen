@@ -42,23 +42,31 @@ const Inventory: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {inventory.map((item) => {
-              const product = snapshot.data.products[item.productId];
-              return (
-                <tr key={item.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 text-sm font-semibold text-slate-900">{product?.name}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{item.locationName}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{item.availableQuantity}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{item.reservedQuantity}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{item.inTransitQuantity}</td>
-                  <td className="px-6 py-4">
-                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(product?.stockBadge ?? "queued")}`}>
-                      {product?.stockBadge ?? "onbekend"}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
+            {inventory.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
+                  Nog geen voorraad.
+                </td>
+              </tr>
+            ) : (
+              inventory.map((item) => {
+                const product = snapshot.data.products[item.productId];
+                return (
+                  <tr key={item.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-900">{product?.name}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{item.locationName}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{item.availableQuantity}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{item.reservedQuantity}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{item.inTransitQuantity}</td>
+                    <td className="px-6 py-4">
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(product?.stockBadge ?? "queued")}`}>
+                        {product?.stockBadge ?? "onbekend"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
