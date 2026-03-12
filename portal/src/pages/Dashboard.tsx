@@ -3,16 +3,40 @@ import { Link } from "react-router-dom";
 import { ArrowRight, FileText, RefreshCw, TriangleAlert } from "lucide-react";
 
 import { formatDateTime, usePortalContext } from "../lib/portal";
+import { getCrmPreparationSummary } from "../lib/crm-preparation";
+
+type DashboardListItem = {
+  id: string;
+  status: string;
+};
+
+type DashboardEvent = {
+  id: string;
+  summary: string;
+  createdAt: string;
+  subjectType: string;
+  subjectId: string;
+};
+
+type DashboardDocument = {
+  id: string;
+  createdAt: string;
+  fileName: string;
+};
 
 const Dashboard: React.FC = () => {
   const { snapshot, user, orders, repairs, donations, notifications } = usePortalContext();
+  const crmPreparation = getCrmPreparationSummary(snapshot.data);
 
-  const spotlightOrders = orders.slice(0, 3);
-  const spotlightRepairs = repairs.slice(0, 3);
-  const spotlightDonations = donations.slice(0, 3);
-  const recentDocs = Object.values(snapshot.data.documents)
+  const spotlightOrders = (orders as DashboardListItem[]).slice(0, 3);
+  const spotlightRepairs = (repairs as DashboardListItem[]).slice(0, 3);
+  const spotlightDonations = (donations as DashboardListItem[]).slice(0, 3);
+  const recentDocs = (Object.values(snapshot.data.documents) as DashboardDocument[])
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
     .slice(0, 4);
+  const recentEvents = (Object.values(snapshot.data.workflowEvents) as DashboardEvent[])
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(0, 6);
 
   const cards =
     snapshot.role === "help_org"
@@ -27,13 +51,13 @@ const Dashboard: React.FC = () => {
             { label: "Open repairs", value: String(repairs.filter((item) => item.status !== "AFGESLOTEN").length), color: "bg-orange-500" },
             { label: "Pickup batches", value: String(donations.filter((item) => item.status !== "OP_VOORRAAD").length), color: "bg-emerald-500" },
             { label: "Te leveren orders", value: String(orders.filter((item) => item.status === "IN_VOORBEREIDING" || item.status === "VERZONDEN").length), color: "bg-sky-500" },
-            { label: "Queue alerts", value: String(snapshot.metrics.syncHealth.queued + snapshot.metrics.syncHealth.failed), color: "bg-violet-500" },
+            { label: "CRM voorbereiding", value: String(crmPreparation.openQueueCount), color: "bg-violet-500" },
           ]
         : [
             { label: "Open orders", value: String(snapshot.metrics.openOrders), color: "bg-sky-500" },
             { label: "Open repairs", value: String(snapshot.metrics.openRepairs), color: "bg-orange-500" },
             { label: "Open donations", value: String(snapshot.metrics.openDonations), color: "bg-emerald-500" },
-            { label: "CRM failures", value: String(snapshot.metrics.syncHealth.failed), color: "bg-rose-500" },
+            { label: "CRM referenties", value: String(crmPreparation.preparedReferenceCount), color: "bg-rose-500" },
           ];
 
   return (
@@ -69,10 +93,7 @@ const Dashboard: React.FC = () => {
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-bold text-slate-900">Recente activiteit</h3>
           <div className="space-y-4">
-            {Object.values(snapshot.data.workflowEvents)
-              .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-              .slice(0, 6)
-              .map((event) => (
+            {recentEvents.map((event) => (
                 <div key={event.id} className="rounded-xl border border-slate-100 p-4 transition-colors hover:bg-slate-50">
                   <div className="flex items-center justify-between gap-4">
                     <p className="text-sm font-semibold text-slate-900">{event.summary}</p>
@@ -94,7 +115,11 @@ const Dashboard: React.FC = () => {
                 { label: "Bestellingen", route: "/orders", description: `${orders.length} records zichtbaar` },
                 { label: "Reparaties", route: "/repairs", description: `${repairs.length} records zichtbaar` },
                 { label: "Donaties", route: "/donations", description: `${donations.length} records zichtbaar` },
-                { label: "CRM Sync", route: "/crm-sync", description: `${snapshot.metrics.syncHealth.failed} failures / ${snapshot.metrics.syncHealth.queued} queued` },
+                {
+                  label: "CRM voorbereiding",
+                  route: "/crm-sync",
+                  description: `${crmPreparation.preparedReferenceCount} referenties gereserveerd`,
+                },
               ]
                 .filter((item) => item.route !== "/crm-sync" || snapshot.role !== "help_org")
                 .filter((item) => item.route !== "/donations" || snapshot.role !== "help_org")
@@ -117,15 +142,16 @@ const Dashboard: React.FC = () => {
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <h3 className="mb-4 text-lg font-bold text-slate-900">Signalen</h3>
             <div className="space-y-3">
-              {snapshot.metrics.syncHealth.failed > 0 ? (
-                <Link to="/crm-sync" className="flex items-start rounded-xl bg-rose-50 p-4 text-rose-700">
+              <Link to="/crm-sync" className="flex items-start rounded-xl bg-amber-50 p-4 text-amber-800">
                   <TriangleAlert size={18} className="mr-3 mt-0.5" />
                   <div>
-                    <p className="font-semibold">CRM sync heeft failures</p>
-                    <p className="text-sm">{snapshot.metrics.syncHealth.failed} cases wachten op retry.</p>
+                    <p className="font-semibold">CRM-koppeling staat geparkeerd</p>
+                    <p className="text-sm">
+                      {crmPreparation.openQueueCount} voorbereidende queue-items en{" "}
+                      {crmPreparation.preparedReferenceCount} gereserveerde referenties.
+                    </p>
                   </div>
                 </Link>
-              ) : null}
 
               {snapshot.metrics.lowStockProducts.slice(0, 2).map((product) => (
                 <div key={product.productId} className="flex items-start rounded-xl bg-amber-50 p-4 text-amber-700">

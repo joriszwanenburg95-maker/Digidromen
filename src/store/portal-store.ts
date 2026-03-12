@@ -738,7 +738,7 @@ function appendCaseEvent(
 
 function addCaseNotification(
   data: PortalData,
-  notification: Omit<Notification, "id"> & { id?: string },
+  notification: Omit<Notification, "id" | "readByRole"> & { id?: string },
 ): void {
   const id = notification.id ?? createId("notification");
   data.notifications[id] = {

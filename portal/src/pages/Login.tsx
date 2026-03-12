@@ -1,47 +1,46 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
-import { usePortalContext } from "../lib/portal";
-import type { Role } from "../types";
 
 const Login: React.FC = () => {
-  const { setRole } = useAuth();
-  const { snapshot } = usePortalContext();
   const navigate = useNavigate();
+  const { authMode, error, loading, login, setRole, supabaseConfigured } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const handleLogin = (role: Role) => {
-    setRole(role);
-    navigate('/dashboard');
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (authMode === "demo") {
+      setRole("digidromen_admin");
+      navigate("/dashboard");
+      return;
+    }
+
+    await login(email, password);
+    navigate("/dashboard");
   };
-
-  const roles: Array<{ id: Role; label: string; desc: string }> = [
-    { id: 'help_org', label: 'Hulporganisatie', desc: 'Bestellingen plaatsen en reparaties melden' },
-    { id: 'digidromen_staff', label: 'Digidromen Medewerker', desc: 'Aanvragen beoordelen en proces bewaken' },
-    { id: 'digidromen_admin', label: 'Digidromen Beheerder', desc: 'Volledige toegang en rapportages' },
-    { id: 'service_partner', label: 'Servicepartner', desc: 'Logistiek en refurbish updates' },
-  ];
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#dbeafe,_transparent_40%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)] px-4 py-12 sm:px-6 lg:px-8">
       <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[2rem] bg-slate-950 p-10 text-white shadow-2xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-300">PoC Demo</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-300">
+            {authMode === "supabase" ? "Live Portal" : "Demo Mode"}
+          </p>
           <h1 className="mt-4 max-w-md text-4xl font-black leading-tight">
             Digidromen Supply & Service Portal
           </h1>
           <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">
-            Klik door de drie kernketens, wissel direct van persona en laat zien
-            hoe orders, reparaties, donaties en CRM-sync vanuit een centrale
-            workflow samenkomen.
+            De portal draait CRM-onafhankelijk. Eerst een werkende operationele backend en frontend, later pas de CRM-koppeling.
           </p>
-
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {[
-              "6 demo-orders en 4 reparaties direct beschikbaar",
-              "3 donation batches inclusief voorraadimpact",
-              "Workflow-events, notificaties en document placeholders",
-              "CRM queue, failed sync en retry-flow zonder backend",
+              "Orders, reparaties en donaties op een centrale workflow",
+              "Voorraad en rapportages vanuit dezelfde portal",
+              "Excel-export voor operationele rapportages",
+              "CRM alleen voorbereid, nog niet actief gekoppeld",
             ].map((item) => (
               <div key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
                 {item}
@@ -51,37 +50,58 @@ const Login: React.FC = () => {
         </div>
 
         <div className="w-full space-y-8 rounded-[2rem] border border-white/60 bg-white/90 p-10 shadow-xl backdrop-blur">
-        <div>
-          <div className="flex justify-center">
-            <div className="rounded-2xl bg-digidromen-primary p-3 text-2xl font-bold tracking-tighter text-white">DD</div>
+          <div>
+            <div className="flex justify-center">
+              <div className="rounded-2xl bg-digidromen-primary p-3 text-2xl font-bold tracking-tighter text-white">DD</div>
+            </div>
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+              Inloggen
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              {authMode === "supabase"
+                ? "Gebruik je Supabase testaccount om de portal te openen."
+                : "Supabase is nog niet actief; de portal draait in demo-modus."}
+            </p>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Digidromen Portal
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Selecteer een persona om de demo te starten
-          </p>
-        </div>
-        
-        <div className="mt-8 space-y-4">
-          {roles.map((role) => (
-            <button
-              key={role.id}
-              onClick={() => handleLogin(role.id)}
-              className="w-full flex flex-col items-start p-4 border border-gray-200 rounded-xl hover:border-digidromen-primary hover:bg-blue-50 transition-all text-left group"
-            >
-                <span className="text-sm font-bold text-gray-900 group-hover:text-digidromen-primary">{role.label}</span>
-                <span className="text-xs text-gray-500">{role.desc}</span>
-              </button>
-          ))}
-        </div>
 
-        <div className="mt-6 pt-6 border-t border-gray-100">
-          <p className="text-center text-xs text-gray-400">
-            Huidige actieve rol in localStorage: <span className="font-semibold text-gray-600">{snapshot.role}</span>
-          </p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+              placeholder="E-mailadres"
+              disabled={authMode !== "supabase"}
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+              placeholder="Wachtwoord"
+              disabled={authMode !== "supabase"}
+            />
+            <button
+              type="submit"
+              disabled={loading || (authMode === "supabase" && (!email || !password))}
+              className="w-full rounded-xl bg-digidromen-primary px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {loading ? "Bezig..." : authMode === "supabase" ? "Log in" : "Open demo-portal"}
+            </button>
+          </form>
+
+          {error ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
+            {supabaseConfigured
+              ? "Supabase-configuratie staat aan. Zorg dat je testgebruikers in Supabase Authentication aanwezig zijn en gekoppeld worden aan user_profiles via e-mailadres."
+              : "Supabase-configuratie ontbreekt nog. Voeg portal/.env.local toe om live auth te activeren."}
+          </div>
         </div>
-      </div>
       </div>
     </div>
   );

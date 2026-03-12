@@ -22,7 +22,7 @@ const Orders: React.FC = () => {
 
   const products = useMemo(
     () =>
-      Object.values(snapshot.data.products).sort((left, right) =>
+      (Object.values(snapshot.data.products) as Product[]).sort((left, right) =>
         left.name.localeCompare(right.name),
       ),
     [snapshot.data.products],
@@ -46,12 +46,12 @@ const Orders: React.FC = () => {
     setCart((prev) => prev.filter((item) => item.product.id !== id));
   };
 
-  const submitOrder = () => {
+  const submitOrder = async () => {
     if (!user || cart.length === 0 || !motivation.trim()) {
       return;
     }
 
-    const created = portalStore.createOrder({
+    const created = await portalStore.createOrder({
       organizationId: viewer.organizationId,
       requesterUserId: user.id,
       servicePartnerOrganizationId: "org-aces-direct",
@@ -211,7 +211,9 @@ const Orders: React.FC = () => {
                   />
                 </div>
                 <button
-                  onClick={submitOrder}
+                  onClick={() => {
+                    void submitOrder();
+                  }}
                   disabled={cart.length === 0 || !motivation.trim()}
                   className="w-full rounded-xl bg-digidromen-primary px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
                 >

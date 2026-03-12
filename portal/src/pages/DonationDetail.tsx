@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, HeartHandshake, Paperclip, RefreshCw } from "lucide-react";
+import { ArrowLeft, HeartHandshake, Paperclip } from "lucide-react";
 
+import CrmPreparationCard from "../components/CrmPreparationCard";
 import Timeline from "../components/Timeline";
 import {
   formatDate,
@@ -14,6 +15,7 @@ import {
   statusClasses,
   usePortalContext,
 } from "../lib/portal";
+import { formatCrmReference, type CrmPreparationState } from "../lib/crm-preparation";
 import type { DonationStatus, TimelineEvent } from "../types";
 
 const DonationDetail: React.FC = () => {
@@ -63,15 +65,15 @@ const DonationDetail: React.FC = () => {
 
   const donor = snapshot.data.organizations[donation.donorOrganizationId];
   const nextStatuses = getDonationNextStatuses(snapshot.role, donation.status);
-  const syncStates = getCaseSyncStates(snapshot.data, "donation", donation.id);
+  const syncStates = getCaseSyncStates(snapshot.data, "donation", donation.id) as CrmPreparationState[];
   const documents = donation.documentIds
-    .map((documentId) => snapshot.data.documents[documentId])
-    .filter(Boolean);
+    .map((documentId: string) => snapshot.data.documents[documentId])
+    .filter(Boolean) as Array<{ id: string; fileName: string; sizeLabel: string }>;
   const messages = selectSubjectMessages(snapshot.data, snapshot.role, "donation", donation.id);
 
-  const handleTransition = (nextStatus: DonationStatus) => {
+  const handleTransition = async (nextStatus: DonationStatus) => {
     if (snapshot.role === "service_partner") {
-      portalStore.servicePartner.refurbishUpdate({
+      await portalStore.servicePartner.refurbishUpdate({
         donationId: donation.id,
         actorUserId: user.id,
         nextStatus,
@@ -85,7 +87,7 @@ const DonationDetail: React.FC = () => {
       });
       return;
     }
-    portalStore.transitionDonation(donation.id, {
+    await portalStore.transitionDonation(donation.id, {
       actorUserId: user.id,
       nextStatus,
       summary: `Donatiestatus bijgewerkt naar ${nextStatus}.`,
@@ -109,7 +111,9 @@ const DonationDetail: React.FC = () => {
           {nextStatuses.map((status) => (
             <button
               key={status}
-              onClick={() => handleTransition(status)}
+              onClick={() => {
+                void handleTransition(status);
+              }}
               className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
             >
               Zet naar {status}
@@ -191,11 +195,11 @@ const DonationDetail: React.FC = () => {
                 placeholder="Plaats een update in de tijdlijn"
               />
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (!message.trim()) {
                     return;
                   }
-                  portalStore.addMessage({
+                  await portalStore.addMessage({
                     subjectType: "donation",
                     subjectId: donation.id,
                     authorUserId: user.id,
@@ -231,11 +235,11 @@ const DonationDetail: React.FC = () => {
                 placeholder="Bijv. donation-manifest.pdf"
               />
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (!documentName.trim()) {
                     return;
                   }
-                  portalStore.addDocument({
+                  await portalStore.addDocument({
                     subjectType: "donation",
                     subjectId: donation.id,
                     uploadedByUserId: user.id,
@@ -276,25 +280,15 @@ const DonationDetail: React.FC = () => {
             </dl>
           </div>
 
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 flex items-center text-lg font-bold text-gray-900">
-              <RefreshCw size={18} className="mr-2 text-violet-500" />
-              CRM sync
-            </h3>
-            <div className="space-y-3">
-              {syncStates.map((state) => (
-                <div key={state.id} className="rounded-xl bg-gray-50 p-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className={`rounded-full px-2 py-1 text-xs font-bold ${statusClasses(state.status)}`}>
-                      {state.status}
-                    </span>
-                    <span className="text-xs text-gray-400">{state.retryCount} retries</span>
-                  </div>
-                  <p className="mt-2 text-gray-600">{state.bufferedChanges.join(", ")}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <CrmPreparationCard
+            subjectLabel="Deze donatiebatch"
+            references={[
+              { label: "CRM relatie", value: formatCrmReference(donation.crmRelationId) },
+              { label: "CRM case", value: formatCrmReference(donation.crmCaseId) },
+              { label: "CRM taak", value: formatCrmReference(donation.crmTaskId) },
+            ]}
+            syncStates={syncStates}
+          />
         </aside>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import type {
   CaseType,
+  DashboardAction,
   DashboardView,
   DonationBatch,
   DocumentKind,
@@ -505,8 +506,24 @@ export function buildDashboardView(data: PortalData, role: Role): DashboardView 
       { id: "sync-health", label: "Sync health", value: data.crmSync.health, tone: data.crmSync.health === "healthy" ? "good" : "warning" },
     ],
     pendingActions: [
-      ...Object.values(data.orders).filter((item) => item.status === "INGEDIEND").map((item) => ({ id: `action-${item.id}`, label: "Beoordeel order", route: `/orders/${item.id}`, relatedCaseType: "order", relatedCaseId: item.id })),
-      ...Object.values(data.crmSync.jobs).filter((item) => item.state === "failed").map((item) => ({ id: `action-${item.id}`, label: "Herstel CRM sync", route: "/crm-sync", relatedCaseType: item.caseType, relatedCaseId: item.caseId })),
+      ...Object.values(data.orders)
+        .filter((item) => item.status === "INGEDIEND")
+        .map<DashboardAction>((item) => ({
+          id: `action-${item.id}`,
+          label: "Beoordeel order",
+          route: `/orders/${item.id}`,
+          relatedCaseType: "order",
+          relatedCaseId: item.id,
+        })),
+      ...Object.values(data.crmSync.jobs)
+        .filter((item) => item.state === "failed")
+        .map<DashboardAction>((item) => ({
+          id: `action-${item.id}`,
+          label: "Herstel CRM sync",
+          route: "/crm-sync",
+          relatedCaseType: item.caseType,
+          relatedCaseId: item.caseId,
+        })),
     ].slice(0, 6),
     recentDocumentIds: Object.values(data.documents).slice(0, 5).map((item) => item.id),
     spotlightCaseIds: [...Object.values(data.orders).slice(0, 2), ...Object.values(data.donations).slice(0, 1)].map((item) => item.id),

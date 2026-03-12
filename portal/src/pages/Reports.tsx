@@ -1,16 +1,69 @@
 import React from "react";
 import { Download } from "lucide-react";
 
+import { downloadWorkbook } from "../lib/export";
 import { downloadTextFile, formatDate, portalStore, usePortalContext } from "../lib/portal";
 
 const Reports: React.FC = () => {
   const { snapshot, orders, repairs, donations } = usePortalContext();
+
+  const exportOrdersExcel = () => {
+    downloadWorkbook(
+      "orders.xlsx",
+      "Orders",
+      orders.map((order) => ({
+        id: order.id,
+        organisatie: snapshot.data.organizations[order.organizationId]?.name ?? "",
+        status: order.status,
+        prioriteit: order.priority,
+        leverdatum: order.preferredDeliveryDate ?? "",
+        regels: order.lineItems.length,
+      })),
+    );
+  };
+
+  const exportRepairsExcel = () => {
+    downloadWorkbook(
+      "repairs.xlsx",
+      "Repairs",
+      repairs.map((repair) => ({
+        id: repair.id,
+        organisatie: snapshot.data.organizations[repair.organizationId]?.name ?? "",
+        status: repair.status,
+        subtype: repair.subtype,
+        serienummer: repair.serialNumber,
+        issueType: repair.issueType,
+      })),
+    );
+  };
+
+  const exportDonationsExcel = () => {
+    downloadWorkbook(
+      "donations.xlsx",
+      "Donations",
+      donations.map((donation) => ({
+        id: donation.id,
+        sponsor: snapshot.data.organizations[donation.donorOrganizationId]?.name ?? "",
+        status: donation.status,
+        deviceCount: donation.deviceCount,
+        refurbishableCount: donation.refurbishableCount ?? "",
+        rejectedCount: donation.rejectedCount ?? "",
+      })),
+    );
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">Rapportages</h2>
         <div className="flex gap-3">
+          <button
+            onClick={exportOrdersExcel}
+            className="flex items-center px-4 py-2 bg-digidromen-primary text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Download size={18} className="mr-2" />
+            Orders Excel
+          </button>
           <button
             onClick={() => downloadTextFile("orders.csv", portalStore.exportOrdersCsv())}
             className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
@@ -19,11 +72,25 @@ const Reports: React.FC = () => {
             Orders CSV
           </button>
           <button
+            onClick={exportRepairsExcel}
+            className="flex items-center px-4 py-2 bg-digidromen-primary text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Download size={18} className="mr-2" />
+            Repairs Excel
+          </button>
+          <button
             onClick={() => downloadTextFile("repairs.csv", portalStore.exportRepairsCsv())}
             className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <Download size={18} className="mr-2" />
             Repairs CSV
+          </button>
+          <button
+            onClick={exportDonationsExcel}
+            className="flex items-center px-4 py-2 bg-digidromen-primary text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Download size={18} className="mr-2" />
+            Donations Excel
           </button>
         </div>
       </div>

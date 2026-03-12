@@ -8,8 +8,20 @@ import type {
   Role,
 } from "../../../src/contracts/domain";
 import { donationTransitions, orderTransitions, repairTransitions, statusLabels } from "../../../src/contracts/workflows";
+import { exportDonationsCsv, exportOrdersCsv, exportRepairsCsv } from "../../../src/data/csv";
 import { getViewerContext } from "../../../src/data/selectors";
 import { createPortalStore } from "../../../src/store/portal-store";
+import {
+  createRemoteDocument,
+  createRemoteDonation,
+  createRemoteMessage,
+  createRemoteOrder,
+  createRemoteRepair,
+  loadRemotePortalData,
+  recordRemoteStockMutation,
+  type RemoteViewer,
+  updateRemoteCaseStatus,
+} from "./portal-remote";
 
 const baseStore = createPortalStore();
 
@@ -17,7 +29,7 @@ type SubjectType = "order" | "repair" | "donation";
 
 interface LegacySnapshot {
   role: Role;
-  data: Record<string, any>;
+  data: any;
   metrics: {
     openOrders: number;
     openRepairs: number;
@@ -33,6 +45,51 @@ interface LegacySnapshot {
 
 let cachedLegacySnapshot: LegacySnapshot | null = null;
 let cachedStoreVersion = -1;
+const remoteListeners = new Set<() => void>();
+
+let remoteViewer: RemoteViewer | null = null;
+let remoteData: PortalData | null = null;
+let remoteError: string | null = null;
+
+function emitRemote(): void {
+  remoteListeners.forEach((listener) => listener());
+}
+
+function isRemoteMode(): boolean {
+  return Boolean(remoteViewer && remoteData);
+}
+
+export async function configureRemotePortal(viewer: RemoteViewer): Promise<void> {
+  remoteViewer = viewer;
+  remoteData = await loadRemotePortalData();
+  remoteError = null;
+  emitRemote();
+}
+
+export function clearRemotePortal(): void {
+  remoteViewer = null;
+  remoteData = null;
+  remoteError = null;
+  emitRemote();
+}
+
+export async function refreshRemotePortal(): Promise<void> {
+  if (!remoteViewer) {
+    return;
+  }
+
+  remoteData = await loadRemotePortalData();
+  remoteError = null;
+  emitRemote();
+}
+
+export function getPortalRuntimeState() {
+  return {
+    remoteViewer,
+    remoteData,
+    remoteError,
+  };
+}
 
 function createMutationMeta(role: Role, user: { id?: string; name?: string }, reason?: string) {
   return {
@@ -64,9 +121,11 @@ function normalizePriority(priority?: string): "low" | "normal" | "high" | "urge
   return "normal";
 }
 
-function buildLegacySnapshot(): LegacySnapshot {
-  const raw = baseStore.getSnapshot();
-  const role = raw.activeRole;
+function buildLegacySnapshotFromRaw(rawData: PortalData, role: Role): LegacySnapshot {
+  const raw = {
+    data: rawData,
+    activeRole: role,
+  };
   const firstProductId = Object.keys(raw.data.products)[0] ?? "product-dell-14";
 
   const products = Object.fromEntries(
@@ -254,7 +313,7 @@ function buildLegacySnapshot(): LegacySnapshot {
     role,
     data: {
       ...raw.data,
-      schemaVersion: raw.version,
+      schemaVersion: 1,
       users,
       products,
       inventoryItems,
@@ -269,6 +328,11 @@ function buildLegacySnapshot(): LegacySnapshot {
     },
     metrics,
   };
+}
+
+function buildLegacySnapshot(): LegacySnapshot {
+  const raw = baseStore.getSnapshot();
+  return buildLegacySnapshotFromRaw(raw.data, raw.activeRole);
 }
 
 function getLegacySnapshot(): LegacySnapshot {
@@ -288,23 +352,48 @@ function buildViewer(role: Role, data: PortalData) {
 
 export const portalStore = {
   subscribe(listener: () => void) {
-    return baseStore.subscribe(listener);
+    const unsubscribeBase = baseStore.subscribe(listener);
+    remoteListeners.add(listener);
+
+    return () => {
+      unsubscribeBase();
+      remoteListeners.delete(listener);
+    };
   },
   getSnapshot(): LegacySnapshot {
+    if (remoteViewer && remoteData) {
+      return buildLegacySnapshotFromRaw(remoteData, remoteViewer.role);
+    }
     return getLegacySnapshot();
   },
   setRole(role: Role) {
+    if (remoteViewer) {
+      return;
+    }
     baseStore.setActiveRole(role);
   },
-  createOrder(input: {
+  async createOrder(input: {
     organizationId: string;
     requesterUserId: string;
+    servicePartnerOrganizationId?: string;
     priority?: string;
     preferredDeliveryDate?: string;
     motivation: string;
-    shippingAddress?: { street?: string };
-    lineItems: Array<{ productId: string; quantity: number }>;
+    shippingAddress?: {
+      contactName?: string;
+      street?: string;
+      postalCode?: string;
+      city?: string;
+      country?: string;
+    };
+    lineItems: Array<{ productId: string; quantity: number; accessoryProductIds?: string[] }>;
   }) {
+    if (remoteViewer) {
+      const id = await createRemoteOrder(input, remoteViewer);
+      await refreshRemotePortal();
+      return portalStore.getSnapshot().data.orders[id];
+    }
+
     const line = input.lineItems[0];
     if (!line) {
       throw new Error("Order vereist minimaal 1 orderregel.");
@@ -323,14 +412,22 @@ export const portalStore = {
       createMutationMeta(baseStore.getSnapshot().activeRole, { id: input.requesterUserId, name: "Portal gebruiker" }, "UI createOrder"),
     );
   },
-  createRepair(input: {
+  async createRepair(input: {
     organizationId: string;
     requesterUserId: string;
+    servicePartnerOrganizationId?: string;
+    productId?: string;
     serialNumber: string;
     issueType: string;
     notes: string;
     photoPlaceholders?: string[];
   }) {
+    if (remoteViewer) {
+      const id = await createRemoteRepair(input, remoteViewer);
+      await refreshRemotePortal();
+      return portalStore.getSnapshot().data.repairs[id];
+    }
+
     return baseStore.createRepair(
       {
         organizationId: input.organizationId,
@@ -344,21 +441,48 @@ export const portalStore = {
       createMutationMeta(baseStore.getSnapshot().activeRole, { id: input.requesterUserId, name: "Portal gebruiker" }, "UI createRepair"),
     );
   },
-  createDonation(input: {
+  async createDonation(input: {
     donorOrganizationId: string;
+    servicePartnerOrganizationId?: string;
     deviceCount: number;
-    contactName: string;
+    contactName?: string;
     contactEmail: string;
     estimatedPickupDate?: string;
     street?: string;
+    pickupAddress?: {
+      contactName?: string;
+      street?: string;
+      postalCode?: string;
+      city?: string;
+      country?: string;
+    };
     notes?: string;
+    intakeByUserId?: string;
   }) {
+    if (remoteViewer) {
+      const id = await createRemoteDonation(
+        {
+          donorOrganizationId: input.donorOrganizationId,
+          servicePartnerOrganizationId: input.servicePartnerOrganizationId,
+          deviceCount: input.deviceCount,
+          estimatedPickupDate: input.estimatedPickupDate,
+          contactName: input.pickupAddress?.contactName ?? input.contactName,
+          contactEmail: input.contactEmail,
+          street: input.pickupAddress?.street ?? input.street,
+          notes: input.notes,
+        },
+        remoteViewer,
+      );
+      await refreshRemotePortal();
+      return portalStore.getSnapshot().data.donations[id];
+    }
+
     return baseStore.createDonation(
       {
         sponsorOrganizationId: input.donorOrganizationId,
         deviceCountPromised: input.deviceCount,
-        pickupAddress: input.street ?? "Onbekend",
-        pickupContactName: input.contactName,
+        pickupAddress: input.pickupAddress?.street ?? input.street ?? "Onbekend",
+        pickupContactName: input.pickupAddress?.contactName ?? input.contactName ?? "Onbekend",
         pickupContactEmail: input.contactEmail,
         pickupWindow: input.estimatedPickupDate,
         notes: input.notes,
@@ -366,21 +490,52 @@ export const portalStore = {
       createMutationMeta(baseStore.getSnapshot().activeRole, { name: "Portal gebruiker" }, "UI createDonation"),
     );
   },
-  transitionOrder(orderId: string, input: { nextStatus: OrderStatus; actorUserId?: string }) {
+  async transitionOrder(orderId: string, input: { nextStatus: OrderStatus; actorUserId?: string; summary?: string }) {
+    if (remoteViewer) {
+      await updateRemoteCaseStatus("order", orderId, input.nextStatus, remoteViewer);
+      await refreshRemotePortal();
+      return portalStore.getSnapshot().data.orders[orderId];
+    }
+
     return baseStore.updateOrderStatus(
       orderId,
       input.nextStatus,
       createMutationMeta(baseStore.getSnapshot().activeRole, { id: input.actorUserId, name: "Portal gebruiker" }, "UI transitionOrder"),
     );
   },
-  transitionRepair(repairId: string, input: { nextStatus: RepairStatus; actorUserId?: string }) {
+  async transitionRepair(repairId: string, input: { nextStatus: RepairStatus; actorUserId?: string; summary?: string }) {
+    if (remoteViewer) {
+      await updateRemoteCaseStatus("repair", repairId, input.nextStatus, remoteViewer);
+      await refreshRemotePortal();
+      return portalStore.getSnapshot().data.repairs[repairId];
+    }
+
     return baseStore.updateRepairStatus(
       repairId,
       input.nextStatus,
       createMutationMeta(baseStore.getSnapshot().activeRole, { id: input.actorUserId, name: "Portal gebruiker" }, "UI transitionRepair"),
     );
   },
-  transitionDonation(donationId: string, input: { nextStatus: DonationStatus; actorUserId?: string; refurbishableCount?: number; rejectedCount?: number }) {
+  async transitionDonation(
+    donationId: string,
+    input: {
+      nextStatus: DonationStatus;
+      actorUserId?: string;
+      summary?: string;
+      refurbishableCount?: number;
+      rejectedCount?: number;
+      stockImpactQuantity?: number;
+    },
+  ) {
+    if (remoteViewer) {
+      await updateRemoteCaseStatus("donation", donationId, input.nextStatus, remoteViewer, {
+        refurbishableCount: input.refurbishableCount,
+        rejectedCount: input.rejectedCount,
+      });
+      await refreshRemotePortal();
+      return portalStore.getSnapshot().data.donations[donationId];
+    }
+
     if (input.refurbishableCount !== undefined || input.rejectedCount !== undefined) {
       baseStore.servicePartner.pushRefurbishUpdate(
         {
@@ -399,7 +554,34 @@ export const portalStore = {
       createMutationMeta(baseStore.getSnapshot().activeRole, { id: input.actorUserId, name: "Portal gebruiker" }, "UI transitionDonation"),
     );
   },
-  addMessage(input: { subjectType: SubjectType; subjectId: string; authorUserId?: string; body: string }) {
+  async addMessage(input: {
+    subjectType: SubjectType;
+    subjectId: string;
+    authorUserId?: string;
+    authorOrganizationId?: string;
+    visibleToRoles?: Role[];
+    body: string;
+  }) {
+    if (remoteViewer) {
+      await createRemoteMessage(
+        {
+          subjectType: input.subjectType,
+          subjectId: input.subjectId,
+          authorUserId: input.authorUserId,
+          body: input.body,
+        },
+        remoteViewer,
+      );
+      await refreshRemotePortal();
+      const messages = selectSubjectMessages(
+        portalStore.getSnapshot().data,
+        remoteViewer.role,
+        input.subjectType,
+        input.subjectId,
+      );
+      return messages[messages.length - 1];
+    }
+
     const snap = getLegacySnapshot();
     const role = snap.role;
     const author = input.authorUserId ? snap.data.users[input.authorUserId] : undefined;
@@ -416,7 +598,34 @@ export const portalStore = {
       internalOnly: false,
     });
   },
-  addDocument(input: { subjectType: SubjectType; subjectId: string; uploadedByUserId?: string; fileName: string; mimeType?: string; sizeLabel?: string }) {
+  async addDocument(input: {
+    subjectType: SubjectType;
+    subjectId: string;
+    uploadedByUserId?: string;
+    category?: string;
+    fileName: string;
+    mimeType?: string;
+    sizeLabel?: string;
+  }) {
+    if (remoteViewer) {
+      await createRemoteDocument(
+        {
+          subjectType: input.subjectType,
+          subjectId: input.subjectId,
+          uploadedByUserId: input.uploadedByUserId,
+          fileName: input.fileName,
+          mimeType: input.mimeType,
+          sizeLabel: input.sizeLabel,
+        },
+        remoteViewer,
+      );
+      await refreshRemotePortal();
+      const documents = Object.values(portalStore.getSnapshot().data.documents).filter(
+        (item: any) => item.subjectType === input.subjectType && item.subjectId === input.subjectId,
+      );
+      return documents[documents.length - 1];
+    }
+
     const snap = getLegacySnapshot();
     const uploader = input.uploadedByUserId ? snap.data.users[input.uploadedByUserId] : undefined;
     return baseStore.addDocument(
@@ -436,14 +645,22 @@ export const portalStore = {
       createMutationMeta(snap.role, { id: input.uploadedByUserId, name: uploader?.fullName }, "UI addDocument"),
     );
   },
-  exportOrdersCsv: () => baseStore.exportOrdersCsv(),
-  exportRepairsCsv: () => baseStore.exportRepairsCsv(),
-  exportDonationsCsv: () => baseStore.exportDonationsCsv(),
+  exportOrdersCsv: () => (remoteData ? exportOrdersCsv(remoteData) : baseStore.exportOrdersCsv()),
+  exportRepairsCsv: () => (remoteData ? exportRepairsCsv(remoteData) : baseStore.exportRepairsCsv()),
+  exportDonationsCsv: () => (remoteData ? exportDonationsCsv(remoteData) : baseStore.exportDonationsCsv()),
   crm: {
-    flushQueue() {
+    async flushQueue() {
+      if (remoteViewer) {
+        await refreshRemotePortal();
+        return [];
+      }
       return baseStore.crm.flushQueue(new Date().toISOString());
     },
-    retrySync(subjectType: SubjectType, subjectId: string) {
+    async retrySync(subjectType: SubjectType, subjectId: string) {
+      if (remoteViewer) {
+        await refreshRemotePortal();
+        return null;
+      }
       const job = Object.values(baseStore.getSnapshot().data.crmSync.jobs).find(
         (item) => item.caseType === subjectType && item.caseId === subjectId,
       );
@@ -454,7 +671,18 @@ export const portalStore = {
     },
   },
   servicePartner: {
-    shipmentUpdate(input: { orderId: string; actorUserId?: string; nextStatus?: OrderStatus; summary?: string }) {
+    async shipmentUpdate(input: { orderId: string; actorUserId?: string; nextStatus?: OrderStatus; summary?: string }) {
+      if (remoteViewer) {
+        await updateRemoteCaseStatus(
+          "order",
+          input.orderId,
+          input.nextStatus === "GELEVERD" ? "GELEVERD" : "VERZONDEN",
+          remoteViewer,
+        );
+        await refreshRemotePortal();
+        return portalStore.getSnapshot().data.orders[input.orderId];
+      }
+
       return baseStore.servicePartner.pushShipmentUpdate(
         {
           orderId: input.orderId,
@@ -464,7 +692,13 @@ export const portalStore = {
         createMutationMeta("service_partner", { id: input.actorUserId, name: "Servicepartner" }, "UI shipmentUpdate"),
       );
     },
-    repairUpdate(input: { repairId: string; actorUserId?: string; nextStatus: RepairStatus; summary?: string }) {
+    async repairUpdate(input: { repairId: string; actorUserId?: string; nextStatus: RepairStatus; summary?: string }) {
+      if (remoteViewer) {
+        await updateRemoteCaseStatus("repair", input.repairId, input.nextStatus, remoteViewer);
+        await refreshRemotePortal();
+        return portalStore.getSnapshot().data.repairs[input.repairId];
+      }
+
       return baseStore.servicePartner.pushRepairUpdate(
         {
           repairId: input.repairId,
@@ -474,7 +708,24 @@ export const portalStore = {
         createMutationMeta("service_partner", { id: input.actorUserId, name: "Servicepartner" }, "UI repairUpdate"),
       );
     },
-    refurbishUpdate(input: { donationId: string; actorUserId?: string; nextStatus: DonationStatus; summary?: string; refurbishableCount?: number; rejectedCount?: number }) {
+    async refurbishUpdate(input: {
+      donationId: string;
+      actorUserId?: string;
+      nextStatus: DonationStatus;
+      summary?: string;
+      refurbishableCount?: number;
+      rejectedCount?: number;
+      stockImpactQuantity?: number;
+    }) {
+      if (remoteViewer) {
+        await updateRemoteCaseStatus("donation", input.donationId, input.nextStatus, remoteViewer, {
+          refurbishableCount: input.refurbishableCount,
+          rejectedCount: input.rejectedCount,
+        });
+        await refreshRemotePortal();
+        return portalStore.getSnapshot().data.donations[input.donationId];
+      }
+
       return baseStore.servicePartner.pushRefurbishUpdate(
         {
           donationId: input.donationId,
@@ -486,7 +737,13 @@ export const portalStore = {
         createMutationMeta("service_partner", { id: input.actorUserId, name: "Servicepartner" }, "UI refurbishUpdate"),
       );
     },
-    stockMutation(input: { productId: string; actorUserId?: string; availableDelta?: number; reason?: string }) {
+    async stockMutation(input: { productId: string; actorUserId?: string; availableDelta?: number; reason?: string }) {
+      if (remoteViewer) {
+        await recordRemoteStockMutation(input.productId, input.availableDelta ?? 0);
+        await refreshRemotePortal();
+        return;
+      }
+
       return baseStore.servicePartner.recordStockMutation(
         {
           productId: input.productId,
@@ -507,9 +764,20 @@ export function usePortalSnapshot(): LegacySnapshot {
   );
 }
 
-export function usePortalContext() {
+export function usePortalContext(): {
+  snapshot: LegacySnapshot;
+  viewer: { role: Role; userId: string; organizationId: string };
+  user: any;
+  organization: any;
+  orders: any[];
+  repairs: any[];
+  donations: any[];
+  inventory: any[];
+  notifications: any[];
+} {
   const snapshot = usePortalSnapshot();
-  const viewer = buildViewer(snapshot.role, snapshot.data as PortalData);
+  const viewer =
+    remoteViewer ?? buildViewer(snapshot.role, snapshot.data as PortalData);
   const user = snapshot.data.users[viewer.userId];
   const organization = snapshot.data.organizations[viewer.organizationId];
 
@@ -574,21 +842,21 @@ export function selectSubjectMessages(
   role: Role,
   subjectType: SubjectType,
   subjectId: string,
-) {
+): any[] {
   return Object.values(data.messages)
     .filter((item: any) => item.subjectType === subjectType && item.subjectId === subjectId)
     .filter((item: any) => !item.internalOnly || role !== "help_org")
     .sort((left: any, right: any) => left.createdAt.localeCompare(right.createdAt));
 }
 
-export function getWorkflowEvents(data: any, ids: string[]) {
+export function getWorkflowEvents(data: any, ids: string[]): any[] {
   return ids
     .map((id) => data.workflowEvents[id])
     .filter((item) => Boolean(item))
     .sort((left: any, right: any) => left.createdAt.localeCompare(right.createdAt));
 }
 
-export function getCaseSyncStates(data: any, subjectType: SubjectType, subjectId: string) {
+export function getCaseSyncStates(data: any, subjectType: SubjectType, subjectId: string): any[] {
   return Object.values(data.crmSyncStates)
     .filter((item: any) => item.subjectType === subjectType && item.subjectId === subjectId)
     .sort((left: any, right: any) => right.updatedAt.localeCompare(left.updatedAt));

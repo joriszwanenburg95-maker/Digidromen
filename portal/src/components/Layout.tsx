@@ -80,7 +80,7 @@ const roleLabels: Record<Role, string> = {
 };
 
 const Layout: React.FC = () => {
-  const { user, setRole, logout } = useAuth();
+  const { user, setRole, logout, authMode, supabaseConfigured } = useAuth();
   const { snapshot, notifications } = usePortalContext();
   const location = useLocation();
   const navigate = useNavigate();
@@ -95,6 +95,11 @@ const Layout: React.FC = () => {
   const unreadNotifications = notifications.filter(
     (notification) => notification.status === "unread",
   );
+
+  const statusCopy =
+    authMode === "demo" && supabaseConfigured
+      ? "Supabase vars gevonden; portal draait nog op demo-auth en lokale store"
+      : "Demo data wordt lokaal opgeslagen";
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -172,42 +177,46 @@ const Layout: React.FC = () => {
                     location.pathname.startsWith(item.path),
                   )?.name ?? "Portal"}
                 </p>
-                <p className="text-xs text-slate-400">
-                  Demo data wordt lokaal opgeslagen
-                </p>
+                <p className="text-xs text-slate-400">{statusCopy}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <button
-                  onClick={() => setRoleMenuOpen((open) => !open)}
-                  className="flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"
-                >
-                  {roleLabels[snapshot.role]}
-                  <ChevronDown size={14} className="ml-1" />
-                </button>
-                {roleMenuOpen ? (
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
-                    {(Object.keys(roleLabels) as Role[]).map((role) => (
-                      <button
-                        key={role}
-                        onClick={() => {
-                          setRole(role);
-                          setRoleMenuOpen(false);
-                        }}
-                        className={`block w-full rounded-xl px-3 py-2 text-left text-sm ${
-                          snapshot.role === role
-                            ? "bg-slate-100 font-semibold text-slate-900"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        {roleLabels[role]}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+              {authMode === "demo" ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setRoleMenuOpen((open) => !open)}
+                    className="flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"
+                  >
+                    {roleLabels[snapshot.role]}
+                    <ChevronDown size={14} className="ml-1" />
+                  </button>
+                  {roleMenuOpen ? (
+                    <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
+                      {(Object.keys(roleLabels) as Role[]).map((role) => (
+                        <button
+                          key={role}
+                          onClick={() => {
+                            setRole(role);
+                            setRoleMenuOpen(false);
+                          }}
+                          className={`block w-full rounded-xl px-3 py-2 text-left text-sm ${
+                            snapshot.role === role
+                              ? "bg-slate-100 font-semibold text-slate-900"
+                              : "text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          {roleLabels[role]}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                  {user ? roleLabels[user.role] : "-"}
+                </div>
+              )}
 
               <button
                 onClick={() => navigate("/dashboard")}
@@ -236,8 +245,8 @@ const Layout: React.FC = () => {
               </div>
 
               <button
-                onClick={() => {
-                  logout();
+                onClick={async () => {
+                  await logout();
                   navigate("/login");
                 }}
                 className="rounded-full border border-slate-200 p-2 text-slate-500 hover:bg-slate-100"

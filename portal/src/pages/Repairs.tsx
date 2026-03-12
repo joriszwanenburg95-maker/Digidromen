@@ -17,19 +17,21 @@ const Repairs: React.FC = () => {
 
   const products = useMemo(
     () =>
-      Object.values(snapshot.data.products).filter((product) => product.category === "laptop"),
+      (Object.values(snapshot.data.products) as Array<{ id: string; name: string; category: string }>).filter(
+        (product) => product.category === "laptop",
+      ),
     [snapshot.data.products],
   );
 
   const selectedProductId = productId || products[0]?.id;
 
-  const submitRepair = (event: React.FormEvent) => {
+  const submitRepair = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!user || !selectedProductId || !notes.trim()) {
       return;
     }
 
-    const created = portalStore.createRepair({
+    const created = await portalStore.createRepair({
       organizationId: viewer.organizationId,
       requesterUserId: user.id,
       servicePartnerOrganizationId: "org-aces-direct",

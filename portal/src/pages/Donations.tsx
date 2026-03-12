@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, HeartHandshake } from "lucide-react";
+import { ArrowLeft, CheckCircle } from "lucide-react";
 
 import { formatDate, portalStore, statusClasses, usePortalContext } from "../lib/portal";
 
@@ -21,20 +21,20 @@ const Donations: React.FC = () => {
 
   const donors = useMemo(
     () =>
-      Object.values(snapshot.data.organizations).filter(
-        (organization) => organization.kind === "sponsor",
+      (Object.values(snapshot.data.organizations) as Array<{ id: string; name: string; kind?: string; type?: string }>).filter(
+        (organization) => (organization.kind ?? organization.type) === "sponsor",
       ),
     [snapshot.data.organizations],
   );
 
   const selectedDonor = donorOrganizationId || donors[0]?.id;
 
-  const submitDonation = (event: React.FormEvent) => {
+  const submitDonation = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!user || !selectedDonor || !notes.trim()) {
       return;
     }
-    const created = portalStore.createDonation({
+    const created = await portalStore.createDonation({
       donorOrganizationId: selectedDonor,
       intakeByUserId: user.id,
       servicePartnerOrganizationId: "org-aces-direct",

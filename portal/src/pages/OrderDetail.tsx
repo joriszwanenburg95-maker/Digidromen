@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Clock, Paperclip, Package } from "lucide-react";
+import { ArrowLeft, Clock, Paperclip, Package } from "lucide-react";
 
+import CrmPreparationCard from "../components/CrmPreparationCard";
 import Timeline from "../components/Timeline";
 import {
   formatDate,
@@ -14,6 +15,7 @@ import {
   statusClasses,
   usePortalContext,
 } from "../lib/portal";
+import { formatCrmReference, type CrmPreparationState } from "../lib/crm-preparation";
 import type { OrderStatus, TimelineEvent } from "../types";
 
 const OrderDetail: React.FC = () => {
@@ -65,14 +67,14 @@ const OrderDetail: React.FC = () => {
   const organization = snapshot.data.organizations[order.organizationId];
   const nextStatuses = getOrderNextStatuses(snapshot.role, order.status);
   const documents = order.documentIds
-    .map((documentId) => snapshot.data.documents[documentId])
-    .filter(Boolean);
+    .map((documentId: string) => snapshot.data.documents[documentId])
+    .filter(Boolean) as Array<{ id: string; fileName: string; sizeLabel: string }>;
   const messages = selectSubjectMessages(snapshot.data, snapshot.role, "order", order.id);
-  const syncStates = getCaseSyncStates(snapshot.data, "order", order.id);
+  const syncStates = getCaseSyncStates(snapshot.data, "order", order.id) as CrmPreparationState[];
 
-  const handleTransition = (nextStatus: OrderStatus) => {
+  const handleTransition = async (nextStatus: OrderStatus) => {
     if (snapshot.role === "service_partner") {
-      portalStore.servicePartner.shipmentUpdate({
+      await portalStore.servicePartner.shipmentUpdate({
         orderId: order.id,
         actorUserId: user.id,
         nextStatus:
@@ -84,7 +86,7 @@ const OrderDetail: React.FC = () => {
       return;
     }
 
-    portalStore.transitionOrder(order.id, {
+    await portalStore.transitionOrder(order.id, {
       actorUserId: user.id,
       nextStatus,
       summary: `Orderstatus bijgewerkt naar ${nextStatus}.`,
@@ -105,7 +107,9 @@ const OrderDetail: React.FC = () => {
           {nextStatuses.map((status) => (
             <button
               key={status}
-              onClick={() => handleTransition(status)}
+              onClick={() => {
+                void handleTransition(status);
+              }}
               className="rounded-lg bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Zet naar {status}
@@ -141,8 +145,8 @@ const OrderDetail: React.FC = () => {
                 <p className="mt-1 text-sm font-semibold text-slate-800">{organization?.name}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">CRM case</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{order.crmCaseId ?? "-"}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">CRM referentie</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{formatCrmReference(order.crmCaseId)}</p>
               </div>
             </div>
 
@@ -154,7 +158,7 @@ const OrderDetail: React.FC = () => {
             <div className="mt-6">
               <h3 className="mb-4 font-bold text-slate-900">Geselecteerde producten</h3>
               <div className="space-y-3">
-                {order.lineItems.map((item) => {
+                {order.lineItems.map((item: { productId: string; quantity: number }) => {
                   const product = snapshot.data.products[item.productId];
                   return (
                     <div key={item.productId} className="flex items-center rounded-xl bg-slate-50 p-3">
@@ -223,11 +227,11 @@ const OrderDetail: React.FC = () => {
                     placeholder="Typ een bericht..."
                   />
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (!message.trim()) {
                         return;
                       }
-                      portalStore.addMessage({
+                      await portalStore.addMessage({
                         subjectType: "order",
                         subjectId: order.id,
                         authorUserId: user.id,
@@ -270,11 +274,11 @@ const OrderDetail: React.FC = () => {
                       placeholder="Bijv. pakbon.pdf"
                     />
                     <button
-                      onClick={() => {
-                        if (!documentName.trim()) {
-                          return;
-                        }
-                        portalStore.addDocument({
+                    onClick={async () => {
+                      if (!documentName.trim()) {
+                        return;
+                      }
+                        await portalStore.addDocument({
                           subjectType: "order",
                           subjectId: order.id,
                           uploadedByUserId: user.id,
@@ -322,28 +326,15 @@ const OrderDetail: React.FC = () => {
             </dl>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 flex items-center text-lg font-bold text-slate-900">
-              <CheckCircle2 size={18} className="mr-2 text-green-500" />
-              CRM sync
-            </h3>
-            <div className="space-y-3">
-              {syncStates.map((state) => (
-                <div key={state.id} className="rounded-xl bg-slate-50 p-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className={`rounded-full px-2 py-1 text-xs font-bold ${statusClasses(state.status)}`}>
-                      {state.status}
-                    </span>
-                    <span className="text-xs text-slate-400">{state.retryCount} retries</span>
-                  </div>
-                  <p className="mt-2 text-slate-600">{state.bufferedChanges.join(", ")}</p>
-                  {state.failureReason ? (
-                    <p className="mt-1 text-xs text-rose-600">{state.failureReason}</p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
+          <CrmPreparationCard
+            subjectLabel="Deze bestelling"
+            references={[
+              { label: "CRM relatie", value: formatCrmReference(order.crmRelationId) },
+              { label: "CRM case", value: formatCrmReference(order.crmCaseId) },
+              { label: "CRM taak", value: formatCrmReference(order.crmTaskId) },
+            ]}
+            syncStates={syncStates}
+          />
         </aside>
       </div>
     </div>

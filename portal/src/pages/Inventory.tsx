@@ -15,7 +15,7 @@ const Inventory: React.FC = () => {
         {user ? (
           <button
             onClick={() =>
-              portalStore.servicePartner.stockMutation({
+              void portalStore.servicePartner.stockMutation({
                 productId: inventory[0]?.productId ?? "product-latitude-14",
                 actorUserId: user.id,
                 reason: "Demo mutatie voorraad +1",
