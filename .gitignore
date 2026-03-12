@@ -9,3 +9,4 @@ portal/dist/
 portal/dist-ssr/
 
 supabase/.temp/
+.vercel
