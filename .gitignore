@@ -7,3 +7,5 @@ dist-ssr/
 portal/node_modules/
 portal/dist/
 portal/dist-ssr/
+
+supabase/.temp/
