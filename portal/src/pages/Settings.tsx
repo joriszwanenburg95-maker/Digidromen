@@ -1,23 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, UserPlus, Building2, Package } from "lucide-react";
+import { Building2, Package, Pencil, Trash2, UserPlus } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
-import { portalStore, refreshRemotePortal, usePortalContext } from "../lib/portal";
+import { refreshRemotePortal, usePortalContext } from "../lib/portal";
 import { getSupabaseClient } from "../lib/supabase";
 import type { Role } from "../types";
 
 const roleOptions: { value: Role; label: string }[] = [
-  { value: "help_org", label: "Hulporganisatie" },
+  { value: "help_org", label: "Klant" },
   { value: "digidromen_staff", label: "Digidromen Medewerker" },
   { value: "digidromen_admin", label: "Digidromen Beheerder" },
   { value: "service_partner", label: "Servicepartner" },
 ];
 
 const orgTypeOptions = [
-  { value: "help_org", label: "Hulporganisatie" },
+  { value: "help_org", label: "Klant" },
   { value: "service_partner", label: "Servicepartner" },
   { value: "sponsor", label: "Sponsor" },
   { value: "digidromen", label: "Digidromen" },
+];
+
+const productCategoryOptions = [
+  { value: "laptop", label: "Laptop" },
+  { value: "accessory", label: "Accessoire" },
+  { value: "service", label: "Service" },
 ];
 
 interface UserProfile {
@@ -29,14 +35,67 @@ interface UserProfile {
   organization_id: string;
 }
 
-interface Organization {
+interface OrganizationRow {
   id: string;
+  name: string;
+  type: string;
+  city: string;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  active: boolean;
+}
+
+interface ProductRow {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  description: string;
+  specificationSummary: string[];
+  stockOnHand: number;
+  stockReserved: number;
+  active: boolean;
+}
+
+interface OrganizationFormState {
   name: string;
   type: string;
   city: string;
   contactName: string;
   contactEmail: string;
+  active: boolean;
 }
+
+interface ProductFormState {
+  name: string;
+  sku: string;
+  category: string;
+  description: string;
+  specificationSummary: string;
+  stockOnHand: number;
+  stockReserved: number;
+  active: boolean;
+}
+
+const emptyOrgForm: OrganizationFormState = {
+  name: "",
+  type: "help_org",
+  city: "",
+  contactName: "",
+  contactEmail: "",
+  active: true,
+};
+
+const emptyProductForm: ProductFormState = {
+  name: "",
+  sku: "",
+  category: "laptop",
+  description: "",
+  specificationSummary: "",
+  stockOnHand: 0,
+  stockReserved: 0,
+  active: true,
+};
 
 const Settings: React.FC = () => {
   const { user: authUser, authMode } = useAuth();
@@ -46,41 +105,55 @@ const Settings: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<"profile" | "users" | "organizations" | "products">("profile");
 
-  // User management state
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "help_org" as Role, organizationId: "" });
   const [userError, setUserError] = useState<string | null>(null);
 
-  // Org management state
-  const [showAddOrg, setShowAddOrg] = useState(false);
-  const [newOrg, setNewOrg] = useState({ name: "", type: "help_org", city: "", contactName: "", contactEmail: "" });
+  const [showOrgForm, setShowOrgForm] = useState(false);
+  const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
+  const [orgForm, setOrgForm] = useState<OrganizationFormState>(emptyOrgForm);
   const [orgError, setOrgError] = useState<string | null>(null);
+  const [orgNotice, setOrgNotice] = useState<string | null>(null);
 
-  // Product management state
-  const [showAddProduct, setShowAddProduct] = useState(false);
-  const [newProduct, setNewProduct] = useState({
-    name: "", sku: "", category: "laptop", description: "",
-    specificationSummary: "", stockOnHand: 0, stockReserved: 0,
-  });
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [productForm, setProductForm] = useState<ProductFormState>(emptyProductForm);
   const [productError, setProductError] = useState<string | null>(null);
+  const [productNotice, setProductNotice] = useState<string | null>(null);
 
   const organizations = useMemo(
-    () => Object.values(snapshot.data.organizations) as Organization[],
+    () =>
+      (Object.values(snapshot.data.organizations) as OrganizationRow[]).sort((left, right) => {
+        if (left.active !== right.active) {
+          return left.active ? -1 : 1;
+        }
+        return left.name.localeCompare(right.name);
+      }),
     [snapshot.data.organizations],
   );
 
+  const activeOrganizations = useMemo(
+    () => organizations.filter((org) => org.active),
+    [organizations],
+  );
+
   const products = useMemo(
-    () => Object.values(snapshot.data.products) as Array<{
-      id: string; name: string; sku: string; category: string;
-      description: string; stockOnHand: number; stockReserved: number; active: boolean;
-    }>,
+    () =>
+      (Object.values(snapshot.data.products) as ProductRow[]).sort((left, right) => {
+        if (left.active !== right.active) {
+          return left.active ? -1 : 1;
+        }
+        return left.name.localeCompare(right.name);
+      }),
     [snapshot.data.products],
   );
 
   const loadUsers = useCallback(async () => {
-    if (!isSupabase || !isAdmin) return;
+    if (!isSupabase || !isAdmin) {
+      return;
+    }
     setUsersLoading(true);
     try {
       const supabase = getSupabaseClient();
@@ -88,7 +161,9 @@ const Settings: React.FC = () => {
         .from("user_profiles")
         .select("id, auth_user_id, name, email, role, organization_id")
         .order("name");
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
       setUsers(data ?? []);
     } catch {
       // silently fail
@@ -103,16 +178,79 @@ const Settings: React.FC = () => {
     }
   }, [activeTab, loadUsers]);
 
+  const closeOrgForm = () => {
+    setShowOrgForm(false);
+    setEditingOrgId(null);
+    setOrgForm(emptyOrgForm);
+    setOrgError(null);
+  };
+
+  const closeProductForm = () => {
+    setShowProductForm(false);
+    setEditingProductId(null);
+    setProductForm(emptyProductForm);
+    setProductError(null);
+  };
+
+  const openAddOrgForm = () => {
+    setOrgNotice(null);
+    setEditingOrgId(null);
+    setOrgForm(emptyOrgForm);
+    setShowOrgForm(true);
+    setOrgError(null);
+  };
+
+  const openEditOrgForm = (org: OrganizationRow) => {
+    setOrgNotice(null);
+    setEditingOrgId(org.id);
+    setOrgForm({
+      name: org.name,
+      type: org.type,
+      city: org.city,
+      contactName: org.contactName ?? "",
+      contactEmail: org.contactEmail ?? "",
+      active: org.active,
+    });
+    setShowOrgForm(true);
+    setOrgError(null);
+  };
+
+  const openAddProductForm = () => {
+    setProductNotice(null);
+    setEditingProductId(null);
+    setProductForm(emptyProductForm);
+    setShowProductForm(true);
+    setProductError(null);
+  };
+
+  const openEditProductForm = (product: ProductRow) => {
+    setProductNotice(null);
+    setEditingProductId(product.id);
+    setProductForm({
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      description: product.description ?? "",
+      specificationSummary: product.specificationSummary.join(", "),
+      stockOnHand: product.stockOnHand,
+      stockReserved: product.stockReserved,
+      active: product.active,
+    });
+    setShowProductForm(true);
+    setProductError(null);
+  };
+
   const callAdminFunction = async (body: Record<string, unknown>) => {
     const supabase = getSupabaseClient();
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error("Not authenticated");
+    if (!session) {
+      throw new Error("Not authenticated");
+    }
 
-    const response = await supabase.functions.invoke("admin-users", {
-      body,
-    });
-
-    if (response.error) throw response.error;
+    const response = await supabase.functions.invoke("admin-users", { body });
+    if (response.error) {
+      throw response.error;
+    }
     return response.data;
   };
 
@@ -159,137 +297,229 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleAddOrg = async () => {
+  const handleSaveOrg = async () => {
     setOrgError(null);
-    if (!newOrg.name || !newOrg.city) {
-      setOrgError("Naam en stad zijn verplicht.");
+    setOrgNotice(null);
+    if (!orgForm.name.trim() || !orgForm.city.trim() || !orgForm.contactName.trim() || !orgForm.contactEmail.trim()) {
+      setOrgError("Naam, stad, contactpersoon en contact-email zijn verplicht.");
       return;
     }
+
     try {
       const supabase = getSupabaseClient();
-      const id = `org-${crypto.randomUUID().slice(0, 8)}`;
-      const { error } = await supabase.from("organizations").insert({
-        id,
-        name: newOrg.name,
-        type: newOrg.type,
-        city: newOrg.city,
-        contact_name: newOrg.contactName || null,
-        contact_email: newOrg.contactEmail || null,
-        active: true,
-      });
-      if (error) throw error;
-      setShowAddOrg(false);
-      setNewOrg({ name: "", type: "help_org", city: "", contactName: "", contactEmail: "" });
+      const payload = {
+        name: orgForm.name.trim(),
+        type: orgForm.type,
+        city: orgForm.city.trim(),
+        contact_name: orgForm.contactName.trim(),
+        contact_email: orgForm.contactEmail.trim(),
+        active: orgForm.active,
+      };
+
+      if (editingOrgId) {
+        const { error } = await supabase.from("organizations").update(payload).eq("id", editingOrgId);
+        if (error) {
+          throw error;
+        }
+        setOrgNotice("Organisatie bijgewerkt.");
+      } else {
+        const id = `org-${crypto.randomUUID().slice(0, 8)}`;
+        const { error } = await supabase.from("organizations").insert({
+          id,
+          ...payload,
+        });
+        if (error) {
+          throw error;
+        }
+        setOrgNotice("Organisatie aangemaakt.");
+      }
+
+      closeOrgForm();
       await refreshRemotePortal();
     } catch (err: any) {
-      setOrgError(err.message ?? "Fout bij aanmaken organisatie.");
+      setOrgError(err.message ?? "Fout bij opslaan organisatie.");
     }
   };
 
-  const handleAddProduct = async () => {
+  const handleDeleteOrg = async (org: OrganizationRow) => {
+    setOrgError(null);
+    setOrgNotice(null);
+    const shouldDelete = window.confirm(
+      `Verwijder "${org.name}"? Bestaande relaties blijven intact doordat de organisatie inactief wordt gemaakt.`,
+    );
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from("organizations")
+        .update({ active: false })
+        .eq("id", org.id);
+      if (error) {
+        throw error;
+      }
+      if (editingOrgId === org.id) {
+        closeOrgForm();
+      }
+      setOrgNotice(`Organisatie "${org.name}" is inactief gemaakt.`);
+      await refreshRemotePortal();
+    } catch (err: any) {
+      setOrgError(err.message ?? "Fout bij verwijderen organisatie.");
+    }
+  };
+
+  const handleSaveProduct = async () => {
     setProductError(null);
-    if (!newProduct.name || !newProduct.sku) {
+    setProductNotice(null);
+    if (!productForm.name.trim() || !productForm.sku.trim()) {
       setProductError("Naam en SKU zijn verplicht.");
       return;
     }
+
     try {
       const supabase = getSupabaseClient();
-      const id = `product-${crypto.randomUUID().slice(0, 8)}`;
-      const { error } = await supabase.from("products").insert({
-        id,
-        name: newProduct.name,
-        sku: newProduct.sku,
-        category: newProduct.category,
-        description: newProduct.description || "",
-        specification_summary: newProduct.specificationSummary
-          ? newProduct.specificationSummary.split(",").map((s) => s.trim())
-          : [],
-        stock_on_hand: newProduct.stockOnHand,
-        stock_reserved: newProduct.stockReserved,
-        active: true,
-      });
-      if (error) throw error;
-      setShowAddProduct(false);
-      setNewProduct({ name: "", sku: "", category: "laptop", description: "", specificationSummary: "", stockOnHand: 0, stockReserved: 0 });
+      const payload = {
+        name: productForm.name.trim(),
+        sku: productForm.sku.trim(),
+        category: productForm.category,
+        description: productForm.description.trim(),
+        specification_summary: productForm.specificationSummary
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean),
+        stock_on_hand: Math.max(0, productForm.stockOnHand),
+        stock_reserved: Math.max(0, productForm.stockReserved),
+        active: productForm.active,
+      };
+
+      if (editingProductId) {
+        const { error } = await supabase.from("products").update(payload).eq("id", editingProductId);
+        if (error) {
+          throw error;
+        }
+        setProductNotice("Product bijgewerkt.");
+      } else {
+        const id = `product-${crypto.randomUUID().slice(0, 8)}`;
+        const { error } = await supabase.from("products").insert({
+          id,
+          ...payload,
+        });
+        if (error) {
+          throw error;
+        }
+        setProductNotice("Product aangemaakt.");
+      }
+
+      closeProductForm();
       await refreshRemotePortal();
     } catch (err: any) {
-      setProductError(err.message ?? "Fout bij aanmaken product.");
+      setProductError(err.message ?? "Fout bij opslaan product.");
+    }
+  };
+
+  const handleDeleteProduct = async (product: ProductRow) => {
+    setProductError(null);
+    setProductNotice(null);
+    const shouldDelete = window.confirm(
+      `Verwijder "${product.name}"? Bestaande orders en voorraadkoppelingen blijven intact doordat het product inactief wordt gemaakt.`,
+    );
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from("products")
+        .update({ active: false })
+        .eq("id", product.id);
+      if (error) {
+        throw error;
+      }
+      if (editingProductId === product.id) {
+        closeProductForm();
+      }
+      setProductNotice(`Product "${product.name}" is inactief gemaakt.`);
+      await refreshRemotePortal();
+    } catch (err: any) {
+      setProductError(err.message ?? "Fout bij verwijderen product.");
     }
   };
 
   const tabs = [
     { key: "profile" as const, label: "Profiel" },
-    ...(isAdmin ? [
-      { key: "users" as const, label: "Gebruikers" },
-      { key: "organizations" as const, label: "Organisaties" },
-      { key: "products" as const, label: "Producten" },
-    ] : []),
+    ...(isAdmin
+      ? [
+          { key: "users" as const, label: "Gebruikers" },
+          { key: "organizations" as const, label: "Organisaties" },
+        ]
+      : []),
   ];
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Instellingen</h2>
 
-      {tabs.length > 1 && (
+      {tabs.length > 1 ? (
         <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                activeTab === tab.key
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
+                activeTab === tab.key ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               {tab.label}
             </button>
           ))}
         </div>
-      )}
+      ) : null}
 
-      {activeTab === "profile" && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-100">
+      {activeTab === "profile" ? (
+        <div className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
           <div className="p-6">
-            <h3 className="font-bold text-gray-800 mb-4">Mijn Profiel</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h3 className="mb-4 font-bold text-gray-800">Mijn Profiel</h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1">Volledige Naam</label>
-                <p className="p-2 bg-gray-50 border border-gray-100 rounded text-sm text-gray-700">{user?.name}</p>
+                <label className="mb-1 block text-xs font-semibold text-gray-400">Volledige Naam</label>
+                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{user?.name}</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1">Email Adres</label>
-                <p className="p-2 bg-gray-50 border border-gray-100 rounded text-sm text-gray-700">{user?.email}</p>
+                <label className="mb-1 block text-xs font-semibold text-gray-400">Email Adres</label>
+                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{user?.email}</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1">Organisatie</label>
-                <p className="p-2 bg-gray-50 border border-gray-100 rounded text-sm text-gray-700">{organization?.name}</p>
+                <label className="mb-1 block text-xs font-semibold text-gray-400">Organisatie</label>
+                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{organization?.name}</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1">Rol</label>
-                <p className="p-2 bg-gray-50 border border-gray-100 rounded text-sm text-gray-700">
-                  {roleOptions.find((r) => r.value === authUser?.role)?.label ?? authUser?.role}
+                <label className="mb-1 block text-xs font-semibold text-gray-400">Rol</label>
+                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">
+                  {roleOptions.find((item) => item.value === authUser?.role)?.label ?? authUser?.role}
                 </p>
               </div>
             </div>
           </div>
 
           <div className="p-6">
-            <h3 className="font-bold text-gray-800 mb-4">Notificatie Voorkeuren</h3>
+            <h3 className="mb-4 font-bold text-gray-800">Notificatie Voorkeuren</h3>
             <div className="space-y-3">
               {[
                 "Email bij statuswijziging bestelling",
                 "Email bij nieuwe reparatie update",
                 "Melding bij CRM sync fouten",
-              ].map((pref, i) => (
-                <div key={i} className="flex items-center">
+              ].map((pref, index) => (
+                <div key={pref} className="flex items-center">
                   <input
                     type="checkbox"
-                    id={`pref-${i}`}
-                    className="w-4 h-4 text-digidromen-primary border-gray-300 rounded focus:ring-digidromen-primary"
+                    id={`pref-${index}`}
+                    className="h-4 w-4 rounded border-gray-300 text-digidromen-primary focus:ring-digidromen-primary"
                     defaultChecked
                   />
-                  <label htmlFor={`pref-${i}`} className="ml-3 text-sm text-gray-700">
+                  <label htmlFor={`pref-${index}`} className="ml-3 text-sm text-gray-700">
                     {pref}
                   </label>
                 </div>
@@ -297,9 +527,9 @@ const Settings: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {activeTab === "users" && isAdmin && (
+      {activeTab === "users" && isAdmin ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-slate-900">Gebruikers</h3>
@@ -312,48 +542,52 @@ const Settings: React.FC = () => {
             </button>
           </div>
 
-          {showAddUser && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+          {showAddUser ? (
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <h4 className="font-bold text-slate-800">Nieuwe gebruiker</h4>
-              {userError && <p className="text-sm text-rose-600">{userError}</p>}
+              {userError ? <p className="text-sm text-rose-600">{userError}</p> : null}
               <div className="grid gap-3 md:grid-cols-2">
                 <input
                   value={newUser.name}
-                  onChange={(e) => setNewUser((p) => ({ ...p, name: e.target.value }))}
+                  onChange={(event) => setNewUser((prev) => ({ ...prev, name: event.target.value }))}
                   placeholder="Volledige naam"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
                 <input
                   type="email"
                   value={newUser.email}
-                  onChange={(e) => setNewUser((p) => ({ ...p, email: e.target.value }))}
+                  onChange={(event) => setNewUser((prev) => ({ ...prev, email: event.target.value }))}
                   placeholder="Email"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
                 <input
                   type="password"
                   value={newUser.password}
-                  onChange={(e) => setNewUser((p) => ({ ...p, password: e.target.value }))}
+                  onChange={(event) => setNewUser((prev) => ({ ...prev, password: event.target.value }))}
                   placeholder="Wachtwoord"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
                 <select
                   value={newUser.role}
-                  onChange={(e) => setNewUser((p) => ({ ...p, role: e.target.value as Role }))}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  onChange={(event) => setNewUser((prev) => ({ ...prev, role: event.target.value as Role }))}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 >
-                  {roleOptions.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
+                  {roleOptions.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
                   ))}
                 </select>
                 <select
                   value={newUser.organizationId}
-                  onChange={(e) => setNewUser((p) => ({ ...p, organizationId: e.target.value }))}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  onChange={(event) => setNewUser((prev) => ({ ...prev, organizationId: event.target.value }))}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 >
                   <option value="">Selecteer organisatie</option>
-                  {organizations.map((org) => (
-                    <option key={org.id} value={org.id}>{org.name}</option>
+                  {activeOrganizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -365,14 +599,17 @@ const Settings: React.FC = () => {
                   Aanmaken
                 </button>
                 <button
-                  onClick={() => { setShowAddUser(false); setUserError(null); }}
+                  onClick={() => {
+                    setShowAddUser(false);
+                    setUserError(null);
+                  }}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
                 >
                   Annuleren
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
 
           <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
             <table className="min-w-full divide-y divide-slate-200">
@@ -387,31 +624,41 @@ const Settings: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {usersLoading ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">Laden...</td></tr>
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">
+                      Laden...
+                    </td>
+                  </tr>
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">Geen gebruikers gevonden.</td></tr>
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">
+                      Geen gebruikers gevonden.
+                    </td>
+                  </tr>
                 ) : (
-                  users.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">{u.name}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{u.email}</td>
+                  users.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">{item.name}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{item.email}</td>
                       <td className="px-6 py-4">
                         <select
-                          value={u.role}
-                          onChange={(e) => void handleUpdateRole(u.id, e.target.value as Role)}
+                          value={item.role}
+                          onChange={(event) => void handleUpdateRole(item.id, event.target.value as Role)}
                           className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold outline-none"
                         >
-                          {roleOptions.map((r) => (
-                            <option key={r.value} value={r.value}>{r.label}</option>
+                          {roleOptions.map((role) => (
+                            <option key={role.value} value={role.value}>
+                              {role.label}
+                            </option>
                           ))}
                         </select>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        {(snapshot.data.organizations as Record<string, any>)[u.organization_id]?.name ?? u.organization_id}
+                        {(snapshot.data.organizations as Record<string, OrganizationRow>)[item.organization_id]?.name ?? item.organization_id}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
-                          onClick={() => void handleDeactivateUser(u.id)}
+                          onClick={() => void handleDeactivateUser(item.id)}
                           className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
                           title="Deactiveren"
                         >
@@ -425,79 +672,97 @@ const Settings: React.FC = () => {
             </table>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {activeTab === "organizations" && isAdmin && (
+      {activeTab === "organizations" && isAdmin ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-900">Organisaties</h3>
-            {isSupabase && (
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Organisaties</h3>
+              <p className="text-sm text-slate-500">
+                Verwijderen maakt organisaties inactief zodat gebruikers, orders en donaties intact blijven.
+              </p>
+            </div>
+            {isSupabase ? (
               <button
-                onClick={() => setShowAddOrg(true)}
+                onClick={openAddOrgForm}
                 className="flex items-center rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
               >
                 <Building2 size={16} className="mr-2" />
                 Organisatie toevoegen
               </button>
-            )}
+            ) : null}
           </div>
 
-          {showAddOrg && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-              <h4 className="font-bold text-slate-800">Nieuwe organisatie</h4>
-              {orgError && <p className="text-sm text-rose-600">{orgError}</p>}
+          {orgNotice ? <p className="text-sm text-emerald-600">{orgNotice}</p> : null}
+          {orgError ? <p className="text-sm text-rose-600">{orgError}</p> : null}
+
+          {showOrgForm ? (
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h4 className="font-bold text-slate-800">{editingOrgId ? "Organisatie bewerken" : "Nieuwe organisatie"}</h4>
               <div className="grid gap-3 md:grid-cols-2">
                 <input
-                  value={newOrg.name}
-                  onChange={(e) => setNewOrg((p) => ({ ...p, name: e.target.value }))}
+                  value={orgForm.name}
+                  onChange={(event) => setOrgForm((prev) => ({ ...prev, name: event.target.value }))}
                   placeholder="Organisatienaam"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
                 <select
-                  value={newOrg.type}
-                  onChange={(e) => setNewOrg((p) => ({ ...p, type: e.target.value }))}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  value={orgForm.type}
+                  onChange={(event) => setOrgForm((prev) => ({ ...prev, type: event.target.value }))}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 >
-                  {orgTypeOptions.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
+                  {orgTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
                 </select>
                 <input
-                  value={newOrg.city}
-                  onChange={(e) => setNewOrg((p) => ({ ...p, city: e.target.value }))}
+                  value={orgForm.city}
+                  onChange={(event) => setOrgForm((prev) => ({ ...prev, city: event.target.value }))}
                   placeholder="Stad"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
                 <input
-                  value={newOrg.contactName}
-                  onChange={(e) => setNewOrg((p) => ({ ...p, contactName: e.target.value }))}
+                  value={orgForm.contactName}
+                  onChange={(event) => setOrgForm((prev) => ({ ...prev, contactName: event.target.value }))}
                   placeholder="Contactpersoon"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
                 <input
                   type="email"
-                  value={newOrg.contactEmail}
-                  onChange={(e) => setNewOrg((p) => ({ ...p, contactEmail: e.target.value }))}
+                  value={orgForm.contactEmail}
+                  onChange={(event) => setOrgForm((prev) => ({ ...prev, contactEmail: event.target.value }))}
                   placeholder="Contact email"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
+                <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={orgForm.active}
+                    onChange={(event) => setOrgForm((prev) => ({ ...prev, active: event.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 text-digidromen-primary focus:ring-digidromen-primary"
+                  />
+                  Actief
+                </label>
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => void handleAddOrg()}
+                  onClick={() => void handleSaveOrg()}
                   className="rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
                 >
-                  Aanmaken
+                  {editingOrgId ? "Opslaan" : "Aanmaken"}
                 </button>
                 <button
-                  onClick={() => { setShowAddOrg(false); setOrgError(null); }}
+                  onClick={closeOrgForm}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
                 >
                   Annuleren
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
 
           <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
             <table className="min-w-full divide-y divide-slate-200">
@@ -507,18 +772,55 @@ const Settings: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Type</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Stad</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Acties</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {organizations.length === 0 ? (
-                  <tr><td colSpan={4} className="px-6 py-8 text-center text-sm text-slate-400">Geen organisaties.</td></tr>
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-slate-400">
+                      Geen organisaties.
+                    </td>
+                  </tr>
                 ) : (
                   organizations.map((org) => (
                     <tr key={org.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 text-sm font-semibold text-slate-900">{org.name}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{org.type}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {orgTypeOptions.find((option) => option.value === org.type)?.label ?? org.type}
+                      </td>
                       <td className="px-6 py-4 text-sm text-slate-600">{org.city}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{org.contactName ?? "-"}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {org.contactName ? `${org.contactName} (${org.contactEmail ?? "-"})` : "-"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            org.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {org.active ? "Actief" : "Inactief"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => openEditOrgForm(org)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-sky-50 hover:text-sky-600"
+                            title="Bewerken"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            onClick={() => void handleDeleteOrg(org)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                            title="Verwijderen"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -526,87 +828,123 @@ const Settings: React.FC = () => {
             </table>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {activeTab === "products" && isAdmin && (
+      {activeTab === "products" && isAdmin ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-900">Producten</h3>
-            {isSupabase && (
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Producten</h3>
+              <p className="text-sm text-slate-500">
+                Verwijderen maakt producten inactief zodat bestaande orders en voorraadkoppelingen leesbaar blijven.
+              </p>
+            </div>
+            {isSupabase ? (
               <button
-                onClick={() => setShowAddProduct(true)}
+                onClick={openAddProductForm}
                 className="flex items-center rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
               >
                 <Package size={16} className="mr-2" />
                 Product toevoegen
               </button>
-            )}
+            ) : null}
           </div>
 
-          {showAddProduct && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-              <h4 className="font-bold text-slate-800">Nieuw product</h4>
-              {productError && <p className="text-sm text-rose-600">{productError}</p>}
+          {productNotice ? <p className="text-sm text-emerald-600">{productNotice}</p> : null}
+          {productError ? <p className="text-sm text-rose-600">{productError}</p> : null}
+
+          {showProductForm ? (
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h4 className="font-bold text-slate-800">{editingProductId ? "Product bewerken" : "Nieuw product"}</h4>
               <div className="grid gap-3 md:grid-cols-2">
                 <input
-                  value={newProduct.name}
-                  onChange={(e) => setNewProduct((p) => ({ ...p, name: e.target.value }))}
+                  value={productForm.name}
+                  onChange={(event) => setProductForm((prev) => ({ ...prev, name: event.target.value }))}
                   placeholder="Productnaam"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
                 <input
-                  value={newProduct.sku}
-                  onChange={(e) => setNewProduct((p) => ({ ...p, sku: e.target.value }))}
+                  value={productForm.sku}
+                  onChange={(event) => setProductForm((prev) => ({ ...prev, sku: event.target.value }))}
                   placeholder="SKU"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
                 <select
-                  value={newProduct.category}
-                  onChange={(e) => setNewProduct((p) => ({ ...p, category: e.target.value }))}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  value={productForm.category}
+                  onChange={(event) => setProductForm((prev) => ({ ...prev, category: event.target.value }))}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 >
-                  <option value="laptop">Laptop</option>
-                  <option value="accessory">Accessoire</option>
-                  <option value="service">Service</option>
+                  {productCategoryOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
                 <input
-                  value={newProduct.specificationSummary}
-                  onChange={(e) => setNewProduct((p) => ({ ...p, specificationSummary: e.target.value }))}
+                  value={productForm.specificationSummary}
+                  onChange={(event) => setProductForm((prev) => ({ ...prev, specificationSummary: event.target.value }))}
                   placeholder="Specificaties (komma-gescheiden)"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
                 <input
                   type="number"
                   min={0}
-                  value={newProduct.stockOnHand}
-                  onChange={(e) => setNewProduct((p) => ({ ...p, stockOnHand: Number(e.target.value) }))}
+                  value={productForm.stockOnHand}
+                  onChange={(event) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      stockOnHand: Math.max(0, Number(event.target.value) || 0),
+                    }))
+                  }
                   placeholder="Voorraad"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
+                <input
+                  type="number"
+                  min={0}
+                  value={productForm.stockReserved}
+                  onChange={(event) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      stockReserved: Math.max(0, Number(event.target.value) || 0),
+                    }))
+                  }
+                  placeholder="Gereserveerd"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                />
+                <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={productForm.active}
+                    onChange={(event) => setProductForm((prev) => ({ ...prev, active: event.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 text-digidromen-primary focus:ring-digidromen-primary"
+                  />
+                  Actief
+                </label>
               </div>
               <textarea
-                value={newProduct.description}
-                onChange={(e) => setNewProduct((p) => ({ ...p, description: e.target.value }))}
+                value={productForm.description}
+                onChange={(event) => setProductForm((prev) => ({ ...prev, description: event.target.value }))}
                 placeholder="Beschrijving"
                 rows={3}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 ring-digidromen-primary"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
               />
               <div className="flex gap-3">
                 <button
-                  onClick={() => void handleAddProduct()}
+                  onClick={() => void handleSaveProduct()}
                   className="rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
                 >
-                  Aanmaken
+                  {editingProductId ? "Opslaan" : "Aanmaken"}
                 </button>
                 <button
-                  onClick={() => { setShowAddProduct(false); setProductError(null); }}
+                  onClick={closeProductForm}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
                 >
                   Annuleren
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
 
           <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
             <table className="min-w-full divide-y divide-slate-200">
@@ -617,19 +955,54 @@ const Settings: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Categorie</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Voorraad</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Gereserveerd</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Acties</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {products.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">Geen producten.</td></tr>
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-sm text-slate-400">
+                      Geen producten.
+                    </td>
+                  </tr>
                 ) : (
-                  products.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">{p.name}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{p.sku}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{p.category}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{p.stockOnHand}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{p.stockReserved}</td>
+                  products.map((product) => (
+                    <tr key={product.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">{product.name}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{product.sku}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {productCategoryOptions.find((option) => option.value === product.category)?.label ?? product.category}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{product.stockOnHand}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{product.stockReserved}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${
+                            product.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {product.active ? "Actief" : "Inactief"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => openEditProductForm(product)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-sky-50 hover:text-sky-600"
+                            title="Bewerken"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            onClick={() => void handleDeleteProduct(product)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                            title="Verwijderen"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -637,7 +1010,7 @@ const Settings: React.FC = () => {
             </table>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

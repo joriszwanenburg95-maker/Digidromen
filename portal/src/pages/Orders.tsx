@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, ShoppingCart, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, Laptop, ShoppingCart } from "lucide-react";
 
-import ProductCatalog from "../components/ProductCatalog";
 import { formatDate, portalStore, statusClasses, usePortalContext } from "../lib/portal";
 import type { Product } from "../types";
 
@@ -10,8 +9,9 @@ const Orders: React.FC = () => {
   const navigate = useNavigate();
   const { snapshot, viewer, user, orders } = usePortalContext();
   const [showNewOrder, setShowNewOrder] = useState(false);
-  const [cart, setCart] = useState<Array<{ product: Product; quantity: number }>>([]);
   const [orderComplete, setOrderComplete] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
   const [priority, setPriority] = useState<"laag" | "normaal" | "hoog" | "spoed">("normaal");
   const [preferredDeliveryDate, setPreferredDeliveryDate] = useState("");
   const [motivation, setMotivation] = useState("");
@@ -20,62 +20,46 @@ const Orders: React.FC = () => {
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
 
-  const products = useMemo(
+  const laptop = useMemo(
     () =>
-      (Object.values(snapshot.data.products) as Product[]).sort((left, right) =>
-        left.name.localeCompare(right.name),
-      ),
+      (Object.values(snapshot.data.products) as Product[])
+        .filter((product: Product & { active?: boolean; category?: string }) => product.active !== false && product.category === "laptop")
+        .sort((left, right) => left.name.localeCompare(right.name))[0],
     [snapshot.data.products],
   );
-
-  const addToCart = (product: Product, quantity: number) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item,
-        );
-      }
-      return [...prev, { product, quantity }];
-    });
-  };
-
-  const removeFromCart = (id: string) => {
-    setCart((prev) => prev.filter((item) => item.product.id !== id));
-  };
+  const laptopProductId = laptop?.id ?? "product-laptop";
 
   const submitOrder = async () => {
-    if (!user || cart.length === 0 || !motivation.trim()) {
+    setOrderError(null);
+    if (!user || quantity <= 0 || !motivation.trim()) {
       return;
     }
 
-    const created = await portalStore.createOrder({
-      organizationId: viewer.organizationId,
-      requesterUserId: user.id,
-      servicePartnerOrganizationId: undefined,
-      priority,
-      preferredDeliveryDate,
-      motivation: motivation.trim(),
-      shippingAddress: {
-        contactName,
-        street,
-        postalCode,
-        city,
-        country: "NL",
-      },
-      lineItems: cart.map((item) => ({
-        productId: item.product.id,
-        quantity: item.quantity,
-        accessoryProductIds: [],
-      })),
-    });
+    try {
+      const created = await portalStore.createOrder({
+        organizationId: viewer.organizationId,
+        requesterUserId: user.id,
+        servicePartnerOrganizationId: undefined,
+        priority,
+        preferredDeliveryDate,
+        motivation: motivation.trim(),
+        shippingAddress: {
+          contactName,
+          street,
+          postalCode,
+          city,
+          country: "NL",
+        },
+        lineItems: [{ productId: laptopProductId, quantity, accessoryProductIds: [] }],
+      });
 
-    setOrderComplete(created.id);
-    setCart([]);
-    setMotivation("");
-    setShowNewOrder(false);
+      setOrderComplete(created.id);
+      setQuantity(1);
+      setMotivation("");
+      setShowNewOrder(false);
+    } catch (error: any) {
+      setOrderError(error.message ?? "Bestelling kon niet worden aangemaakt.");
+    }
   };
 
   if (orderComplete) {
@@ -110,40 +94,62 @@ const Orders: React.FC = () => {
 
         <div className="grid gap-8 lg:grid-cols-[1.7fr_1fr]">
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-6 text-lg font-bold text-slate-900">Productcatalogus</h3>
-            <ProductCatalog products={products} onAdd={addToCart} />
+            <h3 className="mb-6 text-lg font-bold text-slate-900">Laptopaanvraag</h3>
+            <div className="rounded-2xl bg-slate-50 p-5">
+              <div className="flex items-start gap-4">
+                <div className="rounded-2xl bg-white p-3 shadow-sm">
+                  <Laptop size={22} className="text-digidromen-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-lg font-bold text-slate-900">Laptop</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Digidromen werkt in deze portal met een enkele laptopvoorraad. Productkeuze is daarom niet meer nodig.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Beschikbaar</p>
+                      <p className="mt-1 text-lg font-bold text-slate-900">{laptop?.availableQuantity ?? 0}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Gereserveerd</p>
+                      <p className="mt-1 text-lg font-bold text-slate-900">{laptop ? Math.max(0, (laptop as any).stockReserved ?? 0) : 0}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</p>
+                      <p className={`mt-1 inline-flex rounded-full px-3 py-1 text-xs font-bold ${laptop ? statusClasses(laptop.stockBadge) : statusClasses("out_of_stock")}`}>
+                        {laptop?.stockBadge ?? "out_of_stock"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
+              Elke aanvraag reserveert een aantal laptops uit dezelfde centrale voorraad. De servicepartner ziet daarna direct de bijgewerkte aantallen in het voorraadscherm.
+            </div>
           </div>
 
           <div className="space-y-6">
             <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               <h3 className="mb-4 flex items-center text-lg font-bold text-slate-900">
                 <ShoppingCart size={18} className="mr-2" />
-                Selectie
+                Aanvraaggegevens
               </h3>
-              <div className="space-y-3">
-                {cart.length === 0 ? (
-                  <p className="text-sm text-slate-500">Nog geen producten geselecteerd.</p>
-                ) : (
-                  cart.map((item) => (
-                    <div key={item.product.id} className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{item.product.name}</p>
-                        <p className="text-xs text-slate-500">{item.quantity}x</p>
-                      </div>
-                      <button
-                        onClick={() => removeFromCart(item.product.id)}
-                        className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-rose-500"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               <div className="space-y-4">
+                {orderError ? <p className="text-sm text-rose-600">{orderError}</p> : null}
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Aantal laptops
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={quantity}
+                    onChange={(event) => setQuantity(Math.max(1, Number(event.target.value) || 1))}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  />
+                </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Prioriteit
@@ -214,7 +220,7 @@ const Orders: React.FC = () => {
                   onClick={() => {
                     void submitOrder();
                   }}
-                  disabled={cart.length === 0 || !motivation.trim()}
+                  disabled={quantity <= 0 || !motivation.trim()}
                   className="w-full rounded-xl bg-digidromen-primary px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   Bestelling indienen
@@ -249,7 +255,7 @@ const Orders: React.FC = () => {
           <thead className="bg-slate-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Order</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Organisatie</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Klant</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Prioriteit</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Leverdatum</th>
@@ -268,7 +274,7 @@ const Orders: React.FC = () => {
                 <tr key={order.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 text-sm font-semibold text-sky-700">{order.id}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">
-                    {snapshot.data.organizations[order.organizationId]?.name}
+                    {snapshot.data.organizations[order.organizationId]?.name ?? "Onbekende organisatie"}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(order.status)}`}>

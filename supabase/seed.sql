@@ -35,16 +35,12 @@ insert into public.user_profiles (id, auth_user_id, organization_id, role, name,
   ('user-joris-eyeti', null, 'org-digidromen', 'digidromen_admin', 'Joris Zwanenburg', 'joris.zwanenburg@eyeti.nl', 'Platform beheer', 'JZ');
 
 insert into public.products (id, sku, name, category, description, stock_on_hand, stock_reserved, specification_summary, active) values
-  ('product-dell-14', 'LAT-14-EDU', 'Dell Latitude 14 Education', 'laptop', 'Refurbished Dell laptop voor onderwijsgebruik.', 24, 4, '{"14 inch","i5","8GB","256GB SSD"}', true),
-  ('product-lenovo-13', 'TP-13-REF', 'Lenovo ThinkPad 13 Refurb', 'laptop', 'Compacte refurbished laptop.', 7, 3, '{"13 inch","i5","8GB","256GB SSD"}', true),
-  ('product-sleeve-14', 'ACC-SLV-14', 'Laptop Sleeve 14 inch', 'accessory', 'Beschermhoes voor uitlevering.', 42, 5, '{"14 inch","grijs vilt"}', true),
-  ('product-mouse', 'ACC-MSE-WL', 'Wireless Mouse', 'accessory', 'Draadloze muis voor accessoirevervanging.', 31, 2, '{"2.4GHz","USB dongle"}', true);
+  ('product-laptop', 'LAPTOP-CANONICAL', 'Laptop', 'laptop', 'Geaggregeerde laptopvoorraad voor uitlevering en service.', 34, 3, '{"Laptop"}', true);
 
-insert into public.inventory_items (id, product_id, serial_number, warehouse_location, condition, quantity, available_quantity, last_mutation_at) values
-  ('inventory-dell-bulk', 'product-dell-14', null, 'Tilburg-A1', 'refurbished', 24, 24, '2026-03-09T16:00:00.000Z'),
-  ('inventory-lenovo-bulk', 'product-lenovo-13', null, 'Tilburg-A2', 'reserved', 10, 7, '2026-03-09T15:30:00.000Z'),
-  ('inventory-mouse-bulk', 'product-mouse', null, 'Tilburg-C3', 'new', 31, 31, '2026-03-08T11:50:00.000Z'),
-  ('inventory-repair-tp13002', 'product-lenovo-13', 'TP-13002', 'Tilburg-Repair', 'in_repair', 1, 0, '2026-03-09T08:25:00.000Z');
+insert into public.inventory_items (id, product_id, serial_number, warehouse_location, condition, quantity, available_quantity, incoming_quantity, incoming_eta, last_mutation_at) values
+  ('inventory-laptop-a1', 'product-laptop', null, 'Tilburg-A1', 'refurbished', 24, 20, 4, '2026-03-18', '2026-03-09T16:00:00.000Z'),
+  ('inventory-laptop-buffer', 'product-laptop', null, 'Tilburg-Buffer', 'reserved', 10, 7, 2, '2026-03-20', '2026-03-09T15:30:00.000Z'),
+  ('inventory-laptop-repair', 'product-laptop', null, 'Tilburg-Repair', 'in_repair', 0, 0, 0, null, '2026-03-09T08:25:00.000Z');
 
 insert into public.orders (id, organization_id, requester_user_id, status, priority, preferred_delivery_date, requested_at, motivation, delivery_address, stock_badge, assigned_service_partner_id, crm_case_id) values
   ('order-1001', 'org-help-amsterdam', 'user-help-amsterdam', 'IN_BEHANDELING', 'high', '2026-03-17', '2026-03-02T08:30:00.000Z', 'Nieuwe uitgifte voor vijf brugklasleerlingen.', 'Wibautstraat 101, 1091 GL Amsterdam', 'limited', 'org-servicepartner', null),
@@ -52,9 +48,9 @@ insert into public.orders (id, organization_id, requester_user_id, status, prior
   ('order-1003', 'org-help-eindhoven', 'user-help-eindhoven', 'VERZONDEN', 'normal', '2026-03-08', '2026-03-01T15:10:00.000Z', 'Aanvulling voor drie leerlingen in bovenbouw.', 'Kanaaldijk 4, 5611 AC Eindhoven', 'in_stock', 'org-servicepartner', null);
 
 insert into public.order_lines (id, order_id, product_id, quantity) values
-  ('orderline-1001-1', 'order-1001', 'product-dell-14', 5),
-  ('orderline-1002-1', 'order-1002', 'product-lenovo-13', 2),
-  ('orderline-1003-1', 'order-1003', 'product-dell-14', 3);
+  ('orderline-1001-1', 'order-1001', 'product-laptop', 5),
+  ('orderline-1002-1', 'order-1002', 'product-laptop', 2),
+  ('orderline-1003-1', 'order-1003', 'product-laptop', 3);
 
 insert into public.repair_cases (id, organization_id, requester_user_id, status, subtype, serial_number, issue_type, notes, photo_placeholder_count, received_at, assigned_service_partner_id) values
   ('repair-2001', 'org-help-amsterdam', 'user-help-amsterdam', 'DIAGNOSE', 'GENERAL_REPAIR', 'DL-14002', 'battery', 'Laptop valt na 20 minuten uit.', 2, '2026-03-06T09:15:00.000Z', 'org-servicepartner'),

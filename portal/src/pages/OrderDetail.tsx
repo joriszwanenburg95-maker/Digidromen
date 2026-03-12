@@ -141,8 +141,8 @@ const OrderDetail: React.FC = () => {
                 <p className="mt-1 text-sm font-semibold text-slate-800">{order.lineItems.length}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Hulporganisatie</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{organization?.name}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Klant</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{organization?.name ?? "Onbekende organisatie"}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">CRM referentie</p>
@@ -166,7 +166,7 @@ const OrderDetail: React.FC = () => {
                         <Package size={18} className="text-slate-400" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-900">{product?.name}</p>
+                        <p className="text-sm font-semibold text-slate-900">Laptop</p>
                         <p className="text-xs text-slate-500">{item.quantity} exemplaren</p>
                       </div>
                     </div>

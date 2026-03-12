@@ -138,7 +138,7 @@ const DonationDetail: React.FC = () => {
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Donor</p>
-                <p className="mt-1 text-sm font-semibold text-gray-800">{donor?.name}</p>
+                <p className="mt-1 text-sm font-semibold text-gray-800">{donor?.name ?? "Onbekende donor"}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Toegezegde devices</p>

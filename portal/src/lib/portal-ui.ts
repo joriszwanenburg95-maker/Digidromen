@@ -1,7 +1,7 @@
 import type { Role } from "../types";
 
 export const roleLabels: Record<Role, string> = {
-  help_org: "Hulporganisatie",
+  help_org: "Klant",
   digidromen_staff: "Digidromen Medewerker",
   digidromen_admin: "Digidromen Beheerder",
   service_partner: "Servicepartner",

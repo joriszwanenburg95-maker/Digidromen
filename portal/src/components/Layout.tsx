@@ -72,7 +72,7 @@ const sidebarLinks = [
 ];
 
 const roleLabels: Record<Role, string> = {
-  help_org: "Hulporganisatie",
+  help_org: "Klant",
   digidromen_staff: "Medewerker",
   digidromen_admin: "Beheerder",
   service_partner: "Servicepartner",

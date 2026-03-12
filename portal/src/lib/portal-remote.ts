@@ -23,6 +23,33 @@ export interface RemoteViewer {
   email: string;
 }
 
+export interface InventoryImportRow {
+  location: string;
+  availableQuantity: number;
+  reservedQuantity: number;
+  incomingQuantity: number;
+  incomingEta?: string;
+}
+
+const DEFAULT_LAPTOP_PRODUCT_ID = "product-laptop";
+const DEFAULT_LAPTOP_PRODUCT_SKU = "LAPTOP-CANONICAL";
+
+function normalizePriority(priority?: string) {
+  if (priority === "laag") {
+    return "low";
+  }
+  if (priority === "hoog") {
+    return "high";
+  }
+  if (priority === "spoed") {
+    return "urgent";
+  }
+  if (priority === "normal" || priority === "low" || priority === "high" || priority === "urgent") {
+    return priority;
+  }
+  return "normal";
+}
+
 function toRecord<T extends { id: string }>(items: T[]): Record<string, T> {
   return items.reduce<Record<string, T>>((acc, item) => {
     acc[item.id] = item;
@@ -48,6 +75,246 @@ function assertNoError(result: { error: { message: string } | null }) {
   if (result.error) {
     throw new Error(result.error.message);
   }
+}
+
+function normalizeDate(value?: string) {
+  if (!value) {
+    return null;
+  }
+  return value.slice(0, 10);
+}
+
+async function ensureLaptopProductExists(): Promise<string> {
+  const supabase = getSupabaseClient();
+  const existing = await supabase
+    .from("products")
+    .select("id")
+    .eq("id", DEFAULT_LAPTOP_PRODUCT_ID)
+    .maybeSingle();
+  assertNoError(existing);
+
+  if (existing.data) {
+    return DEFAULT_LAPTOP_PRODUCT_ID;
+  }
+
+  const insertResult = await supabase.from("products").insert({
+    id: DEFAULT_LAPTOP_PRODUCT_ID,
+    sku: DEFAULT_LAPTOP_PRODUCT_SKU,
+    name: "Laptop",
+    category: "laptop",
+    description: "Geaggregeerde laptopvoorraad voor uitlevering en service.",
+    stock_on_hand: 0,
+    stock_reserved: 0,
+    specification_summary: ["Laptop"],
+    active: true,
+  });
+  assertNoError(insertResult);
+
+  return DEFAULT_LAPTOP_PRODUCT_ID;
+}
+
+async function fetchBulkInventoryRows(productId: string) {
+  const supabase = getSupabaseClient();
+  const result = await supabase
+    .from("inventory_items")
+    .select("*")
+    .eq("product_id", productId)
+    .is("serial_number", null)
+    .order("warehouse_location");
+  assertNoError(result);
+  return result.data ?? [];
+}
+
+async function updateInventoryRow(id: string, payload: Record<string, unknown>) {
+  const supabase = getSupabaseClient();
+  const result = await supabase.from("inventory_items").update(payload).eq("id", id);
+  assertNoError(result);
+}
+
+async function syncLaptopProductStock(productId: string) {
+  const rows = await fetchBulkInventoryRows(productId);
+  const stockOnHand = rows.reduce((sum, row) => sum + Number(row.quantity ?? 0), 0);
+  const stockReserved = rows.reduce(
+    (sum, row) => sum + Math.max(0, Number(row.quantity ?? 0) - Number(row.available_quantity ?? 0)),
+    0,
+  );
+
+  const supabase = getSupabaseClient();
+  const result = await supabase
+    .from("products")
+    .update({
+      stock_on_hand: stockOnHand,
+      stock_reserved: stockReserved,
+      active: true,
+      category: "laptop",
+      name: "Laptop",
+      sku: DEFAULT_LAPTOP_PRODUCT_SKU,
+    })
+    .eq("id", productId);
+  assertNoError(result);
+}
+
+async function reserveLaptopInventory(productId: string, quantity: number) {
+  let remaining = quantity;
+  const rows = await fetchBulkInventoryRows(productId);
+
+  for (const row of rows) {
+    if (remaining <= 0) {
+      break;
+    }
+    const available = Number(row.available_quantity ?? 0);
+    const reserveDelta = Math.min(available, remaining);
+    if (reserveDelta <= 0) {
+      continue;
+    }
+    await updateInventoryRow(row.id, {
+      available_quantity: Math.max(0, available - reserveDelta),
+      last_mutation_at: new Date().toISOString(),
+    });
+    remaining -= reserveDelta;
+  }
+
+  await syncLaptopProductStock(productId);
+}
+
+async function releaseLaptopInventory(productId: string, quantity: number) {
+  let remaining = quantity;
+  const rows = await fetchBulkInventoryRows(productId);
+
+  for (const row of rows) {
+    if (remaining <= 0) {
+      break;
+    }
+    const total = Number(row.quantity ?? 0);
+    const available = Number(row.available_quantity ?? 0);
+    const reserved = Math.max(0, total - available);
+    const releaseDelta = Math.min(reserved, remaining);
+    if (releaseDelta <= 0) {
+      continue;
+    }
+    await updateInventoryRow(row.id, {
+      available_quantity: Math.min(total, available + releaseDelta),
+      last_mutation_at: new Date().toISOString(),
+    });
+    remaining -= releaseDelta;
+  }
+
+  await syncLaptopProductStock(productId);
+}
+
+async function shipLaptopInventory(productId: string, quantity: number) {
+  let remaining = quantity;
+  const rows = await fetchBulkInventoryRows(productId);
+
+  for (const row of rows) {
+    if (remaining <= 0) {
+      break;
+    }
+    const total = Number(row.quantity ?? 0);
+    const available = Number(row.available_quantity ?? 0);
+    const reserved = Math.max(0, total - available);
+    const consumeReserved = Math.min(reserved, remaining);
+    const consumeAvailable = Math.min(Math.max(0, remaining - consumeReserved), available);
+    const totalConsumed = consumeReserved + consumeAvailable;
+
+    if (totalConsumed <= 0) {
+      continue;
+    }
+
+    await updateInventoryRow(row.id, {
+      quantity: Math.max(0, total - totalConsumed),
+      available_quantity: Math.max(0, available - consumeAvailable),
+      last_mutation_at: new Date().toISOString(),
+    });
+    remaining -= totalConsumed;
+  }
+
+  await syncLaptopProductStock(productId);
+}
+
+async function reconcileRemoteOrderInventory(orderId: string, previousStatus: OrderStatus, nextStatus: OrderStatus) {
+  const supabase = getSupabaseClient();
+  const linesResult = await supabase
+    .from("order_lines")
+    .select("product_id, quantity")
+    .eq("order_id", orderId);
+  assertNoError(linesResult);
+
+  const quantity = (linesResult.data ?? []).reduce((sum, line) => sum + Number(line.quantity ?? 0), 0);
+  if (quantity <= 0) {
+    return;
+  }
+
+  const productId = DEFAULT_LAPTOP_PRODUCT_ID;
+  await ensureLaptopProductExists();
+
+  if (nextStatus === "IN_VOORBEREIDING" && previousStatus !== "IN_VOORBEREIDING") {
+    await reserveLaptopInventory(productId, quantity);
+    return;
+  }
+
+  if (nextStatus === "GEANNULEERD") {
+    await releaseLaptopInventory(productId, quantity);
+    return;
+  }
+
+  if ((nextStatus === "VERZONDEN" || nextStatus === "GELEVERD") && previousStatus !== "VERZONDEN") {
+    await shipLaptopInventory(productId, quantity);
+  }
+}
+
+async function upsertInventoryImportRows(productId: string, rows: InventoryImportRow[]) {
+  const supabase = getSupabaseClient();
+  const existingRows = await fetchBulkInventoryRows(productId);
+  const existingByLocation = new Map(existingRows.map((row) => [String(row.warehouse_location).toLowerCase(), row]));
+  const importedLocations = new Set<string>();
+
+  for (const row of rows) {
+    const location = row.location.trim();
+    if (!location) {
+      continue;
+    }
+
+    const key = location.toLowerCase();
+    importedLocations.add(key);
+    const quantity = Math.max(0, row.availableQuantity + row.reservedQuantity);
+    const payload = {
+      product_id: productId,
+      serial_number: null,
+      warehouse_location: location,
+      condition: row.reservedQuantity > 0 && row.availableQuantity === 0 ? "reserved" : "refurbished",
+      quantity,
+      available_quantity: Math.max(0, row.availableQuantity),
+      incoming_quantity: Math.max(0, row.incomingQuantity),
+      incoming_eta: normalizeDate(row.incomingEta),
+      assigned_order_id: null,
+      last_mutation_at: new Date().toISOString(),
+    };
+
+    const existing = existingByLocation.get(key);
+    if (existing) {
+      await updateInventoryRow(existing.id, payload);
+    } else {
+      const insertResult = await supabase.from("inventory_items").insert({
+        id: makeId("inventory"),
+        ...payload,
+      });
+      assertNoError(insertResult);
+    }
+  }
+
+  const rowsToDelete = existingRows.filter(
+    (row) => !importedLocations.has(String(row.warehouse_location).toLowerCase()),
+  );
+  if (rowsToDelete.length > 0) {
+    const deleteResult = await supabase
+      .from("inventory_items")
+      .delete()
+      .in("id", rowsToDelete.map((row) => row.id));
+    assertNoError(deleteResult);
+  }
+
+  await syncLaptopProductStock(productId);
 }
 
 export async function fetchRemoteViewer(): Promise<RemoteViewer | null> {
@@ -186,9 +453,9 @@ export async function loadRemotePortalData(): Promise<PortalData> {
     (productsResult.data ?? []).map((item) => ({
       id: item.id,
       sku: item.sku,
-      name: item.name,
+      name: item.category === "laptop" ? "Laptop" : item.name,
       category: item.category,
-      description: item.description,
+      description: item.category === "laptop" ? "Laptopvoorraad voor uitlevering en service." : item.description,
       stockOnHand: item.stock_on_hand,
       stockReserved: item.stock_reserved,
       specificationSummary: item.specification_summary ?? [],
@@ -206,6 +473,8 @@ export async function loadRemotePortalData(): Promise<PortalData> {
       condition: item.condition,
       quantity: item.quantity,
       availableQuantity: item.available_quantity,
+      incomingQuantity: item.incoming_quantity ?? 0,
+      incomingEta: item.incoming_eta ?? undefined,
       sourceDonationBatchId: item.source_donation_batch_id ?? undefined,
       assignedOrderId: item.assigned_order_id ?? undefined,
       lastMutationAt: item.last_mutation_at,
@@ -462,6 +731,7 @@ export async function createRemoteOrder(
   viewer: RemoteViewer,
 ) {
   const supabase = getSupabaseClient();
+  const productId = await ensureLaptopProductExists();
   const id = makeId("order");
   const now = new Date().toISOString();
   const orderResult = await supabase.from("orders").insert({
@@ -469,7 +739,7 @@ export async function createRemoteOrder(
     organization_id: input.organizationId,
     requester_user_id: input.requesterUserId,
     status: "INGEDIEND",
-    priority: input.priority ?? "normal",
+    priority: normalizePriority(input.priority),
     preferred_delivery_date: input.preferredDeliveryDate ?? null,
     requested_at: now,
     motivation: input.motivation,
@@ -484,7 +754,7 @@ export async function createRemoteOrder(
       input.lineItems.map((item) => ({
         id: makeId("orderline"),
         order_id: id,
-        product_id: item.productId,
+        product_id: productId,
         quantity: item.quantity,
       })),
     );
@@ -523,6 +793,7 @@ export async function createRemoteRepair(
   viewer: RemoteViewer,
 ) {
   const supabase = getSupabaseClient();
+  await ensureLaptopProductExists();
   const id = makeId("repair");
   const now = new Date().toISOString();
   const result = await supabase.from("repair_cases").insert({
@@ -622,8 +893,12 @@ export async function updateRemoteCaseStatus(
 ) {
   const supabase = getSupabaseClient();
   const now = new Date().toISOString();
+  let previousOrderStatus: OrderStatus | null = null;
 
   if (kind === "order") {
+    const previousOrderResult = await supabase.from("orders").select("status").eq("id", caseId).maybeSingle();
+    assertNoError(previousOrderResult);
+    previousOrderStatus = previousOrderResult.data?.status ?? null;
     const result = await supabase
       .from("orders")
       .update({ status: nextStatus, updated_at: now })
@@ -665,6 +940,10 @@ export async function updateRemoteCaseStatus(
     metadata: { actorUserId: viewer.userId },
   });
   assertNoError(workflowResult);
+
+  if (kind === "order" && previousOrderStatus) {
+    await reconcileRemoteOrderInventory(caseId, previousOrderStatus, nextStatus as OrderStatus);
+  }
 
   await addPreparedSyncJob(kind, caseId, kind, [`Status naar ${nextStatus}`]);
 }
@@ -723,11 +1002,14 @@ export async function createRemoteDocument(
 }
 
 export async function recordRemoteStockMutation(productId: string, delta: number) {
+  const resolvedProductId =
+    productId === DEFAULT_LAPTOP_PRODUCT_ID ? productId : await ensureLaptopProductExists();
   const supabase = getSupabaseClient();
   const inventoryResult = await supabase
     .from("inventory_items")
-    .select("id, quantity, available_quantity")
-    .eq("product_id", productId)
+    .select("*")
+    .eq("product_id", resolvedProductId)
+    .is("serial_number", null)
     .limit(1)
     .maybeSingle();
   assertNoError(inventoryResult);
@@ -739,10 +1021,16 @@ export async function recordRemoteStockMutation(productId: string, delta: number
   const result = await supabase
     .from("inventory_items")
     .update({
-      quantity: Math.max(0, inventoryResult.data.quantity + delta),
-      available_quantity: Math.max(0, inventoryResult.data.available_quantity + delta),
+      quantity: Math.max(0, Number(inventoryResult.data.quantity ?? 0) + delta),
+      available_quantity: Math.max(0, Number(inventoryResult.data.available_quantity ?? 0) + delta),
       last_mutation_at: new Date().toISOString(),
     })
     .eq("id", inventoryResult.data.id);
   assertNoError(result);
+  await syncLaptopProductStock(resolvedProductId);
+}
+
+export async function importRemoteInventory(rows: InventoryImportRow[]) {
+  const productId = await ensureLaptopProductExists();
+  await upsertInventoryImportRows(productId, rows);
 }

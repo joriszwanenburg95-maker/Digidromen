@@ -14,6 +14,8 @@ import { createPortalStore } from "../../../src/store/portal-store";
 import {
   createRemoteDocument,
   createRemoteDonation,
+  importRemoteInventory,
+  type InventoryImportRow,
   createRemoteMessage,
   createRemoteOrder,
   createRemoteRepair,
@@ -24,6 +26,7 @@ import {
 } from "./portal-remote";
 
 const baseStore = createPortalStore();
+const DEFAULT_LAPTOP_LABEL = "Laptop";
 
 type SubjectType = "order" | "repair" | "donation";
 
@@ -127,15 +130,33 @@ function normalizePriority(priority?: string): "low" | "normal" | "high" | "urge
   return "normal";
 }
 
+function getDefaultLocalLaptopProductId(requestedProductId?: string): string | undefined {
+  const products = Object.values(baseStore.getSnapshot().data.products);
+  if (requestedProductId && baseStore.getSnapshot().data.products[requestedProductId]) {
+    return requestedProductId;
+  }
+  return (
+    products.find((item) => item.category === "laptop" && item.active !== false)?.id ??
+    products.find((item) => item.active !== false)?.id ??
+    products[0]?.id
+  );
+}
+
 function buildLegacySnapshotFromRaw(rawData: PortalData, role: Role): LegacySnapshot {
   const raw = {
     data: rawData,
     activeRole: role,
   };
-  const firstProductId = Object.keys(raw.data.products)[0] ?? undefined;
+  const rawProducts = Object.values(raw.data.products);
+  const laptopProducts =
+    rawProducts.filter((item) => item.category === "laptop" && item.active !== false) ||
+    rawProducts;
+  const visibleProducts = laptopProducts.length > 0 ? laptopProducts : rawProducts;
+  const visibleProductIds = new Set(visibleProducts.map((item) => item.id));
+  const firstProductId = visibleProducts[0]?.id ?? Object.keys(raw.data.products)[0] ?? undefined;
 
   const products = Object.fromEntries(
-    Object.values(raw.data.products).map((item) => {
+    visibleProducts.map((item) => {
       const availableQuantity = Math.max(0, item.stockOnHand - item.stockReserved);
       const stockBadge =
         item.stockOnHand <= 0 ? "out_of_stock" : item.stockOnHand <= 10 ? "limited" : "in_stock";
@@ -143,6 +164,9 @@ function buildLegacySnapshotFromRaw(rawData: PortalData, role: Role): LegacySnap
         item.id,
         {
           ...item,
+          name: DEFAULT_LAPTOP_LABEL,
+          category: "laptop",
+          description: "Laptopvoorraad voor uitlevering en service.",
           brand: item.sku.split("-")[0]?.toUpperCase() ?? "NVT",
           specsSummary: item.specificationSummary.join(" | "),
           availableQuantity,
@@ -157,16 +181,19 @@ function buildLegacySnapshotFromRaw(rawData: PortalData, role: Role): LegacySnap
   );
 
   const inventoryItems = Object.fromEntries(
-    Object.values(raw.data.inventoryItems).map((item) => [
+    Object.values(raw.data.inventoryItems)
+      .filter((item) => visibleProductIds.has(item.productId))
+      .map((item) => [
       item.id,
       {
         ...item,
         locationName: item.warehouseLocation,
         reservedQuantity: Math.max(0, item.quantity - item.availableQuantity),
-        inTransitQuantity: 0,
+        inTransitQuantity: item.incomingQuantity ?? 0,
+        incomingEta: item.incomingEta,
         updatedAt: item.lastMutationAt,
       },
-    ]),
+      ]),
   );
 
   const orders = Object.fromEntries(
@@ -307,10 +334,10 @@ function buildLegacySnapshotFromRaw(rawData: PortalData, role: Role): LegacySnap
       failed: syncJobs.filter((item) => item.state === "failed").length,
     },
     lowStockProducts: Object.values(raw.data.products)
-      .filter((item) => item.stockOnHand <= 10)
+      .filter((item) => item.active !== false && item.category === "laptop" && item.stockOnHand <= 10)
       .map((item) => ({
         productId: item.id,
-        name: item.name,
+        name: "Laptopvoorraad",
         availableQuantity: Math.max(0, item.stockOnHand - item.stockReserved),
       })),
   };
@@ -411,11 +438,15 @@ export const portalStore = {
     if (!line) {
       throw new Error("Order vereist minimaal 1 orderregel.");
     }
+    const resolvedProductId = getDefaultLocalLaptopProductId(line.productId);
+    if (!resolvedProductId) {
+      throw new Error("Geen laptopproduct beschikbaar.");
+    }
     return baseStore.createOrder(
       {
         organizationId: input.organizationId,
         requesterUserId: input.requesterUserId,
-        productId: line.productId,
+        productId: resolvedProductId,
         quantity: line.quantity,
         preferredDeliveryDate: input.preferredDeliveryDate,
         motivation: input.motivation,
@@ -661,6 +692,15 @@ export const portalStore = {
   exportOrdersCsv: () => (remoteData ? exportOrdersCsv(remoteData) : baseStore.exportOrdersCsv()),
   exportRepairsCsv: () => (remoteData ? exportRepairsCsv(remoteData) : baseStore.exportRepairsCsv()),
   exportDonationsCsv: () => (remoteData ? exportDonationsCsv(remoteData) : baseStore.exportDonationsCsv()),
+  inventory: {
+    async importRows(rows: InventoryImportRow[]) {
+      if (!remoteViewer) {
+        throw new Error("Voorraadimport is alleen beschikbaar in de live portal.");
+      }
+      await importRemoteInventory(rows);
+      await refreshRemotePortal();
+    },
+  },
   crm: {
     async flushQueue() {
       if (remoteViewer) {
@@ -757,9 +797,14 @@ export const portalStore = {
         return;
       }
 
+      const resolvedProductId = getDefaultLocalLaptopProductId(input.productId);
+      if (!resolvedProductId) {
+        throw new Error("Geen laptopproduct beschikbaar.");
+      }
+
       return baseStore.servicePartner.recordStockMutation(
         {
-          productId: input.productId,
+          productId: resolvedProductId,
           delta: input.availableDelta ?? 0,
           reason: "donation_intake",
         },

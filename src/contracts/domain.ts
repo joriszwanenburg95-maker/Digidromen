@@ -95,6 +95,8 @@ export interface InventoryItem {
   condition: "new" | "refurbished" | "damaged" | "reserved" | "in_repair";
   quantity: number;
   availableQuantity: number;
+  incomingQuantity?: number;
+  incomingEta?: ISODateString;
   sourceDonationBatchId?: EntityId;
   assignedOrderId?: EntityId;
   lastMutationAt: ISODateString;

@@ -10,20 +10,20 @@ const Repairs: React.FC = () => {
   const [showNewRepair, setShowNewRepair] = useState(false);
   const [repairComplete, setRepairComplete] = useState<string | null>(null);
   const [serialNumber, setSerialNumber] = useState("");
-  const [productId, setProductId] = useState("");
   const [issueType, setIssueType] =
     useState<"hardware" | "software" | "battery" | "screen" | "accessoireprobleem" | "other">("hardware");
   const [notes, setNotes] = useState("");
 
-  const products = useMemo(
+  const laptopProduct = useMemo(
     () =>
       (Object.values(snapshot.data.products) as Array<{ id: string; name: string; category: string }>).filter(
-        (product) => product.category === "laptop",
-      ),
+        (product: { id: string; name: string; category: string; active?: boolean }) =>
+          product.category === "laptop" && product.active !== false,
+      )[0],
     [snapshot.data.products],
   );
 
-  const selectedProductId = productId || products[0]?.id;
+  const selectedProductId = laptopProduct?.id;
 
   const submitRepair = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -84,17 +84,9 @@ const Repairs: React.FC = () => {
               className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-orange-500 focus:ring-2"
               placeholder="Serienummer / asset ID"
             />
-            <select
-              value={selectedProductId}
-              onChange={(event) => setProductId(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-orange-500 focus:ring-2"
-            >
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+              Laptop
+            </div>
             <select
               value={issueType}
               onChange={(event) =>
@@ -182,7 +174,7 @@ const Repairs: React.FC = () => {
                 <tr key={repair.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 text-sm font-semibold text-orange-600">{repair.id}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">
-                    {snapshot.data.products[repair.productId]?.name}
+                    Laptop
                   </td>
                   <td className="px-6 py-4">
                     <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(repair.status)}`}>

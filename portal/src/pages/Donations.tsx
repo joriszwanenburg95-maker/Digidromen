@@ -21,7 +21,13 @@ const Donations: React.FC = () => {
 
   const donors = useMemo(
     () =>
-      Object.values(snapshot.data.organizations) as Array<{ id: string; name: string; kind?: string; type?: string }>,
+      (Object.values(snapshot.data.organizations) as Array<{
+        id: string;
+        name: string;
+        kind?: string;
+        type?: string;
+        active?: boolean;
+      }>).filter((organization) => organization.active !== false && organization.type === "sponsor"),
     [snapshot.data.organizations],
   );
 
@@ -202,7 +208,7 @@ const Donations: React.FC = () => {
                 <tr key={donation.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 text-sm font-semibold text-green-700">{donation.id}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">
-                    {snapshot.data.organizations[donation.donorOrganizationId]?.name}
+                    {snapshot.data.organizations[donation.donorOrganizationId]?.name ?? "Onbekende donor"}
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">{donation.deviceCount}</td>
                   <td className="px-6 py-4">
