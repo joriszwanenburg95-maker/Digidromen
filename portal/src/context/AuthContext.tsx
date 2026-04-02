@@ -2,8 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 import type { Role } from "../types";
 import { portalEnv } from "../lib/env";
-import { fetchRemoteViewer } from "../lib/portal-remote";
-import { clearRemotePortal, configureRemotePortal, portalStore, usePortalContext } from "../lib/portal";
 import { getSupabaseClient, supabase } from "../lib/supabase";
 
 interface AuthUser {
@@ -17,12 +15,13 @@ interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null;
   setRole: (role: Role) => void;
-  login: (email: string, password: string) => Promise<void>;
+  sendMagicLink: (email: string) => Promise<void>;
   logout: () => Promise<void>;
-  authMode: "demo" | "supabase";
+  authMode: "supabase";
   supabaseConfigured: boolean;
   loading: boolean;
   error: string | null;
+  magicLinkSent: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,14 +29,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const demoPortal = usePortalContext();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(portalEnv.isSupabaseConfigured);
   const [error, setError] = useState<string | null>(null);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
 
-  const authMode: "demo" | "supabase" = portalEnv.isSupabaseConfigured
-    ? "supabase"
-    : "demo";
+  const authMode = "supabase" as const;
 
   useEffect(() => {
     if (!portalEnv.isSupabaseConfigured || !supabase) {
@@ -49,41 +46,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const syncAuth = async () => {
       setLoading(true);
-      const viewer = await fetchRemoteViewer();
+      const sb = getSupabaseClient();
+      const { data: { user: authUser }, error: authErr } = await sb.auth.getUser();
 
-      if (cancelled) {
-        return;
-      }
+      if (cancelled) return;
 
-      if (!viewer) {
-        clearRemotePortal();
+      if (authErr) throw authErr;
+      if (!authUser) {
         setUser(null);
         setLoading(false);
         return;
       }
 
-      await configureRemotePortal(viewer);
+      const { data: profile } = await sb
+        .from("user_profiles")
+        .select("id, organization_id, role, name, email")
+        .eq("auth_user_id", authUser.id)
+        .maybeSingle();
 
-      if (cancelled) {
+      if (cancelled) return;
+
+      if (!profile) {
+        setUser(null);
+        setLoading(false);
         return;
       }
 
       setUser({
-        id: viewer.userId,
-        name: viewer.name,
-        role: viewer.role,
-        organizationId: viewer.organizationId,
-        email: viewer.email,
+        id: profile.id,
+        name: profile.name,
+        role: profile.role,
+        organizationId: profile.organization_id,
+        email: profile.email,
       });
       setLoading(false);
       setError(null);
     };
 
     syncAuth().catch((authError) => {
-      if (cancelled) {
-        return;
-      }
-      clearRemotePortal();
+      if (cancelled) return;
       setUser(null);
       setLoading(false);
       setError(authError instanceof Error ? authError.message : "Onbekende authfout");
@@ -93,7 +94,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       data: { subscription },
     } = getSupabaseClient().auth.onAuthStateChange(() => {
       syncAuth().catch((authError) => {
-        clearRemotePortal();
         setUser(null);
         setLoading(false);
         setError(authError instanceof Error ? authError.message : "Onbekende authfout");
@@ -106,66 +106,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  const setRole = (role: Role) => {
-    if (authMode === "demo") {
-      portalStore.setRole(role);
-    }
-  };
+  const setRole = (_role: Role) => {};
 
-  const login = async (email: string, password: string) => {
-    if (authMode === "demo") {
+  const sendMagicLink = async (email: string) => {
+    if (!portalEnv.isSupabaseConfigured) {
+      const envError = new Error("Supabase-configuratie ontbreekt.");
+      setError(envError.message);
+      throw envError;
+    }
+
+    if (!email.trim()) {
       return;
     }
 
     setLoading(true);
     setError(null);
-    const result = await getSupabaseClient().auth.signInWithPassword({
+    setMagicLinkSent(false);
+
+    const { error: otpError } = await getSupabaseClient().auth.signInWithOtp({
       email,
-      password,
+      options: {
+        emailRedirectTo: window.location.origin + "/dashboard",
+      },
     });
 
-    if (result.error) {
-      setLoading(false);
-      setError(result.error.message);
-      throw result.error;
+    setLoading(false);
+
+    if (otpError) {
+      setError(otpError.message);
+      throw otpError;
     }
+
+    setMagicLinkSent(true);
   };
 
   const logout = async () => {
-    if (authMode === "demo") {
-      portalStore.setRole("help_org");
-      return;
-    }
-
     await getSupabaseClient().auth.signOut();
-    clearRemotePortal();
     setUser(null);
   };
-
-  const effectiveUser =
-    authMode === "supabase"
-      ? user
-      : demoPortal.user
-        ? {
-            id: demoPortal.user.id,
-            name: demoPortal.user.fullName ?? demoPortal.user.name,
-            role: demoPortal.snapshot.role,
-            organizationId: demoPortal.viewer.organizationId,
-            email: demoPortal.user.email,
-          }
-        : null;
 
   return (
     <AuthContext.Provider
       value={{
-        user: effectiveUser,
+        user,
         setRole,
-        login,
+        sendMagicLink,
         logout,
         authMode,
         supabaseConfigured: portalEnv.isSupabaseConfigured,
         loading,
         error,
+        magicLinkSent,
       }}
     >
       {children}

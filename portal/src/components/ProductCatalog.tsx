@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { ShoppingCart, Plus, Minus, Search, Filter, Box, LayoutGrid, List } from "lucide-react";
 
 import type { Product } from "../types";
-import { statusClasses } from "../lib/portal";
+import { statusClasses } from "../lib/format";
 
 interface ProductCatalogProps {
   products: Product[];

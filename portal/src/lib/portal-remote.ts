@@ -298,7 +298,7 @@ async function upsertInventoryImportRows(productId: string, rows: InventoryImpor
       const insertResult = await supabase.from("inventory_items").insert({
         id: makeId("inventory"),
         ...payload,
-      });
+      } as any);
       assertNoError(insertResult);
     }
   }
@@ -497,7 +497,7 @@ export async function loadRemotePortalData(): Promise<PortalData> {
         productId: line.product_id,
         quantity: line.quantity,
       })),
-      stockBadge: item.stock_badge,
+      stockBadge: item.stock_badge as any,
       assignedServicePartnerId: item.assigned_service_partner_id ?? undefined,
       lastUpdatedAt: item.updated_at,
       workflowEventIds: [],
@@ -563,13 +563,13 @@ export async function loadRemotePortalData(): Promise<PortalData> {
       id: item.id,
       caseType: item.case_type,
       caseId: item.case_id,
-      status: item.status,
+      status: item.status as any,
       title: item.title,
       description: item.description,
       createdAt: item.created_at,
-      actorRole: item.actor_role,
+      actorRole: item.actor_role as any,
       actorName: item.actor_name,
-      metadata: item.metadata ?? undefined,
+      metadata: item.metadata as any,
     })),
   );
 
@@ -579,7 +579,7 @@ export async function loadRemotePortalData(): Promise<PortalData> {
       caseType: item.case_type,
       caseId: item.case_id,
       authorUserId: item.author_user_id ?? undefined,
-      authorRole: item.author_role,
+      authorRole: item.author_role as any,
       authorName: item.author_name,
       kind: item.kind,
       body: item.body,
@@ -600,8 +600,8 @@ export async function loadRemotePortalData(): Promise<PortalData> {
       uploadedAt: item.uploaded_at,
       uploadedByUserId: item.uploaded_by_user_id ?? undefined,
       uploadedByName: item.uploaded_by_name,
-      kind: item.kind,
-      storageMode: item.storage_mode,
+      kind: item.kind as any,
+      storageMode: item.storage_mode as "metadata_only" | "crm_reference",
       crmDocumentId: item.crm_document_id ?? undefined,
       notes: item.notes ?? undefined,
     })),
@@ -901,14 +901,14 @@ export async function updateRemoteCaseStatus(
     previousOrderStatus = previousOrderResult.data?.status ?? null;
     const result = await supabase
       .from("orders")
-      .update({ status: nextStatus, updated_at: now })
+      .update({ status: nextStatus as any, updated_at: now })
       .eq("id", caseId);
     assertNoError(result);
   } else if (kind === "repair") {
     const result = await supabase
       .from("repair_cases")
       .update({
-        status: nextStatus,
+        status: nextStatus as any,
         replacement_offered: extra?.replacementOffered ?? undefined,
         updated_at: now,
       })
@@ -918,7 +918,7 @@ export async function updateRemoteCaseStatus(
     const result = await supabase
       .from("donation_batches")
       .update({
-        status: nextStatus,
+        status: nextStatus as any,
         refurbish_ready_count: extra?.refurbishableCount ?? undefined,
         rejected_count: extra?.rejectedCount ?? undefined,
         updated_at: now,

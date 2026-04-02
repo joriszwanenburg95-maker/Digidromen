@@ -1,11 +1,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+import type { Database } from "../types/database";
 import { portalEnv } from "./env";
 
-let client: SupabaseClient | null = null;
+let client: SupabaseClient<Database> | null = null;
 
 if (portalEnv.isSupabaseConfigured) {
-  client = createClient(portalEnv.supabaseUrl, portalEnv.supabaseAnonKey, {
+  client = createClient<Database>(portalEnv.supabaseUrl, portalEnv.supabaseKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
@@ -16,10 +17,10 @@ if (portalEnv.isSupabaseConfigured) {
 
 export const supabase = client;
 
-export function getSupabaseClient(): SupabaseClient {
+export function getSupabaseClient(): SupabaseClient<Database> {
   if (!supabase) {
     throw new Error(
-      "Supabase client is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to portal/.env.local.",
+      "Supabase client is not configured. Add VITE_SUPABASE_URL and either VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY to portal/.env.local.",
     );
   }
 

@@ -1,25 +1,14 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 
 const Login: React.FC = () => {
-  const navigate = useNavigate();
-  const { authMode, error, loading, login, setRole, supabaseConfigured } = useAuth();
+  const { error, loading, magicLinkSent, sendMagicLink, supabaseConfigured } = useAuth();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-
-    if (authMode === "demo") {
-      setRole("digidromen_admin");
-      navigate("/dashboard");
-      return;
-    }
-
-    await login(email, password);
-    // Navigation happens automatically via LoginRoute's redirect when auth state updates
+    await sendMagicLink(email);
   };
 
   return (
@@ -31,7 +20,7 @@ const Login: React.FC = () => {
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-digidromen-primary">
-            {authMode === "supabase" ? "Live Portal" : "Demo Mode"}
+            Live Portal
           </p>
           <h1 className="mt-4 max-w-md text-4xl font-extrabold leading-[1.1] text-white">
             Ieder kind verdient
@@ -69,46 +58,48 @@ const Login: React.FC = () => {
             Inloggen
           </h2>
           <p className="mt-2 text-sm text-digidromen-dark/50">
-            {authMode === "supabase"
-              ? "Log in met je account om de portal te openen."
-              : "Supabase is nog niet actief — de portal draait in demo-modus."}
+            Voer je e-mailadres in en ontvang een login-link.
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-digidromen-dark/40">
-                E-mailadres
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-xl border border-digidromen-cream bg-white p-3.5 text-sm text-digidromen-dark outline-none transition-colors focus:border-digidromen-primary focus:ring-2 focus:ring-digidromen-primary/20"
-                placeholder="naam@organisatie.nl"
-                disabled={authMode !== "supabase"}
-              />
+          {magicLinkSent ? (
+            <div className="mt-8 rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-5">
+              <p className="text-sm font-semibold text-emerald-800">Login link verstuurd</p>
+              <p className="mt-1 text-sm text-emerald-700">
+                Check je inbox op <span className="font-medium">{email}</span> en klik op de link om in te loggen.
+              </p>
+              <button
+                type="button"
+                onClick={() => setEmail("")}
+                className="mt-3 text-xs text-emerald-600 underline underline-offset-2"
+              >
+                Ander e-mailadres gebruiken
+              </button>
             </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-digidromen-dark/40">
-                Wachtwoord
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-xl border border-digidromen-cream bg-white p-3.5 text-sm text-digidromen-dark outline-none transition-colors focus:border-digidromen-primary focus:ring-2 focus:ring-digidromen-primary/20"
-                placeholder="Wachtwoord"
-                disabled={authMode !== "supabase"}
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading || (authMode === "supabase" && (!email || !password))}
-              className="w-full rounded-xl bg-digidromen-primary px-4 py-3.5 text-sm font-bold text-digidromen-dark shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:bg-digidromen-cream disabled:text-digidromen-dark/30 disabled:shadow-none"
-            >
-              {loading ? "Bezig..." : authMode === "supabase" ? "Log in" : "Open demo-portal"}
-            </button>
-          </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-digidromen-dark/40">
+                  E-mailadres
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full rounded-xl border border-digidromen-cream bg-white p-3.5 text-sm text-digidromen-dark outline-none transition-colors focus:border-digidromen-primary focus:ring-2 focus:ring-digidromen-primary/20"
+                  placeholder="naam@organisatie.nl"
+                  disabled={!supabaseConfigured}
+                  autoComplete="email"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || !email || !supabaseConfigured}
+                className="w-full rounded-xl bg-digidromen-primary px-4 py-3.5 text-sm font-bold text-digidromen-dark shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:bg-digidromen-cream disabled:text-digidromen-dark/30 disabled:shadow-none"
+              >
+                {loading ? "Bezig..." : "Stuur login link →"}
+              </button>
+            </form>
+          )}
 
           {error ? (
             <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -118,7 +109,7 @@ const Login: React.FC = () => {
 
           <div className="mt-6 rounded-xl bg-digidromen-cream/60 px-4 py-3 text-xs text-digidromen-dark/40">
             {supabaseConfigured
-              ? "Verbonden met Supabase. Log in met een bestaand account."
+              ? "Verbonden met Supabase. Je ontvangt een link per e-mail."
               : "Supabase-configuratie ontbreekt. Voeg portal/.env.local toe om live auth te activeren."}
           </div>
         </div>

@@ -1,38 +1,48 @@
 import React from "react";
 import { CheckCircle2, Clock, Link2, ShieldOff } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
-import {
-  crmPreparationConfig,
-  getPreparedMutationCount,
-  type CrmPreparationState,
-} from "../lib/crm-preparation";
-import { formatDateTime, statusClasses, usePortalContext } from "../lib/portal";
-
-type CrmSyncListItem = CrmPreparationState & {
-  subjectId: string;
-  subjectType: string;
-};
+import { crmPreparationConfig } from "../lib/crm-preparation";
+import { formatDateTime, statusClasses } from "../lib/format";
+import { getSupabaseClient } from "../lib/supabase";
 
 const CrmSync: React.FC = () => {
-  const { snapshot } = usePortalContext();
-  const syncItems = (Object.values(snapshot.data.crmSyncStates) as CrmSyncListItem[]).sort((left, right) =>
-    (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""),
+  const { data: syncItems = [] } = useQuery({
+    queryKey: ["crm-sync-jobs"],
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("crm_sync_jobs")
+        .select("id, subject_type, subject_id, status, failure_reason, updated_at, buffered_changes")
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((row: any) => ({
+        id: row.id,
+        subjectId: row.subject_id,
+        subjectType: row.subject_type,
+        status: row.status,
+        updatedAt: row.updated_at,
+        failureReason: row.failure_reason,
+        bufferedChanges: row.buffered_changes ?? [],
+      }));
+    },
+  });
+
+  const { data: reservedReferenceCount = 0 } = useQuery({
+    queryKey: ["crm-reference-count"],
+    queryFn: async () => {
+      const { count, error } = await getSupabaseClient()
+        .from("crm_sync_jobs")
+        .select("id", { count: "exact", head: true })
+        .not("status", "eq", "pending");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const totalPreparedMutations = syncItems.reduce(
+    (sum, item) => sum + (item.bufferedChanges?.length ?? 0),
+    0,
   );
-  const totalPreparedMutations = getPreparedMutationCount(syncItems);
-  const reservedReferenceCount = [
-    ...(Object.values(snapshot.data.organizations) as Array<{ crmRelationId?: string }>).map(
-      (item) => item.crmRelationId,
-    ),
-    ...(Object.values(snapshot.data.orders) as Array<{ crmCaseId?: string }>).map(
-      (item) => item.crmCaseId,
-    ),
-    ...(Object.values(snapshot.data.repairs) as Array<{ crmCaseId?: string }>).map(
-      (item) => item.crmCaseId,
-    ),
-    ...(Object.values(snapshot.data.donations) as Array<{ crmCaseId?: string }>).map(
-      (item) => item.crmCaseId,
-    ),
-  ].filter(Boolean).length;
 
   return (
     <div className="space-y-6">

@@ -156,6 +156,53 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "invite") {
+      const { email, name, role, organizationId } = body;
+
+      if (!email || !name || !role || !organizationId) {
+        return new Response(JSON.stringify({ error: "Missing required fields: email, name, role, organizationId" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Invite via Supabase Auth admin (sends magic link email)
+      const { data: authData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email);
+
+      if (inviteError) {
+        return new Response(JSON.stringify({ error: inviteError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Create profile
+      const profileId = `user-${crypto.randomUUID().slice(0, 8)}`;
+      const { data: profile, error: profileError } = await adminClient
+        .from("user_profiles")
+        .insert({
+          id: profileId,
+          auth_user_id: authData.user.id,
+          organization_id: organizationId,
+          name,
+          email,
+          role,
+        })
+        .select()
+        .single();
+
+      if (profileError) {
+        return new Response(JSON.stringify({ error: profileError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ profile }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "list") {
       const { data: profiles, error } = await adminClient
         .from("user_profiles")

@@ -1,109 +1,234 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, HeartHandshake, Paperclip } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, CheckCircle2, HeartHandshake, Paperclip, Send } from "lucide-react";
 
 import CrmPreparationCard from "../components/CrmPreparationCard";
 import Timeline from "../components/Timeline";
-import {
-  formatDate,
-  formatDateTime,
-  getCaseSyncStates,
-  getDonationNextStatuses,
-  getWorkflowEvents,
-  portalStore,
-  selectSubjectMessages,
-  statusClasses,
-  usePortalContext,
-} from "../lib/portal";
-import { formatCrmReference, type CrmPreparationState } from "../lib/crm-preparation";
-import type { DonationStatus, TimelineEvent } from "../types";
+import { useAuth } from "../context/AuthContext";
+import { formatDate, formatDateTime } from "../lib/format";
+import { formatCrmReference } from "../lib/crm-preparation";
+import { queryKeys } from "../lib/queryKeys";
+import { getSupabaseClient } from "../lib/supabase";
+import type { TimelineEvent } from "../types";
+
+function statusBadge(status: string) {
+  const map: Record<string, string> = {
+    TOEGEZEGD: "bg-blue-100 text-blue-800",
+    OPHAALAFSPRAAK_GEPLAND: "bg-amber-100 text-amber-800",
+    OPGEHAALD: "bg-sky-100 text-sky-800",
+    AANGEKOMEN_WAREHOUSE: "bg-purple-100 text-purple-800",
+    IN_VERWERKING: "bg-purple-100 text-purple-800",
+    RAPPORTAGE_GEREED: "bg-sky-100 text-sky-800",
+    OP_VOORRAAD: "bg-green-100 text-green-800",
+  };
+  return map[status] ?? "bg-slate-100 text-slate-700";
+}
+
+function statusButtonStyle(status: string) {
+  if (status === "OP_VOORRAAD") return "bg-green-600 hover:bg-green-700 text-white";
+  if (status === "OPHAALAFSPRAAK_GEPLAND" || status === "IN_VERWERKING") return "bg-amber-500 hover:bg-amber-600 text-white";
+  return "bg-digidromen-primary hover:bg-blue-700 text-white";
+}
+
+function getNextStatuses(role: string, status: string): string[] {
+  if (role === "help_org") return [];
+  const flow: Record<string, string[]> = {
+    TOEGEZEGD: ["OPHAALAFSPRAAK_GEPLAND"],
+    OPHAALAFSPRAAK_GEPLAND: ["OPGEHAALD"],
+    OPGEHAALD: ["AANGEKOMEN_WAREHOUSE"],
+    AANGEKOMEN_WAREHOUSE: ["IN_VERWERKING"],
+    IN_VERWERKING: ["RAPPORTAGE_GEREED"],
+    RAPPORTAGE_GEREED: ["OP_VOORRAAD"],
+  };
+  return flow[status] ?? [];
+}
 
 const DonationDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { snapshot, user } = usePortalContext();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<"status" | "berichten" | "documenten">("status");
   const [message, setMessage] = useState("");
   const [documentName, setDocumentName] = useState("");
 
-  const donation = id ? snapshot.data.donations[id] : undefined;
+  const { data: donation, isLoading } = useQuery({
+    queryKey: queryKeys.donations.detail(id!),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("donation_batches")
+        .select("*, organizations!donation_batches_sponsor_organization_id_fkey(name), service_partner:organizations!donation_batches_assigned_service_partner_id_fkey(name)")
+        .eq("id", id!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
 
-  const events = useMemo<TimelineEvent[]>(
-    () =>
-      donation
-        ? getWorkflowEvents(snapshot.data, donation.timelineEventIds).map((event) => ({
-            id: event.id,
-            status: event.toStatus ?? event.fromStatus ?? "UPDATE",
-            message: event.summary,
-            timestamp: event.createdAt,
-            kind:
-              event.kind === "sync"
-                ? "sync"
-                : event.kind === "comment_added" || event.kind === "document_added"
-                  ? "manual"
-                  : "system",
-          }))
-        : [],
-    [donation, snapshot.data],
-  );
+  const { data: workflowEvents = [] } = useQuery({
+    queryKey: ["workflow-events", "donation", id],
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("workflow_events")
+        .select("*")
+        .eq("case_id", id!)
+        .eq("case_type", "donation")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
 
-  if (!donation || !user) {
+  const { data: messages = [] } = useQuery({
+    queryKey: queryKeys.messages.byCase(id!),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("messages")
+        .select("*")
+        .eq("case_id", id!)
+        .eq("case_type", "donation")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const { data: documents = [] } = useQuery({
+    queryKey: queryKeys.documents.byCase(id!),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("documents")
+        .select("*")
+        .eq("case_id", id!)
+        .eq("case_type", "donation")
+        .order("uploaded_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const transitionMutation = useMutation({
+    mutationFn: async (nextStatus: string) => {
+      const patch: Record<string, unknown> = {
+        status: nextStatus as any,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (nextStatus === "OPGEHAALD") patch.picked_up_at = new Date().toISOString();
+      if (nextStatus === "OP_VOORRAAD") patch.processed_at = new Date().toISOString();
+
+      const { error } = await getSupabaseClient()
+        .from("donation_batches")
+        .update(patch)
+        .eq("id", id!);
+      if (error) throw error;
+
+      const { error: eventError } = await getSupabaseClient().from("workflow_events").insert({
+        id: crypto.randomUUID(),
+        case_id: id!,
+        case_type: "donation",
+        status: nextStatus,
+        title: `Status gewijzigd naar ${nextStatus}`,
+        description: `${user?.name ?? "Gebruiker"} heeft de status bijgewerkt naar ${nextStatus}.`,
+        actor_name: user?.name ?? "Onbekend",
+        actor_role: user?.role ?? "digidromen_staff",
+        created_at: new Date().toISOString(),
+        metadata: {},
+      });
+      if (eventError) throw eventError;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.donations.detail(id!) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.donations.all });
+      void queryClient.invalidateQueries({ queryKey: ["workflow-events", "donation", id] });
+    },
+  });
+
+  const messageMutation = useMutation({
+    mutationFn: async (body: string) => {
+      const { error } = await getSupabaseClient().from("messages").insert({
+        id: crypto.randomUUID(),
+        case_id: id!,
+        case_type: "donation",
+        body,
+        author_name: user?.name ?? "Gebruiker",
+        author_role: user?.role ?? "digidromen_staff",
+        author_user_id: user?.id ?? null,
+        created_at: new Date().toISOString(),
+        kind: "manual",
+        internal_only: false,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.byCase(id!) });
+      setMessage("");
+    },
+  });
+
+  const documentMutation = useMutation({
+    mutationFn: async (fileName: string) => {
+      const { error } = await getSupabaseClient().from("documents").insert({
+        id: crypto.randomUUID(),
+        case_id: id!,
+        case_type: "donation",
+        file_name: fileName,
+        file_size_label: "Metadata only",
+        kind: "donation_report" as any,
+        mime_type: "application/pdf",
+        storage_mode: "metadata_only" as any,
+        uploaded_at: new Date().toISOString(),
+        uploaded_by_name: user?.name ?? "Gebruiker",
+        uploaded_by_user_id: user?.id ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.documents.byCase(id!) });
+      setDocumentName("");
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!donation) {
     return (
       <div className="space-y-4">
-        <button
-          onClick={() => navigate("/donations")}
-          className="flex items-center text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeft size={18} className="mr-2" />
-          Terug naar donaties
+        <button onClick={() => navigate("/donations")} className="flex items-center text-slate-500 hover:text-slate-700">
+          <ArrowLeft size={18} className="mr-2" /> Terug naar donaties
         </button>
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-          <h2 className="text-xl font-bold text-gray-900">Donatiebatch niet gevonden</h2>
+        <div className="rounded-2xl border border-slate-100 bg-white p-8 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-900">Donatiebatch niet gevonden</h2>
         </div>
       </div>
     );
   }
 
-  const donor = snapshot.data.organizations[donation.donorOrganizationId];
-  const nextStatuses = getDonationNextStatuses(snapshot.role, donation.status);
-  const syncStates = getCaseSyncStates(snapshot.data, "donation", donation.id) as CrmPreparationState[];
-  const documents = donation.documentIds
-    .map((documentId: string) => snapshot.data.documents[documentId])
-    .filter(Boolean) as Array<{ id: string; fileName: string; sizeLabel: string }>;
-  const messages = selectSubjectMessages(snapshot.data, snapshot.role, "donation", donation.id);
-
-  const handleTransition = async (nextStatus: DonationStatus) => {
-    if (snapshot.role === "service_partner") {
-      await portalStore.servicePartner.refurbishUpdate({
-        donationId: donation.id,
-        actorUserId: user.id,
-        nextStatus,
-        summary: `Servicepartner zette donatie op ${nextStatus}.`,
-        refurbishableCount: donation.refurbishableCount || donation.deviceCount - donation.rejectedCount,
-        rejectedCount: donation.rejectedCount,
-        stockImpactQuantity:
-          nextStatus === "OP_VOORRAAD"
-            ? donation.stockImpactQuantity || donation.refurbishableCount
-            : donation.stockImpactQuantity,
-      });
-      return;
-    }
-    await portalStore.transitionDonation(donation.id, {
-      actorUserId: user.id,
-      nextStatus,
-      summary: `Donatiestatus bijgewerkt naar ${nextStatus}.`,
-      refurbishableCount: donation.refurbishableCount,
-      rejectedCount: donation.rejectedCount,
-      stockImpactQuantity: donation.stockImpactQuantity,
-    });
-  };
+  const role = user?.role ?? "help_org";
+  const nextStatuses = getNextStatuses(role, donation.status);
+  const timelineEvents: TimelineEvent[] = workflowEvents.map((event) => ({
+    id: event.id,
+    status: event.status,
+    message: event.description,
+    timestamp: event.created_at,
+    kind: "system",
+  }));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate("/donations")}
-          className="flex items-center text-gray-500 hover:text-gray-700"
-        >
+        <button onClick={() => navigate("/donations")} className="flex items-center text-slate-500 hover:text-slate-700">
           <ArrowLeft size={18} className="mr-2" />
           Terug naar donaties
         </button>
@@ -111,12 +236,12 @@ const DonationDetail: React.FC = () => {
           {nextStatuses.map((status) => (
             <button
               key={status}
-              onClick={() => {
-                void handleTransition(status);
-              }}
-              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+              disabled={transitionMutation.isPending}
+              onClick={() => transitionMutation.mutate(status)}
+              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${statusButtonStyle(status)}`}
             >
-              Zet naar {status}
+              <CheckCircle2 size={15} />
+              {status === "OPHAALAFSPRAAK_GEPLAND" ? "Pickup plannen" : `→ ${status}`}
             </button>
           ))}
         </div>
@@ -124,158 +249,160 @@ const DonationDetail: React.FC = () => {
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <section className="space-y-6">
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Donatie {donation.id}</h2>
-                <p className="text-sm text-gray-500">Geregistreerd op {formatDate(donation.createdAt)}</p>
+                <h2 className="text-2xl font-bold text-slate-900">Donatiebatch</h2>
+                <p className="mt-0.5 font-mono text-sm text-green-700">{donation.id}</p>
+                <p className="text-sm text-slate-500">Geregistreerd op {formatDate(donation.registered_at)}</p>
               </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(donation.status)}`}>
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusBadge(donation.status)}`}>
                 {donation.status}
               </span>
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Donor</p>
-                <p className="mt-1 text-sm font-semibold text-gray-800">{donor?.name ?? "Onbekende donor"}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Donor</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{(donation as any).organizations?.name ?? "Onbekende donor"}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Toegezegde devices</p>
-                <p className="mt-1 text-sm font-semibold text-gray-800">{donation.deviceCount}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Toegezegde devices</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{donation.device_count_promised}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Refurbish gereed</p>
-                <p className="mt-1 text-sm font-semibold text-gray-800">{donation.refurbishableCount}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Refurbish gereed</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{donation.refurbish_ready_count ?? "-"}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Voorraadeffect</p>
-                <p className="mt-1 text-sm font-semibold text-gray-800">{donation.stockImpactQuantity}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Rejected count</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{donation.rejected_count ?? 0}</p>
               </div>
             </div>
 
             <div className="mt-6 rounded-xl bg-green-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-green-600">Pickup details</p>
-              <p className="mt-2 text-sm text-gray-700">
-                {donation.pickupAddress.contactName}, {donation.pickupAddress.street},{" "}
-                {donation.pickupAddress.postalCode} {donation.pickupAddress.city}
-              </p>
-              <p className="mt-1 text-sm text-gray-700">
-                Geplande pickup: {formatDate(donation.estimatedPickupDate)}
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 text-lg font-bold text-gray-900">Workflowhistorie</h3>
-            <Timeline events={events} />
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-lg font-bold text-gray-900">Communicatie</h3>
-              <div className="space-y-3">
-                {messages.map((item) => (
-                  <div key={item.id} className="rounded-xl bg-gray-50 p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-gray-800">
-                        {item.authorUserId ? snapshot.data.users[item.authorUserId]?.fullName : "Systeem"}
-                      </p>
-                      <p className="text-xs text-gray-400">{formatDateTime(item.createdAt)}</p>
-                    </div>
-                    <p className="mt-1 text-sm text-gray-600">{item.body}</p>
-                  </div>
-                ))}
-              </div>
-              <textarea
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                rows={3}
-                className="mt-4 w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
-                placeholder="Plaats een update in de tijdlijn"
-              />
-              <button
-                onClick={async () => {
-                  if (!message.trim()) {
-                    return;
-                  }
-                  await portalStore.addMessage({
-                    subjectType: "donation",
-                    subjectId: donation.id,
-                    authorUserId: user.id,
-                    authorOrganizationId: user.organizationId,
-                    body: message.trim(),
-                    visibleToRoles: ["digidromen_staff", "digidromen_admin", "service_partner"],
-                  });
-                  setMessage("");
-                }}
-                className="mt-3 rounded-lg bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
-              >
-                Bericht toevoegen
-              </button>
+              <p className="text-xs font-semibold uppercase tracking-wide text-green-700">Pickup details</p>
+              <p className="mt-2 text-sm text-slate-700">{donation.pickup_contact_name}, {donation.pickup_address}</p>
+              <p className="mt-1 text-sm text-slate-700">Geplande pickup: {donation.pickup_date ? formatDate(donation.pickup_date) : "-"}</p>
             </div>
 
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-lg font-bold text-gray-900">Documenten</h3>
-              <div className="space-y-3">
-                {documents.map((document) => (
-                  <div key={document.id} className="flex items-center rounded-xl bg-gray-50 p-3">
-                    <Paperclip size={16} className="mr-3 text-gray-400" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">{document.fileName}</p>
-                      <p className="text-xs text-gray-400">{document.sizeLabel}</p>
-                    </div>
-                  </div>
-                ))}
+            {donation.notes ? (
+              <div className="mt-6 rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Notities</p>
+                <p className="mt-2 text-sm text-slate-700">{donation.notes}</p>
               </div>
-              <input
-                value={documentName}
-                onChange={(event) => setDocumentName(event.target.value)}
-                className="mt-4 w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
-                placeholder="Bijv. donation-manifest.pdf"
-              />
-              <button
-                onClick={async () => {
-                  if (!documentName.trim()) {
-                    return;
-                  }
-                  await portalStore.addDocument({
-                    subjectType: "donation",
-                    subjectId: donation.id,
-                    uploadedByUserId: user.id,
-                    fileName: documentName.trim(),
-                    category: "donation_manifest",
-                    mimeType: "application/pdf",
-                    sizeLabel: "Metadata only",
-                  });
-                  setDocumentName("");
-                }}
-                className="mt-3 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700"
-              >
-                Mock document koppelen
-              </button>
+            ) : null}
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+            <div className="flex border-b border-slate-100">
+              {(["status", "berichten", "documenten"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-4 text-sm font-bold ${
+                    activeTab === tab
+                      ? "border-b-2 border-green-600 bg-green-50/60 text-green-700"
+                      : "text-slate-400 hover:text-slate-700"
+                  }`}
+                >
+                  {tab === "status" ? "Status historie" : tab === "berichten" ? "Berichten" : "Documenten"}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-6">
+              {activeTab === "status" ? <Timeline events={timelineEvents} /> : null}
+
+              {activeTab === "berichten" ? (
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    {messages.map((item) => (
+                      <div key={item.id} className="rounded-xl bg-slate-50 p-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-slate-800">{item.author_name}</p>
+                          <p className="text-xs text-slate-400">{formatDateTime(item.created_at)}</p>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-600">{item.body}</p>
+                      </div>
+                    ))}
+                    {messages.length === 0 ? <p className="text-sm text-slate-400">Nog geen berichten.</p> : null}
+                  </div>
+                  <textarea
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    rows={3}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-600 focus:ring-2"
+                    placeholder="Plaats een update in de tijdlijn"
+                  />
+                  <button
+                    disabled={!message.trim() || messageMutation.isPending}
+                    onClick={() => {
+                      if (!message.trim()) return;
+                      messageMutation.mutate(message.trim());
+                    }}
+                    className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    <Send size={14} />
+                    Bericht toevoegen
+                  </button>
+                </div>
+              ) : null}
+
+              {activeTab === "documenten" ? (
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    {documents.map((item) => (
+                      <div key={item.id} className="flex items-center rounded-xl bg-slate-50 p-3">
+                        <Paperclip size={16} className="mr-3 text-slate-400" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{item.file_name}</p>
+                          <p className="text-xs text-slate-400">{item.file_size_label}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {documents.length === 0 ? <p className="text-sm text-slate-400">Nog geen documenten.</p> : null}
+                  </div>
+                  <input
+                    value={documentName}
+                    onChange={(event) => setDocumentName(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-600 focus:ring-2"
+                    placeholder="Bijv. donation-manifest.pdf"
+                  />
+                  <button
+                    disabled={!documentName.trim() || documentMutation.isPending}
+                    onClick={() => {
+                      if (!documentName.trim()) return;
+                      documentMutation.mutate(documentName.trim());
+                    }}
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
+                  >
+                    Document koppelen
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
 
         <aside className="space-y-6">
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 flex items-center text-lg font-bold text-gray-900">
+          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 flex items-center text-lg font-bold text-slate-900">
               <HeartHandshake size={18} className="mr-2 text-green-600" />
               Batchsamenvatting
             </h3>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-500">Contact</dt>
-                <dd className="font-semibold text-gray-800">{donation.contactEmail}</dd>
+                <dt className="text-slate-500">Contact</dt>
+                <dd className="font-semibold text-slate-800">{donation.pickup_contact_email}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-500">Rejected count</dt>
-                <dd className="font-semibold text-gray-800">{donation.rejectedCount}</dd>
+                <dt className="text-slate-500">Servicepartner</dt>
+                <dd className="font-semibold text-slate-800">{(donation as any).service_partner?.name ?? "-"}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-500">Laatste update</dt>
-                <dd className="font-semibold text-gray-800">{formatDateTime(donation.updatedAt)}</dd>
+                <dt className="text-slate-500">Laatste update</dt>
+                <dd className="font-semibold text-slate-800">{formatDateTime(donation.updated_at)}</dd>
               </div>
             </dl>
           </div>
@@ -283,11 +410,11 @@ const DonationDetail: React.FC = () => {
           <CrmPreparationCard
             subjectLabel="Deze donatiebatch"
             references={[
-              { label: "CRM relatie", value: formatCrmReference(donation.crmRelationId) },
-              { label: "CRM case", value: formatCrmReference(donation.crmCaseId) },
-              { label: "CRM taak", value: formatCrmReference(donation.crmTaskId) },
+              { label: "CRM relatie", value: formatCrmReference(donation.crm_relation_id) },
+              { label: "CRM case", value: formatCrmReference(donation.crm_case_id) },
+              { label: "CRM taak", value: formatCrmReference(donation.crm_task_id) },
             ]}
-            syncStates={syncStates}
+            syncStates={[]}
           />
         </aside>
       </div>

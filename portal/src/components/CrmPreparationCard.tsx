@@ -6,7 +6,7 @@ import {
   getPreparedMutationCount,
   type CrmPreparationState,
 } from "../lib/crm-preparation";
-import { formatDateTime } from "../lib/portal";
+import { formatDateTime } from "../lib/format";
 
 type ReferenceItem = {
   label: string;

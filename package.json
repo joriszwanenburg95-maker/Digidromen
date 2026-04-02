@@ -1,0 +1,13 @@
+{
+  "name": "digidromen-repo-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "context:check": "node scripts/project-context-guard.mjs",
+    "context:test": "node --test scripts/project-context-lib.test.mjs",
+    "gh": "node scripts/run-guarded-command.mjs gh",
+    "vercel": "node scripts/run-guarded-command.mjs vercel",
+    "supabase": "node scripts/run-guarded-command.mjs npx supabase",
+    "setup:hooks": "git config core.hooksPath .githooks"
+  }
+}

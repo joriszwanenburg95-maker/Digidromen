@@ -103,7 +103,7 @@ export function getPortalRuntimeState() {
 function createMutationMeta(role: Role, user: { id?: string; name?: string }, reason?: string) {
   return {
     actorRole: role,
-    actorName: user.name ?? "Demo gebruiker",
+    actorName: user.name ?? "Portaalgebruiker",
     actorUserId: user.id,
     reason,
     timestamp: new Date().toISOString(),

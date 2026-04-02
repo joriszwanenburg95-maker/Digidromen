@@ -4,20 +4,26 @@ import {
   BarChart3,
   Bell,
   Box,
-  ChevronDown,
+  Building2,
+  ClipboardList,
   HeartHandshake,
   LayoutDashboard,
   LogOut,
+  MapPin,
   Menu,
   RefreshCw,
   Settings,
   ShoppingCart,
+  TrendingUp,
+  Users,
   Wrench,
   X,
 } from "lucide-react";
 
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
-import { statusClasses, usePortalContext } from "../lib/portal";
+import { getSupabaseClient } from "../lib/supabase";
+import { queryKeys } from "../lib/queryKeys";
 import type { Role } from "../types";
 
 const sidebarLinks = [
@@ -37,7 +43,7 @@ const sidebarLinks = [
     name: "Reparaties",
     path: "/repairs",
     icon: Wrench,
-    roles: ["help_org", "digidromen_staff", "digidromen_admin", "service_partner"],
+    roles: ["digidromen_staff", "digidromen_admin", "service_partner"],
   },
   {
     name: "Donaties",
@@ -52,15 +58,45 @@ const sidebarLinks = [
     roles: ["digidromen_staff", "digidromen_admin", "service_partner"],
   },
   {
+    name: "Prognose",
+    path: "/forecast",
+    icon: TrendingUp,
+    roles: ["digidromen_staff", "digidromen_admin"],
+  },
+  {
     name: "Rapportages",
     path: "/reports",
     icon: BarChart3,
-    roles: ["help_org", "digidromen_staff", "digidromen_admin"],
+    roles: ["digidromen_staff", "digidromen_admin"],
   },
   {
     name: "CRM Sync",
     path: "/crm-sync",
     icon: RefreshCw,
+    roles: ["digidromen_staff", "digidromen_admin"],
+  },
+  {
+    name: "Organisaties",
+    path: "/organizations",
+    icon: Building2,
+    roles: ["digidromen_staff", "digidromen_admin"],
+  },
+  {
+    name: "Gebruikers",
+    path: "/users",
+    icon: Users,
+    roles: ["digidromen_admin"],
+  },
+  {
+    name: "Audit Log",
+    path: "/audit-log",
+    icon: ClipboardList,
+    roles: ["digidromen_admin"],
+  },
+  {
+    name: "Locaties",
+    path: "/stock-locations",
+    icon: MapPin,
     roles: ["digidromen_staff", "digidromen_admin"],
   },
   {
@@ -79,28 +115,34 @@ const roleLabels: Record<Role, string> = {
 };
 
 const Layout: React.FC = () => {
-  const { user, setRole, logout, authMode, supabaseConfigured } = useAuth();
-  const { snapshot, notifications } = usePortalContext();
+  const { user, logout, supabaseConfigured } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+
+  const role = user?.role ?? "help_org";
 
   const filteredLinks = useMemo(
-    () => sidebarLinks.filter((link) => user && link.roles.includes(user.role)),
-    [user],
+    () => sidebarLinks.filter((link) => link.roles.includes(role)),
+    [role],
   );
 
-  const unreadNotifications = notifications.filter(
-    (notification) => notification.status === "unread",
-  );
+  const { data: unreadCount = 0 } = useQuery<number>({
+    queryKey: queryKeys.notifications.unread(),
+    queryFn: async () => {
+      const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+      const { data, error } = await getSupabaseClient()
+        .from("notifications")
+        .select("id")
+        .gte("created_at", oneDayAgo);
+      if (error) throw error;
+      return data?.length ?? 0;
+    },
+  });
 
-  const statusCopy =
-    authMode === "supabase"
-      ? "Verbonden met Supabase"
-      : supabaseConfigured
-        ? "Supabase vars gevonden; demo-modus"
-        : "Demo modus";
+  const statusCopy = supabaseConfigured
+    ? "Verbonden met Supabase"
+    : "Supabase-configuratie ontbreekt";
 
   return (
     <div className="flex min-h-screen bg-digidromen-warm">
@@ -127,13 +169,13 @@ const Layout: React.FC = () => {
 
         <div className="mx-4 mb-4 rounded-xl bg-white/8 px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-digidromen-primary">
-            {roleLabels[snapshot.role]}
+            {roleLabels[role as Role]}
           </p>
           <p className="mt-0.5 text-sm font-semibold text-white">{user?.name}</p>
           <p className="text-xs text-white/40">{user?.email}</p>
         </div>
 
-        <nav className="space-y-0.5 px-3">
+        <nav className="space-y-0.5 overflow-y-auto px-3 pb-16">
           {filteredLinks.map((link) => {
             const Icon = link.icon;
             const isActive =
@@ -183,50 +225,18 @@ const Layout: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              {authMode === "demo" ? (
-                <div className="relative">
-                  <button
-                    onClick={() => setRoleMenuOpen((open) => !open)}
-                    className="flex items-center rounded-full border border-digidromen-cream bg-white px-3 py-1.5 text-xs font-semibold text-digidromen-dark"
-                  >
-                    {roleLabels[snapshot.role]}
-                    <ChevronDown size={14} className="ml-1 text-digidromen-dark/40" />
-                  </button>
-                  {roleMenuOpen ? (
-                    <div className="absolute right-0 mt-2 w-52 rounded-xl border border-digidromen-cream bg-white p-1.5 shadow-lg">
-                      {(Object.keys(roleLabels) as Role[]).map((role) => (
-                        <button
-                          key={role}
-                          onClick={() => {
-                            setRole(role);
-                            setRoleMenuOpen(false);
-                          }}
-                          className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
-                            snapshot.role === role
-                              ? "bg-digidromen-orange-light font-semibold text-digidromen-dark"
-                              : "text-digidromen-dark/70 hover:bg-digidromen-cream"
-                          }`}
-                        >
-                          {roleLabels[role]}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="rounded-full border border-digidromen-cream bg-white px-3 py-1.5 text-xs font-semibold text-digidromen-dark">
-                  {user ? roleLabels[user.role] : "-"}
-                </div>
-              )}
+              <div className="rounded-full border border-digidromen-cream bg-white px-3 py-1.5 text-xs font-semibold text-digidromen-dark">
+                {user ? roleLabels[user.role] : "-"}
+              </div>
 
               <button
                 onClick={() => navigate("/dashboard")}
                 className="relative rounded-full border border-digidromen-cream bg-white p-2 text-digidromen-dark/50 hover:text-digidromen-dark"
               >
                 <Bell size={17} />
-                {unreadNotifications.length > 0 ? (
+                {unreadCount > 0 ? (
                   <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-digidromen-primary text-[9px] font-bold text-digidromen-dark">
-                    {unreadNotifications.length}
+                    {unreadCount}
                   </span>
                 ) : null}
               </button>

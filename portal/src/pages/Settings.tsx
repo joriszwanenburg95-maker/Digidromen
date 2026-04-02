@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, Package, Pencil, Trash2, UserPlus } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
-import { refreshRemotePortal, usePortalContext } from "../lib/portal";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../lib/queryKeys";
 import { getSupabaseClient } from "../lib/supabase";
 import type { Role } from "../types";
 
@@ -99,7 +100,7 @@ const emptyProductForm: ProductFormState = {
 
 const Settings: React.FC = () => {
   const { user: authUser, authMode } = useAuth();
-  const { user, organization, snapshot } = usePortalContext();
+  const queryClient = useQueryClient();
   const isAdmin = authUser?.role === "digidromen_admin";
   const isSupabase = authMode === "supabase";
 
@@ -123,31 +124,74 @@ const Settings: React.FC = () => {
   const [productError, setProductError] = useState<string | null>(null);
   const [productNotice, setProductNotice] = useState<string | null>(null);
 
+  const { data: organizationsRaw = [] } = useQuery({
+    queryKey: queryKeys.organizations.list(),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("organizations")
+        .select("id, name, type, city, contact_name, contact_email, active")
+        .order("name");
+      if (error) throw error;
+      return (data ?? []).map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        city: row.city ?? "",
+        contactName: row.contact_name,
+        contactEmail: row.contact_email,
+        active: row.active,
+      })) as OrganizationRow[];
+    },
+  });
+
   const organizations = useMemo(
     () =>
-      (Object.values(snapshot.data.organizations) as OrganizationRow[]).sort((left, right) => {
-        if (left.active !== right.active) {
-          return left.active ? -1 : 1;
-        }
+      [...organizationsRaw].sort((left, right) => {
+        if (left.active !== right.active) return left.active ? -1 : 1;
         return left.name.localeCompare(right.name);
       }),
-    [snapshot.data.organizations],
+    [organizationsRaw],
   );
 
   const activeOrganizations = useMemo(
-    () => organizations.filter((org) => org.active),
-    [organizations],
+    () => organizationsRaw.filter((org) => org.active),
+    [organizationsRaw],
   );
+
+  const orgLookup = useMemo(
+    () => new Map(organizationsRaw.map((o) => [o.id, o.name])),
+    [organizationsRaw],
+  );
+
+  const { data: productsRaw = [] } = useQuery({
+    queryKey: queryKeys.products.list(),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("products")
+        .select("id, name, sku, category, description, specification_summary, stock_on_hand, stock_reserved, active")
+        .order("name");
+      if (error) throw error;
+      return (data ?? []).map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        sku: row.sku ?? "",
+        category: row.category,
+        description: row.description ?? "",
+        specificationSummary: row.specification_summary ?? [],
+        stockOnHand: row.stock_on_hand ?? 0,
+        stockReserved: row.stock_reserved ?? 0,
+        active: row.active,
+      })) as ProductRow[];
+    },
+  });
 
   const products = useMemo(
     () =>
-      (Object.values(snapshot.data.products) as ProductRow[]).sort((left, right) => {
-        if (left.active !== right.active) {
-          return left.active ? -1 : 1;
-        }
+      [...productsRaw].sort((left, right) => {
+        if (left.active !== right.active) return left.active ? -1 : 1;
         return left.name.localeCompare(right.name);
       }),
-    [snapshot.data.products],
+    [productsRaw],
   );
 
   const loadUsers = useCallback(async () => {
@@ -272,7 +316,7 @@ const Settings: React.FC = () => {
       setShowAddUser(false);
       setNewUser({ name: "", email: "", password: "", role: "help_org", organizationId: "" });
       await loadUsers();
-      await refreshRemotePortal();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
     } catch (err: any) {
       setUserError(err.message ?? "Fout bij aanmaken gebruiker.");
     }
@@ -282,7 +326,7 @@ const Settings: React.FC = () => {
     try {
       await callAdminFunction({ action: "update-role", profileId, role });
       await loadUsers();
-      await refreshRemotePortal();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
     } catch {
       // silently fail
     }
@@ -309,7 +353,7 @@ const Settings: React.FC = () => {
       const supabase = getSupabaseClient();
       const payload = {
         name: orgForm.name.trim(),
-        type: orgForm.type,
+        type: orgForm.type as "help_org" | "digidromen" | "service_partner" | "sponsor",
         city: orgForm.city.trim(),
         contact_name: orgForm.contactName.trim(),
         contact_email: orgForm.contactEmail.trim(),
@@ -335,7 +379,7 @@ const Settings: React.FC = () => {
       }
 
       closeOrgForm();
-      await refreshRemotePortal();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.organizations.all });
     } catch (err: any) {
       setOrgError(err.message ?? "Fout bij opslaan organisatie.");
     }
@@ -364,7 +408,7 @@ const Settings: React.FC = () => {
         closeOrgForm();
       }
       setOrgNotice(`Organisatie "${org.name}" is inactief gemaakt.`);
-      await refreshRemotePortal();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.organizations.all });
     } catch (err: any) {
       setOrgError(err.message ?? "Fout bij verwijderen organisatie.");
     }
@@ -383,7 +427,7 @@ const Settings: React.FC = () => {
       const payload = {
         name: productForm.name.trim(),
         sku: productForm.sku.trim(),
-        category: productForm.category,
+        category: productForm.category as "laptop" | "accessory" | "service",
         description: productForm.description.trim(),
         specification_summary: productForm.specificationSummary
           .split(",")
@@ -413,7 +457,7 @@ const Settings: React.FC = () => {
       }
 
       closeProductForm();
-      await refreshRemotePortal();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
     } catch (err: any) {
       setProductError(err.message ?? "Fout bij opslaan product.");
     }
@@ -442,7 +486,7 @@ const Settings: React.FC = () => {
         closeProductForm();
       }
       setProductNotice(`Product "${product.name}" is inactief gemaakt.`);
-      await refreshRemotePortal();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
     } catch (err: any) {
       setProductError(err.message ?? "Fout bij verwijderen product.");
     }
@@ -485,15 +529,15 @@ const Settings: React.FC = () => {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-400">Volledige Naam</label>
-                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{user?.name}</p>
+                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.name}</p>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-400">Email Adres</label>
-                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{user?.email}</p>
+                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.email}</p>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-400">Organisatie</label>
-                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{organization?.name}</p>
+                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.organizationId ? orgLookup.get(authUser.organizationId) ?? "-" : "-"}</p>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-400">Rol</label>
@@ -654,7 +698,7 @@ const Settings: React.FC = () => {
                         </select>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        {(snapshot.data.organizations as Record<string, OrganizationRow>)[item.organization_id]?.name ?? item.organization_id}
+                        {orgLookup.get(item.organization_id) ?? item.organization_id}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button

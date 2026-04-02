@@ -1,0 +1,16 @@
+{
+  "github": {
+    "host": "github.com",
+    "owner": "joriszwanenburg95-maker",
+    "repo": "Digidromen",
+    "user": "joriszwanenburg95-maker"
+  },
+  "vercel": {
+    "projectId": "prj_LBxwTADV6A0COItPTCubcwF4XJVe",
+    "orgId": "team_7f5GvqVpnIcRnHDJgsuPSr6s",
+    "projectName": "digidromen"
+  },
+  "supabase": {
+    "projectRef": "oyxcwfozoxlgdclchden"
+  }
+}

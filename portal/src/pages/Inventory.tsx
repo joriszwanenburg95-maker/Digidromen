@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileUp, Laptop, PackageCheck, Truck } from "lucide-react";
 
-import { portalStore, usePortalContext } from "../lib/portal";
+import { useAuth } from "../context/AuthContext";
+import { getSupabaseClient } from "../lib/supabase";
+import { queryKeys } from "../lib/queryKeys";
 
 type ParsedInventoryImportRow = {
   location: string;
@@ -24,154 +27,163 @@ function parseImportRows(input: string): ParsedInventoryImportRow[] {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  if (lines.length < 2) {
-    throw new Error("Gebruik een CSV met minimaal een headerregel en een datarij.");
-  }
+  if (lines.length < 2) throw new Error("Gebruik een CSV met minimaal een headerregel en een datarij.");
 
   const delimiter = lines[0].includes(";") ? ";" : ",";
   const headers = lines[0].split(delimiter).map(normalizeHeader);
-  const headerMap = new Map(headers.map((header, index) => [header, index]));
+  const headerMap = new Map(headers.map((h, i) => [h, i]));
 
-  for (const header of REQUIRED_HEADERS) {
-    if (!headerMap.has(header)) {
-      throw new Error(`Verplichte kolom ontbreekt: ${header}`);
-    }
+  for (const h of REQUIRED_HEADERS) {
+    if (!headerMap.has(h)) throw new Error(`Verplichte kolom ontbreekt: ${h}`);
   }
 
   return lines.slice(1).map((line, index) => {
-    const cells = line.split(delimiter).map((cell) => cell.trim());
-    const valueFor = (header: string) => cells[headerMap.get(header) ?? -1] ?? "";
-    const location = valueFor("locatie");
-    const availableQuantity = Number(valueFor("beschikbaar") || 0);
-    const reservedQuantity = Number(valueFor("gereserveerd") || 0);
-    const incomingQuantity = Number(valueFor("binnenkomend") || 0);
-    const incomingEta =
-      valueFor("binnenkomend_op") ||
-      valueFor("incoming_eta") ||
-      valueFor("eta") ||
-      undefined;
+    const cells = line.split(delimiter).map((c) => c.trim());
+    const val = (h: string) => cells[headerMap.get(h) ?? -1] ?? "";
+    const location = val("locatie");
+    const availableQuantity = Number(val("beschikbaar") || 0);
+    const reservedQuantity = Number(val("gereserveerd") || 0);
+    const incomingQuantity = Number(val("binnenkomend") || 0);
+    const incomingEta = val("binnenkomend_op") || val("incoming_eta") || val("eta") || undefined;
 
-    if (!location) {
-      throw new Error(`Rij ${index + 2}: locatie is verplicht.`);
-    }
-    if ([availableQuantity, reservedQuantity, incomingQuantity].some((value) => Number.isNaN(value) || value < 0)) {
+    if (!location) throw new Error(`Rij ${index + 2}: locatie is verplicht.`);
+    if ([availableQuantity, reservedQuantity, incomingQuantity].some((v) => Number.isNaN(v) || v < 0)) {
       throw new Error(`Rij ${index + 2}: aantallen moeten nul of positief zijn.`);
     }
-
-    return {
-      location,
-      availableQuantity,
-      reservedQuantity,
-      incomingQuantity,
-      incomingEta,
-    };
+    return { location, availableQuantity, reservedQuantity, incomingQuantity, incomingEta };
   });
 }
 
 const Inventory: React.FC = () => {
-  const { inventory, snapshot, orders, donations } = usePortalContext();
+  const { user } = useAuth();
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
   const [importNotice, setImportNotice] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<InventoryView>("voorraad");
-  const canImport = snapshot.role === "digidromen_admin" || snapshot.role === "digidromen_staff";
 
-  const inventoryRows = useMemo(() => {
-    const grouped = new Map<
-      string,
-      {
-        id: string;
-        location: string;
-        availableQuantity: number;
-        reservedQuantity: number;
-        incomingQuantity: number;
-        incomingEta?: string;
-        updatedAt?: string;
-      }
-    >();
+  const queryClient = useQueryClient();
+  const role = user?.role ?? "help_org";
+  const canImport = role === "digidromen_admin" || role === "digidromen_staff";
 
-    inventory
-      .filter((item: any) => !item.serialNumber)
-      .forEach((item: any) => {
-        const key = item.locationName ?? item.warehouseLocation ?? item.id;
-        const current = grouped.get(key) ?? {
-          id: item.id,
-          location: key,
-          availableQuantity: 0,
-          reservedQuantity: 0,
-          incomingQuantity: 0,
-          incomingEta: item.incomingEta,
-          updatedAt: item.updatedAt,
-        };
+  // Supabase inventory query
+  const { data: supabaseInventory = [], isLoading } = useQuery({
+    queryKey: queryKeys.inventory.list(),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("inventory_items")
+        .select("id, product_id, warehouse_location, available_quantity, quantity, incoming_quantity, incoming_eta, updated_at, stock_location_id, stock_locations(name), products(name, category)")
+        .order("warehouse_location");
+      if (error) throw error;
+      return data;
+    },
+    enabled: true,
+  });
 
-        current.availableQuantity += Number(item.availableQuantity ?? 0);
-        current.reservedQuantity += Number(item.reservedQuantity ?? 0);
-        current.incomingQuantity += Number(item.inTransitQuantity ?? 0);
-        current.incomingEta = item.incomingEta ?? current.incomingEta;
-        current.updatedAt =
-          (item.updatedAt ?? "") > (current.updatedAt ?? "") ? item.updatedAt : current.updatedAt;
+  // Supabase mutations: recent orders + donations
+  const { data: supabaseOrders = [] } = useQuery({
+    queryKey: queryKeys.orders.list({ for: "inventory" }),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("orders")
+        .select("id, status, organization_id, order_lines(product_id, quantity), organizations(name)")
+        .not("status", "in", "(AFGESLOTEN,GEANNULEERD)")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data;
+    },
+    enabled: true,
+  });
 
-        grouped.set(key, current);
-      });
+  const { data: supabaseDonations = [] } = useQuery({
+    queryKey: queryKeys.donations.list({ for: "inventory" }),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("donation_batches")
+        .select("id, status, device_count_promised, refurbish_ready_count, sponsor_organization_id, organizations(name)")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data;
+    },
+    enabled: true,
+  });
 
-    return Array.from(grouped.values()).sort((left, right) => left.location.localeCompare(right.location));
-  }, [inventory]);
+  // Build inventory rows for supabase mode
+  const supabaseInventoryRows = useMemo(() => {
+    const grouped = new Map<string, {
+      id: string;
+      location: string;
+      availableQuantity: number;
+      reservedQuantity: number;
+      incomingQuantity: number;
+      incomingEta?: string;
+      updatedAt?: string;
+    }>();
+
+    for (const item of supabaseInventory) {
+      const key = (item.stock_locations as any)?.name ?? item.warehouse_location ?? item.id;
+      const current = grouped.get(key) ?? {
+        id: item.id,
+        location: key,
+        availableQuantity: 0,
+        reservedQuantity: 0,
+        incomingQuantity: 0,
+        incomingEta: item.incoming_eta ?? undefined,
+        updatedAt: item.updated_at,
+      };
+      current.availableQuantity += item.available_quantity;
+      current.reservedQuantity += Math.max(0, item.quantity - item.available_quantity);
+      current.incomingQuantity += item.incoming_quantity;
+      current.incomingEta = item.incoming_eta ?? current.incomingEta;
+      current.updatedAt = (item.updated_at ?? "") > (current.updatedAt ?? "") ? item.updated_at : current.updatedAt;
+      grouped.set(key, current);
+    }
+    return Array.from(grouped.values()).sort((a, b) => a.location.localeCompare(b.location));
+  }, [supabaseInventory]);
+
+  const inventoryRows = supabaseInventoryRows;
 
   const totals = useMemo(
-    () =>
-      inventoryRows.reduce(
-        (acc, row) => {
-          acc.available += row.availableQuantity;
-          acc.reserved += row.reservedQuantity;
-          acc.incoming += row.incomingQuantity;
-          return acc;
-        },
-        { available: 0, reserved: 0, incoming: 0 },
-      ),
+    () => inventoryRows.reduce(
+      (acc, row) => ({ available: acc.available + row.availableQuantity, reserved: acc.reserved + row.reservedQuantity, incoming: acc.incoming + row.incomingQuantity }),
+      { available: 0, reserved: 0, incoming: 0 },
+    ),
     [inventoryRows],
   );
 
   const mutationRows = useMemo(() => {
-    const orderMutations = orders.flatMap((order: any) =>
-      (order.lineItems ?? []).map((line: any) => {
+    const orderMutations = supabaseOrders.flatMap((order) =>
+      ((order.order_lines ?? []) as any[]).map((line: any) => {
         const delivered = ["GELEVERD", "AFGESLOTEN"].includes(order.status);
         const planned = ["INGEDIEND", "BEOORDEELD", "IN_BEHANDELING", "IN_VOORBEREIDING", "VERZONDEN"].includes(order.status);
         return {
-          id: `order-${order.id}-${line.id ?? line.productId}`,
+          id: `order-${order.id}-${line.product_id}`,
           type: "Uitlevering",
           direction: "uit",
           quantity: Number(line.quantity ?? 0),
-          party: snapshot.data.organizations[order.organizationId]?.name ?? "Onbekende klant",
+          party: (order.organizations as any)?.name ?? "Onbekend",
           reference: order.id,
           status: order.status,
-          date: order.preferredDeliveryDate ?? order.updatedAt ?? order.createdAt ?? "",
+          date: "",
           scope: delivered ? "historisch" : planned ? "toekomstig" : "historisch",
           note: delivered ? "Laptop uitgeleverd aan klant" : "Laptopaanvraag van klant",
         };
       }),
     );
 
-    const donationMutations = donations.map((donation: any) => {
-      const quantity = Number(
-        donation.refurbishableCount ??
-          donation.stockImpactQuantity ??
-          donation.deviceCount ??
-          0,
-      );
-      const completed = donation.status === "OP_VOORRAAD";
-      return {
-        id: `donation-${donation.id}`,
-        type: "Donatie",
-        direction: "in",
-        quantity,
-        party: snapshot.data.organizations[donation.donorOrganizationId]?.name ?? "Onbekende donor",
-        reference: donation.id,
-        status: donation.status,
-        date: donation.estimatedPickupDate ?? donation.updatedAt ?? donation.createdAt ?? "",
-        scope: completed ? "historisch" : "toekomstig",
-        note: completed ? "Laptops toegevoegd aan voorraad" : "Donatie in aanloop naar toekomstige voorraad",
-      };
-    });
+    const donationMutations = supabaseDonations.map((donation) => ({
+      id: `donation-${donation.id}`,
+      type: "Donatie",
+      direction: "in",
+      quantity: Number(donation.refurbish_ready_count ?? donation.device_count_promised ?? 0),
+      party: (donation.organizations as any)?.name ?? "Onbekende donor",
+      reference: donation.id,
+      status: donation.status,
+      date: "",
+      scope: donation.status === "OP_VOORRAAD" ? "historisch" : "toekomstig",
+      note: donation.status === "OP_VOORRAAD" ? "Laptops toegevoegd aan voorraad" : "Donatie in aanloop",
+    }));
 
     const incomingRows = inventoryRows
       .filter((row) => row.incomingQuantity > 0)
@@ -189,37 +201,76 @@ const Inventory: React.FC = () => {
       }));
 
     return [...donationMutations, ...incomingRows, ...orderMutations]
-      .filter((row) => row.quantity > 0)
-      .sort((left, right) => String(right.date).localeCompare(String(left.date)));
-  }, [donations, inventoryRows, orders, snapshot.data.organizations]);
+      .filter((r) => r.quantity > 0)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  }, [inventoryRows, supabaseOrders, supabaseDonations]);
 
   const visibleMutationRows = useMemo(
-    () =>
-      mutationRows.filter((row) =>
-        activeView === "toekomstige_mutaties" ? row.scope === "toekomstig" : true,
-      ),
+    () => mutationRows.filter((row) => activeView === "toekomstige_mutaties" ? row.scope === "toekomstig" : true),
     [activeView, mutationRows],
   );
 
   const handleImport = async () => {
     setImportError(null);
     setImportNotice(null);
-
     try {
       const rows = parseImportRows(importText);
-      await portalStore.inventory.importRows(rows);
+      const supabase = getSupabaseClient();
+
+      // Get or create default product for inventory items
+      const { data: defaultProduct } = await supabase
+        .from("products")
+        .select("id")
+        .eq("category", "laptop")
+        .eq("active", true)
+        .limit(1)
+        .single();
+
+      if (!defaultProduct) {
+        throw new Error("Geen actief laptopproduct gevonden.");
+      }
+
+      // Get stock locations for name lookup
+      const { data: locations } = await supabase
+        .from("stock_locations")
+        .select("id, name");
+      const locationMap = new Map((locations ?? []).map((l: any) => [l.name, l.id]));
+
+      for (const row of rows) {
+        const locationId = locationMap.get(row.location);
+        if (!locationId) {
+          throw new Error(`Locatie "${row.location}" niet gevonden. Maak deze eerst aan.`);
+        }
+
+        const { error } = await supabase
+          .from("inventory_items")
+          .upsert({
+            id: crypto.randomUUID(),
+            product_id: defaultProduct.id,
+            stock_location_id: locationId,
+            warehouse_location: row.location,
+            condition: "refurbished" as const,
+            available_quantity: row.availableQuantity,
+            quantity: row.availableQuantity + row.reservedQuantity,
+            incoming_quantity: row.incomingQuantity,
+            incoming_eta: row.incomingEta ?? null,
+          }, {
+            onConflict: "product_id,stock_location_id",
+          });
+        if (error) throw error;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all });
       setImportNotice(`${rows.length} voorraadregels geimporteerd.`);
       setImportText("");
-    } catch (error: any) {
-      setImportError(error.message ?? "Import mislukt.");
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : "Import mislukt.");
     }
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
+    if (!file) return;
     setImportText(await file.text());
     event.target.value = "";
   };
@@ -229,7 +280,9 @@ const Inventory: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Laptopvoorraad</h2>
-          <p className="text-sm text-slate-500">{inventoryRows.length} locaties zichtbaar voor deze rol</p>
+          <p className="text-sm text-slate-500">
+            {isLoading ? "Laden..." : `${inventoryRows.length} locaties`}
+          </p>
         </div>
         {canImport ? (
           <label className="flex cursor-pointer items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm">
@@ -241,39 +294,23 @@ const Inventory: React.FC = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-sky-50 p-2 text-sky-600">
-              <Laptop size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Beschikbaar</p>
-              <p className="text-2xl font-bold text-slate-900">{totals.available}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-amber-50 p-2 text-amber-600">
-              <PackageCheck size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Gereserveerd</p>
-              <p className="text-2xl font-bold text-slate-900">{totals.reserved}</p>
+        {[
+          { label: "Beschikbaar", value: totals.available, icon: Laptop, color: "sky" },
+          { label: "Gereserveerd", value: totals.reserved, icon: PackageCheck, color: "amber" },
+          { label: "Binnenkomend", value: totals.incoming, icon: Truck, color: "emerald" },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className={`rounded-xl bg-${color}-50 p-2 text-${color}-600`}>
+                <Icon size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+                <p className="text-2xl font-bold text-slate-900">{value}</p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
-              <Truck size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Binnenkomend</p>
-              <p className="text-2xl font-bold text-slate-900">{totals.incoming}</p>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
@@ -286,9 +323,7 @@ const Inventory: React.FC = () => {
             key={view.key}
             onClick={() => setActiveView(view.key)}
             className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-              activeView === view.key
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
+              activeView === view.key ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
             }`}
           >
             {view.label}
@@ -302,49 +337,36 @@ const Inventory: React.FC = () => {
             <div>
               <h3 className="text-lg font-bold text-slate-900">Voorraad importeren</h3>
               <p className="mt-1 text-sm text-slate-500">
-                Verwachte kolommen: `locatie`, `beschikbaar`, `gereserveerd`, `binnenkomend`, optioneel `binnenkomend_op`.
+                Kolommen: <code>locatie, beschikbaar, gereserveerd, binnenkomend</code>, optioneel <code>binnenkomend_op</code>.
               </p>
             </div>
             <button
-              onClick={() =>
-                setImportText([
-                  "locatie,beschikbaar,gereserveerd,binnenkomend,binnenkomend_op",
-                  "Tilburg-A1,24,6,4,2026-03-18",
-                  "Tilburg-Buffer,12,0,8,2026-03-20",
-                ].join("\n"))
-              }
+              onClick={() => setImportText("locatie,beschikbaar,gereserveerd,binnenkomend,binnenkomend_op\nTilburg-A1,24,6,4,2026-03-18\nTilburg-Buffer,12,0,8,2026-03-20")}
               className="flex items-center rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
             >
               <Download size={16} className="mr-2" />
               Voorbeeld invullen
             </button>
           </div>
-
           {importError ? <p className="mt-4 text-sm text-rose-600">{importError}</p> : null}
           {importNotice ? <p className="mt-4 text-sm text-emerald-600">{importNotice}</p> : null}
-
           <textarea
             value={importText}
-            onChange={(event) => setImportText(event.target.value)}
+            onChange={(e) => setImportText(e.target.value)}
             rows={8}
             placeholder="Plak hier CSV-data..."
             className="mt-4 w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none ring-digidromen-primary focus:ring-2"
           />
-
           <div className="mt-4 flex gap-3">
             <button
-              onClick={() => void handleImport()}
+              onClick={() => { void handleImport(); }}
               disabled={!importText.trim()}
               className="rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               Import uitvoeren
             </button>
             <button
-              onClick={() => {
-                setImportText("");
-                setImportError(null);
-                setImportNotice(null);
-              }}
+              onClick={() => { setImportText(""); setImportError(null); setImportNotice(null); }}
               className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
             >
               Wissen
@@ -370,7 +392,7 @@ const Inventory: React.FC = () => {
               {inventoryRows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
-                    Nog geen laptopvoorraad.
+                    {isLoading ? "Voorraad laden..." : "Nog geen laptopvoorraad."}
                   </td>
                 </tr>
               ) : (
@@ -414,10 +436,9 @@ const Inventory: React.FC = () => {
                   <tr key={row.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 text-sm font-semibold text-slate-900">{row.type}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{row.party}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{row.reference}</td>
+                    <td className="px-6 py-4 font-mono text-sm text-slate-600">{row.reference}</td>
                     <td className={`px-6 py-4 text-sm font-semibold ${row.direction === "in" ? "text-emerald-600" : "text-rose-600"}`}>
-                      {row.direction === "in" ? "+" : "-"}
-                      {row.quantity}
+                      {row.direction === "in" ? "+" : "-"}{row.quantity}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">{row.status}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{row.date ? String(row.date) : "-"}</td>

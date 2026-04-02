@@ -1,64 +1,153 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, FileText, RefreshCw, ShoppingCart, TriangleAlert, Wrench, HeartHandshake } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowRight, FileText, HeartHandshake, RefreshCw, ShoppingCart, TriangleAlert, Wrench } from "lucide-react";
 
-import { formatDateTime, usePortalContext } from "../lib/portal";
-import { getCrmPreparationSummary } from "../lib/crm-preparation";
+import { useAuth } from "../context/AuthContext";
+import { getSupabaseClient } from "../lib/supabase";
+import { queryKeys } from "../lib/queryKeys";
+import StatusBadge from "../components/StatusBadge";
+import KpiCard from "../components/KpiCard";
 
-type DashboardListItem = {
-  id: string;
-  status: string;
-};
-
-type DashboardEvent = {
-  id: string;
-  summary: string;
-  createdAt: string;
-  subjectType: string;
-  subjectId: string;
-};
-
-type DashboardDocument = {
-  id: string;
-  createdAt: string;
-  fileName: string;
-};
 
 const Dashboard: React.FC = () => {
-  const { snapshot, user, orders, repairs, donations, notifications } = usePortalContext();
-  const crmPreparation = getCrmPreparationSummary(snapshot.data);
+  const { user } = useAuth();
 
-  const spotlightOrders = (orders as DashboardListItem[]).slice(0, 3);
-  const spotlightRepairs = (repairs as DashboardListItem[]).slice(0, 3);
-  const spotlightDonations = (donations as DashboardListItem[]).slice(0, 3);
-  const recentDocs = (Object.values(snapshot.data.documents) as DashboardDocument[])
-    .sort((left, right) => (right.createdAt ?? "").localeCompare(left.createdAt ?? ""))
-    .slice(0, 4);
-  const recentEvents = (Object.values(snapshot.data.workflowEvents) as DashboardEvent[])
-    .sort((left, right) => (right.createdAt ?? "").localeCompare(left.createdAt ?? ""))
-    .slice(0, 6);
+  const { data: notifications = [] } = useQuery({
+    queryKey: queryKeys.notifications.unread(),
+    queryFn: async () => {
+      const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+      const { data, error } = await getSupabaseClient()
+        .from("notifications")
+        .select("id, title, created_at")
+        .gte("created_at", oneDayAgo)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+  });
 
-  const cards =
-    snapshot.role === "help_org"
+  const { data: openOrders = [] } = useQuery({
+    queryKey: queryKeys.orders.list({ status: "open" }),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("orders")
+        .select("id, status, organization_id, priority, preferred_delivery_date, created_at")
+        .not("status", "in", "(AFGESLOTEN,GEANNULEERD)")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+    enabled: true,
+  });
+
+  const { data: openRepairs = [] } = useQuery({
+    queryKey: queryKeys.repairs.list({ status: "open" }),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("repair_cases")
+        .select("id, status, issue_type, updated_at")
+        .neq("status", "AFGESLOTEN")
+        .order("updated_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+    enabled: true,
+  });
+
+  const { data: openDonations = [] } = useQuery({
+    queryKey: queryKeys.donations.list({ status: "open" }),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("donation_batches")
+        .select("id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at")
+        .neq("status", "OP_VOORRAAD")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+    enabled: true,
+  });
+
+  const { data: recentEvents = [] } = useQuery({
+    queryKey: ["workflow-events", "recent"],
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("workflow_events")
+        .select("id, title, created_at, case_type, case_id")
+        .order("created_at", { ascending: false })
+        .limit(6);
+      if (error) throw error;
+      return data;
+    },
+    enabled: true,
+  });
+
+  const { data: lowStockProducts = [] } = useQuery({
+    queryKey: queryKeys.products.active(),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("products")
+        .select("id, name, stock_on_hand, stock_reserved, category")
+        .eq("active", true)
+        .eq("category", "laptop")
+        .lt("stock_on_hand", 10);
+      if (error) throw error;
+      return data;
+    },
+    enabled: true,
+  });
+
+  const role = user?.role ?? "help_org";
+  const openOrderCount = openOrders.length;
+  const openRepairCount = openRepairs.length;
+  const openDonationCount = openDonations.length;
+
+  const unreadNotifications = notifications.length;
+
+  const spotlightOrders = openOrders.slice(0, 3);
+  const spotlightRepairs = openRepairs.slice(0, 3);
+  const spotlightDonations = openDonations.slice(0, 3);
+
+  // KPI cards per role
+  const cards = role === "help_org"
+    ? [
+        { label: "Open bestellingen", value: String(openOrderCount), icon: ShoppingCart, accent: "bg-digidromen-primary" },
+        { label: "Open reparaties", value: String(openRepairCount), icon: Wrench, accent: "bg-amber-500" },
+        { label: "Meldingen", value: String(unreadNotifications), icon: RefreshCw, accent: "bg-digidromen-secondary" },
+        { label: "Donaties", value: "-", icon: HeartHandshake, accent: "bg-emerald-500" },
+      ]
+    : role === "service_partner"
       ? [
-          { label: "Open bestellingen", value: String(orders.filter((item) => !["AFGESLOTEN", "GEANNULEERD"].includes(item.status)).length), icon: ShoppingCart, accent: "bg-digidromen-primary" },
-          { label: "Open reparaties", value: String(repairs.filter((item) => item.status !== "AFGESLOTEN").length), icon: Wrench, accent: "bg-amber-500" },
-          { label: "Documenten", value: String(recentDocs.length), icon: FileText, accent: "bg-emerald-500" },
-          { label: "Meldingen", value: String(notifications.filter((item) => item.status === "unread").length), icon: RefreshCw, accent: "bg-digidromen-secondary" },
+          { label: "Open reparaties", value: String(openRepairCount), icon: Wrench, accent: "bg-amber-500" },
+          { label: "Donatiebatches", value: String(openDonationCount), icon: HeartHandshake, accent: "bg-emerald-500" },
+          { label: "Te leveren orders", value: String(openOrders.filter((o) => ["IN_VOORBEREIDING", "VERZONDEN"].includes(o.status)).length), icon: ShoppingCart, accent: "bg-digidromen-primary" },
+          { label: "Meldingen", value: String(unreadNotifications), icon: RefreshCw, accent: "bg-digidromen-secondary" },
         ]
-      : snapshot.role === "service_partner"
-        ? [
-            { label: "Open repairs", value: String(repairs.filter((item) => item.status !== "AFGESLOTEN").length), icon: Wrench, accent: "bg-amber-500" },
-            { label: "Pickup batches", value: String(donations.filter((item) => item.status !== "OP_VOORRAAD").length), icon: HeartHandshake, accent: "bg-emerald-500" },
-            { label: "Te leveren", value: String(orders.filter((item) => item.status === "IN_VOORBEREIDING" || item.status === "VERZONDEN").length), icon: ShoppingCart, accent: "bg-digidromen-primary" },
-            { label: "CRM queue", value: String(crmPreparation.openQueueCount), icon: RefreshCw, accent: "bg-digidromen-secondary" },
-          ]
-        : [
-            { label: "Open orders", value: String(snapshot.metrics.openOrders), icon: ShoppingCart, accent: "bg-digidromen-primary" },
-            { label: "Open repairs", value: String(snapshot.metrics.openRepairs), icon: Wrench, accent: "bg-amber-500" },
-            { label: "Open donations", value: String(snapshot.metrics.openDonations), icon: HeartHandshake, accent: "bg-emerald-500" },
-            { label: "CRM referenties", value: String(crmPreparation.preparedReferenceCount), icon: RefreshCw, accent: "bg-digidromen-secondary" },
-          ];
+      : [
+          { label: "Open orders", value: String(openOrderCount), icon: ShoppingCart, accent: "bg-digidromen-primary" },
+          { label: "Open reparaties", value: String(openRepairCount), icon: Wrench, accent: "bg-amber-500" },
+          { label: "Open donaties", value: String(openDonationCount), icon: HeartHandshake, accent: "bg-emerald-500" },
+          { label: "Meldingen", value: String(unreadNotifications), icon: FileText, accent: "bg-digidromen-secondary" },
+        ];
+
+  const displayEvents = recentEvents.map((e) => ({
+    id: e.id,
+    summary: e.title,
+    createdAt: e.created_at,
+    subjectType: e.case_type,
+    subjectId: e.case_id,
+  }));
+
+  const displayLowStock = lowStockProducts.map((p) => ({
+    productId: p.id,
+    name: p.name,
+    availableQuantity: p.stock_on_hand - p.stock_reserved,
+  }));
 
   return (
     <div className="space-y-8">
@@ -84,38 +173,29 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Metric cards */}
+      {/* KPI cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {cards.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div key={stat.label} className="rounded-2xl border border-digidromen-cream bg-white p-5 transition-shadow hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${stat.accent}/15`}>
-                  <Icon size={18} className={`${stat.accent.replace("bg-", "text-")}`} />
-                </div>
-              </div>
-              <p className="mt-3 text-2xl font-bold text-digidromen-dark">{stat.value}</p>
-              <p className="mt-0.5 text-xs font-medium text-digidromen-dark/50">{stat.label}</p>
-            </div>
-          );
-        })}
+        {cards.map((stat) => (
+          <KpiCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} accent={stat.accent} />
+        ))}
       </div>
 
-      {/* Main content grid */}
+      {/* Main grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
         {/* Recent activity */}
         <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
           <h3 className="mb-4 text-base font-bold text-digidromen-dark">Recente activiteit</h3>
           <div className="space-y-3">
-            {recentEvents.length === 0 ? (
+            {displayEvents.length === 0 ? (
               <p className="py-6 text-center text-sm text-digidromen-dark/30">Nog geen activiteit.</p>
             ) : (
-              recentEvents.map((event) => (
+              displayEvents.map((event) => (
                 <div key={event.id} className="rounded-xl border border-digidromen-cream/80 p-3.5 transition-colors hover:bg-digidromen-cream/40">
                   <div className="flex items-center justify-between gap-4">
                     <p className="text-sm font-semibold text-digidromen-dark">{event.summary}</p>
-                    <p className="shrink-0 text-[11px] text-digidromen-dark/35">{formatDateTime(event.createdAt)}</p>
+                    <p className="shrink-0 text-[11px] text-digidromen-dark/35">
+                      {new Date(event.createdAt).toLocaleString("nl-NL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </p>
                   </div>
                   <p className="mt-1 text-[11px] text-digidromen-dark/40">
                     {event.subjectType} &middot; {event.subjectId}
@@ -128,18 +208,16 @@ const Dashboard: React.FC = () => {
 
         {/* Right column */}
         <div className="space-y-6">
-          {/* Quick routes */}
+          {/* Quick links */}
           <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
             <h3 className="mb-4 text-base font-bold text-digidromen-dark">Snelle routes</h3>
             <div className="grid gap-2">
               {[
-                { label: "Bestellingen", route: "/orders", description: `${orders.length} records`, icon: ShoppingCart },
-                { label: "Reparaties", route: "/repairs", description: `${repairs.length} records`, icon: Wrench },
-                { label: "Donaties", route: "/donations", description: `${donations.length} records`, icon: HeartHandshake },
-                { label: "CRM voorbereiding", route: "/crm-sync", description: `${crmPreparation.preparedReferenceCount} referenties`, icon: RefreshCw },
+                { label: "Bestellingen", route: "/orders", description: `${openOrders.length} records`, icon: ShoppingCart },
+                { label: "Reparaties", route: "/repairs", description: `${openRepairs.length} records`, icon: Wrench },
+                { label: "Donaties", route: "/donations", description: `${openDonations.length} records`, icon: HeartHandshake },
               ]
-                .filter((item) => item.route !== "/crm-sync" || snapshot.role !== "help_org")
-                .filter((item) => item.route !== "/donations" || snapshot.role !== "help_org")
+                .filter((item) => item.route !== "/donaties" || role !== "help_org")
                 .map((item) => {
                   const Icon = item.icon;
                   return (
@@ -164,43 +242,23 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Signals */}
+          {/* Alerts */}
           <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
             <h3 className="mb-4 text-base font-bold text-digidromen-dark">Signalen</h3>
             <div className="space-y-2.5">
-              <Link to="/crm-sync" className="flex items-start gap-3 rounded-xl bg-digidromen-orange-light p-3.5">
-                <TriangleAlert size={16} className="mt-0.5 shrink-0 text-digidromen-primary" />
-                <div>
-                  <p className="text-sm font-semibold text-digidromen-dark">CRM-koppeling staat geparkeerd</p>
-                  <p className="text-xs text-digidromen-dark/50">
-                    {crmPreparation.openQueueCount} queue-items, {crmPreparation.preparedReferenceCount} referenties
-                  </p>
-                </div>
-              </Link>
-
-              {snapshot.metrics.lowStockProducts.slice(0, 2).map((product) => (
-                <div key={product.productId} className="flex items-start gap-3 rounded-xl bg-amber-50 p-3.5">
-                  <RefreshCw size={16} className="mt-0.5 shrink-0 text-amber-600" />
-                  <div>
-                    <p className="text-sm font-semibold text-digidromen-dark">{product.name}</p>
-                    <p className="text-xs text-digidromen-dark/50">Beschikbaar: {product.availableQuantity}</p>
+              {displayLowStock.length > 0 ? (
+                displayLowStock.slice(0, 2).map((product) => (
+                  <div key={product.productId} className="flex items-start gap-3 rounded-xl bg-amber-50 p-3.5">
+                    <TriangleAlert size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-digidromen-dark">{product.name}</p>
+                      <p className="text-xs text-digidromen-dark/50">Beschikbaar: {product.availableQuantity}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-
-              {recentDocs.length > 0 ? (
-                <div className="rounded-xl bg-digidromen-cream/60 p-3.5">
-                  <div className="mb-2 flex items-center gap-2">
-                    <FileText size={14} className="text-digidromen-dark/40" />
-                    <p className="text-xs font-semibold text-digidromen-dark">Recente documenten</p>
-                  </div>
-                  <div className="space-y-1.5 text-xs text-digidromen-dark/50">
-                    {recentDocs.map((document) => (
-                      <p key={document.id}>{document.fileName}</p>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
+                ))
+              ) : (
+                <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen actieve signalen.</p>
+              )}
             </div>
           </div>
         </div>
@@ -215,17 +273,18 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="space-y-2">
             {spotlightOrders.length === 0 ? (
-              <p className="py-4 text-center text-sm text-digidromen-dark/30">Nog geen bestellingen.</p>
+              <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen openstaande orders.</p>
             ) : (
               spotlightOrders.map((order) => (
                 <Link key={order.id} to={`/orders/${order.id}`} className="block rounded-xl bg-digidromen-cream/50 p-3 transition-colors hover:bg-digidromen-cream">
-                  <p className="text-sm font-semibold text-digidromen-dark">{order.id}</p>
-                  <p className="text-xs text-digidromen-dark/40">{order.status}</p>
+                  <p className="text-sm font-semibold text-digidromen-dark font-mono">{order.id}</p>
+                  <StatusBadge status={order.status} />
                 </Link>
               ))
             )}
           </div>
         </div>
+
         <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
           <div className="mb-4 flex items-center gap-2">
             <Wrench size={16} className="text-amber-500" />
@@ -233,17 +292,18 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="space-y-2">
             {spotlightRepairs.length === 0 ? (
-              <p className="py-4 text-center text-sm text-digidromen-dark/30">Nog geen reparaties.</p>
+              <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen openstaande reparaties.</p>
             ) : (
               spotlightRepairs.map((repair) => (
                 <Link key={repair.id} to={`/repairs/${repair.id}`} className="block rounded-xl bg-digidromen-cream/50 p-3 transition-colors hover:bg-digidromen-cream">
-                  <p className="text-sm font-semibold text-digidromen-dark">{repair.id}</p>
-                  <p className="text-xs text-digidromen-dark/40">{repair.status}</p>
+                  <p className="text-sm font-semibold text-digidromen-dark font-mono">{repair.id}</p>
+                  <StatusBadge status={repair.status} />
                 </Link>
               ))
             )}
           </div>
         </div>
+
         <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
           <div className="mb-4 flex items-center gap-2">
             <HeartHandshake size={16} className="text-emerald-500" />
@@ -251,12 +311,12 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="space-y-2">
             {spotlightDonations.length === 0 ? (
-              <p className="py-4 text-center text-sm text-digidromen-dark/30">Nog geen donaties.</p>
+              <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen actieve donatiebatches.</p>
             ) : (
               spotlightDonations.map((donation) => (
                 <Link key={donation.id} to={`/donations/${donation.id}`} className="block rounded-xl bg-digidromen-cream/50 p-3 transition-colors hover:bg-digidromen-cream">
-                  <p className="text-sm font-semibold text-digidromen-dark">{donation.id}</p>
-                  <p className="text-xs text-digidromen-dark/40">{donation.status}</p>
+                  <p className="text-sm font-semibold text-digidromen-dark font-mono">{donation.id}</p>
+                  <StatusBadge status={donation.status} />
                 </Link>
               ))
             )}
