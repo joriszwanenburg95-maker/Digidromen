@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, HeartHandshake, Paperclip, Send } from "lucide-react";
 
 import CrmPreparationCard from "../components/CrmPreparationCard";
+import { SkeletonDetailSection } from "../components/Skeleton";
 import Timeline from "../components/Timeline";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateTime } from "../lib/format";
@@ -11,6 +12,17 @@ import { formatCrmReference } from "../lib/crm-preparation";
 import { queryKeys } from "../lib/queryKeys";
 import { getSupabaseClient } from "../lib/supabase";
 import type { TimelineEvent } from "../types";
+import type { Database } from "../types/database";
+
+type DonationDetailRow = Database["public"]["Tables"]["donation_batches"]["Row"] & {
+  organizations: { name: string } | null;
+  service_partner: { name: string } | null;
+};
+
+type WorkflowEventRow = Database["public"]["Tables"]["workflow_events"]["Row"];
+type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
+type DocumentRow = Database["public"]["Tables"]["documents"]["Row"];
+type DonationStatus = Database["public"]["Enums"]["donation_status"];
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -30,9 +42,9 @@ function statusButtonStyle(status: string) {
   return "bg-digidromen-primary hover:bg-blue-700 text-white";
 }
 
-function getNextStatuses(role: string, status: string): string[] {
+function getNextStatuses(role: string, status: DonationStatus): DonationStatus[] {
   if (role === "help_org") return [];
-  const flow: Record<string, string[]> = {
+  const flow: Partial<Record<DonationStatus, DonationStatus[]>> = {
     aangemeld: ["pickup_gepland"],
     pickup_gepland: ["ontvangen"],
     ontvangen: ["in_verwerking"],
@@ -59,7 +71,7 @@ const DonationDetail: React.FC = () => {
         .eq("id", id!)
         .single();
       if (error) throw error;
-      return data;
+      return data as DonationDetailRow;
     },
     enabled: !!id,
   });
@@ -74,7 +86,7 @@ const DonationDetail: React.FC = () => {
         .eq("case_type", "donation")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return (data ?? []) as WorkflowEventRow[];
     },
     enabled: !!id,
   });
@@ -89,7 +101,7 @@ const DonationDetail: React.FC = () => {
         .eq("case_type", "donation")
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data;
+      return (data ?? []) as MessageRow[];
     },
     enabled: !!id,
   });
@@ -104,15 +116,15 @@ const DonationDetail: React.FC = () => {
         .eq("case_type", "donation")
         .order("uploaded_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return (data ?? []) as DocumentRow[];
     },
     enabled: !!id,
   });
 
   const transitionMutation = useMutation({
-    mutationFn: async (nextStatus: string) => {
+    mutationFn: async (nextStatus: DonationStatus) => {
       const patch: Record<string, unknown> = {
-        status: nextStatus as any,
+        status: nextStatus,
         updated_at: new Date().toISOString(),
       };
 
@@ -176,9 +188,9 @@ const DonationDetail: React.FC = () => {
         case_type: "donation",
         file_name: fileName,
         file_size_label: "Metadata only",
-        kind: "donation_report" as any,
+        kind: "donation_report",
         mime_type: "application/pdf",
-        storage_mode: "metadata_only" as any,
+        storage_mode: "metadata_only",
         uploaded_at: new Date().toISOString(),
         uploaded_by_name: user?.name ?? "Gebruiker",
         uploaded_by_user_id: user?.id ?? null,
@@ -193,8 +205,9 @@ const DonationDetail: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-600 border-t-transparent" />
+      <div className="space-y-4">
+        <SkeletonDetailSection rows={5} />
+        <SkeletonDetailSection rows={4} />
       </div>
     );
   }
@@ -238,7 +251,7 @@ const DonationDetail: React.FC = () => {
               className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${statusButtonStyle(status)}`}
             >
               <CheckCircle2 size={15} />
-              {status === "OPHAALAFSPRAAK_GEPLAND" ? "Pickup plannen" : `→ ${status}`}
+              {status === "pickup_gepland" ? "Pickup plannen" : `→ ${status}`}
             </button>
           ))}
         </div>
@@ -261,7 +274,7 @@ const DonationDetail: React.FC = () => {
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Donor</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{(donation as any).organizations?.name ?? "Onbekende donor"}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{donation.organizations?.name ?? "Onbekende donor"}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Toegezegde devices</p>
@@ -395,7 +408,7 @@ const DonationDetail: React.FC = () => {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Servicepartner</dt>
-                <dd className="font-semibold text-slate-800">{(donation as any).service_partner?.name ?? "-"}</dd>
+                <dd className="font-semibold text-slate-800">{donation.service_partner?.name ?? "-"}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Laatste update</dt>

@@ -1,9 +1,19 @@
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2, UserPlus, X } from "lucide-react";
+import { LoadingButton } from "../components/LoadingButton";
+import { SkeletonTableRow } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
+import type { Database } from "../types/database";
+
+type UserListRow = Pick<
+  Database["public"]["Tables"]["user_profiles"]["Row"],
+  "id" | "name" | "email" | "role" | "organization_id"
+> & {
+  organizations: { name: string } | null;
+};
 
 const ROLE_LABELS: Record<string, string> = {
   digidromen_admin: "Digidromen Admin",
@@ -32,7 +42,7 @@ const Users: React.FC = () => {
         .select("id, name, email, role, organization_id, organizations(name)")
         .order("name");
       if (error) throw error;
-      return data;
+      return (data ?? []) as UserListRow[];
     },
     enabled: authMode === "supabase",
   });
@@ -55,7 +65,7 @@ const Users: React.FC = () => {
     setInviteLoading(true);
     setInviteError(null);
     try {
-      const { data, error } = await getSupabaseClient().functions.invoke("admin-users", {
+      const { error } = await getSupabaseClient().functions.invoke("admin-users", {
         body: {
           action: "invite",
           name: inviteForm.name,
@@ -192,13 +202,15 @@ const Users: React.FC = () => {
             )}
           </div>
           <div className="flex justify-end pt-2">
-            <button
+            <LoadingButton
               onClick={handleInvite}
+              isLoading={inviteLoading}
+              loadingLabel="Versturen..."
               disabled={inviteLoading || !inviteForm.name || !inviteForm.email}
-              className="inline-flex items-center gap-2 rounded-xl bg-digidromen-primary px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2"
             >
-              {inviteLoading ? "Versturen..." : "Uitnodiging versturen"}
-            </button>
+              Uitnodiging versturen
+            </LoadingButton>
           </div>
         </div>
       )}
@@ -215,10 +227,14 @@ const Users: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {users.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: 6 }).map((_, index) => (
+                <SkeletonTableRow key={index} cols={5} />
+              ))
+            ) : users.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">
-                  {isLoading ? "Laden..." : "Geen gebruikers gevonden."}
+                  Geen gebruikers gevonden.
                 </td>
               </tr>
             ) : (
@@ -231,7 +247,7 @@ const Users: React.FC = () => {
                       {ROLE_LABELS[u.role ?? ""] ?? u.role}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{(u.organizations as any)?.name ?? "-"}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{u.organizations?.name ?? "-"}</td>
                   <td className="px-6 py-4 text-right">
                     {u.id !== user?.id ? (
                       <button

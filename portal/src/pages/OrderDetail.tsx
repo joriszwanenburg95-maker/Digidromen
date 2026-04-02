@@ -12,12 +12,14 @@ import {
 } from "lucide-react";
 
 import CrmPreparationCard from "../components/CrmPreparationCard";
+import { SkeletonDetailSection } from "../components/Skeleton";
 import Timeline from "../components/Timeline";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateTime } from "../lib/format";
 import { formatCrmReference } from "../lib/crm-preparation";
 import { queryKeys } from "../lib/queryKeys";
 import { getSupabaseClient } from "../lib/supabase";
+import type { Database } from "../types/database";
 import type { TimelineEvent } from "../types";
 
 function statusBadge(status: string) {
@@ -60,6 +62,141 @@ function statusButtonStyle(status: string) {
   return "bg-digidromen-primary hover:bg-blue-700 text-white";
 }
 
+type OrderLineRow = Database["public"]["Tables"]["order_lines"]["Row"];
+type OrderStatus = Database["public"]["Tables"]["orders"]["Row"]["status"];
+
+type OrderDetailRow = Database["public"]["Tables"]["orders"]["Row"] & {
+  order_lines: OrderLineRow[];
+  organizations: { name: string } | null;
+  service_partner: { name: string } | null;
+};
+
+async function logOrderMovements(
+  orderId: string,
+  lines: Array<{ product_id: string; quantity: number }>,
+  createdBy: string | undefined,
+) {
+  const movements = lines.map((line) => ({
+    created_by: createdBy ?? null,
+    movement_type: "order_fulfillment" as const,
+    note: `Uitlevering order ${orderId}`,
+    product_id: line.product_id,
+    quantity_delta: -line.quantity,
+    source_case_id: orderId,
+    source_case_type: "order",
+  }));
+
+  const { error } = await getSupabaseClient()
+    .from("inventory_movements")
+    .insert(movements);
+
+  if (error) {
+    console.error("inventory_movements insert failed:", error.message);
+  }
+}
+
+const DeliveryDateSection: React.FC<{
+  orderId: string;
+  deliveryDate: string | null;
+  role: string;
+  onSaved: () => void;
+}> = ({ orderId, deliveryDate, role, onSaved }) => {
+  const { user } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [date, setDate] = useState(deliveryDate ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const canEdit =
+    role === "service_partner" ||
+    role === "digidromen_admin" ||
+    role === "digidromen_staff";
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
+
+    const { error: updateError } = await getSupabaseClient()
+      .from("orders")
+      .update({
+        delivery_date: date || null,
+        delivery_date_set_by: user?.id ?? null,
+        delivery_date_source: "manual",
+      })
+      .eq("id", orderId);
+
+    setIsSaving(false);
+
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+
+    setEditing(false);
+    onSaved();
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        Bezorgdatum
+      </p>
+
+      {editing && canEdit ? (
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-digidromen-primary/40"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              void handleSave();
+            }}
+            disabled={isSaving}
+            className="rounded-lg bg-digidromen-primary px-3 py-1.5 text-xs font-semibold text-digidromen-dark disabled:opacity-50"
+          >
+            {isSaving ? "Opslaan..." : "Opslaan"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="text-xs text-slate-500 hover:text-slate-700"
+          >
+            Annuleren
+          </button>
+          {error ? <p className="text-xs text-red-500">{error}</p> : null}
+        </div>
+      ) : (
+        <div className="mt-1 flex items-center justify-between gap-4">
+          <p className="text-sm font-medium text-slate-800">
+            {deliveryDate ? (
+              new Date(deliveryDate).toLocaleDateString("nl-NL", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })
+            ) : (
+              <span className="italic text-slate-400">Nog niet ingevuld</span>
+            )}
+          </p>
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="text-xs text-digidromen-primary hover:underline"
+            >
+              {deliveryDate ? "Wijzigen" : "Invullen"}
+            </button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const OrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -78,7 +215,7 @@ const OrderDetail: React.FC = () => {
         .eq("id", id!)
         .single();
       if (error) throw error;
-      return data;
+      return data as OrderDetailRow;
     },
     enabled: !!id,
   });
@@ -132,9 +269,18 @@ const OrderDetail: React.FC = () => {
     mutationFn: async (nextStatus: string) => {
       const { error } = await getSupabaseClient()
         .from("orders")
-        .update({ status: nextStatus as any, updated_at: new Date().toISOString() })
+        .update({
+          status: nextStatus as OrderStatus,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", id!);
       if (error) throw error;
+
+      const orderLines = order.order_lines ?? [];
+
+      if (nextStatus === "geleverd" && orderLines.length > 0) {
+        await logOrderMovements(id!, orderLines, user?.id);
+      }
 
       const { error: eventError } = await getSupabaseClient().from("workflow_events").insert({
         id: crypto.randomUUID(),
@@ -153,6 +299,7 @@ const OrderDetail: React.FC = () => {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.orders.detail(id!) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all });
       void queryClient.invalidateQueries({ queryKey: ["workflow-events", "order", id] });
     },
   });
@@ -187,9 +334,9 @@ const OrderDetail: React.FC = () => {
         case_type: "order",
         file_name: fileName,
         file_size_label: "Metadata only",
-        kind: "shipping_note" as any,
+        kind: "shipping_note",
         mime_type: "application/pdf",
-        storage_mode: "metadata_only" as any,
+        storage_mode: "metadata_only",
         uploaded_at: new Date().toISOString(),
         uploaded_by_name: user?.name ?? "Gebruiker",
         uploaded_by_user_id: user?.id ?? null,
@@ -204,8 +351,9 @@ const OrderDetail: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-digidromen-primary border-t-transparent" />
+      <div className="space-y-4">
+        <SkeletonDetailSection rows={6} />
+        <SkeletonDetailSection rows={4} />
       </div>
     );
   }
@@ -277,11 +425,11 @@ const OrderDetail: React.FC = () => {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Regels</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{((order as any).order_lines ?? []).length}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{order.order_lines?.length ?? 0}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Klant</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{(order as any).organizations?.name ?? "Onbekend"}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{order.organizations?.name ?? "Onbekend"}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bijgewerkt</p>
@@ -294,11 +442,11 @@ const OrderDetail: React.FC = () => {
               <p className="mt-2 text-sm text-slate-700">{order.motivation}</p>
             </div>
 
-            {((order as any).order_lines ?? []).length > 0 ? (
+            {order.order_lines?.length > 0 ? (
               <div className="mt-6">
                 <h3 className="mb-3 font-bold text-slate-900">Orderregels</h3>
                 <div className="space-y-2">
-                  {((order as any).order_lines as Array<{ id?: string; quantity: number; line_type?: string }>).map((line, index) => (
+                  {order.order_lines.map((line, index) => (
                     <div key={line.id ?? index} className="flex items-center rounded-xl bg-slate-50 p-3">
                       <div className="mr-3 rounded-lg border border-slate-200 bg-white p-2">
                         <Package size={16} className="text-slate-400" />
@@ -428,13 +576,26 @@ const OrderDetail: React.FC = () => {
               ) : null}
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Servicepartner</dt>
-                <dd className="font-semibold text-slate-800">{(order as any).service_partner?.name ?? "-"}</dd>
+                <dd className="font-semibold text-slate-800">{order.service_partner?.name ?? "-"}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Bijgewerkt</dt>
                 <dd className="font-semibold text-slate-800">{formatDateTime(order.updated_at)}</dd>
               </div>
             </dl>
+
+            <div className="mt-4">
+              <DeliveryDateSection
+                orderId={order.id}
+                deliveryDate={order.delivery_date ?? null}
+                role={role}
+                onSaved={() => {
+                  void queryClient.invalidateQueries({
+                    queryKey: queryKeys.orders.detail(id!),
+                  });
+                }}
+              />
+            </div>
           </div>
 
           <CrmPreparationCard

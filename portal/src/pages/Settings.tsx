@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, Package, Pencil, Trash2, UserPlus } from "lucide-react";
 
+import { LoadingButton } from "../components/LoadingButton";
 import { useAuth } from "../context/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../lib/queryKeys";
 import { getSupabaseClient } from "../lib/supabase";
 import type { Role } from "../types";
+import type { Database } from "../types/database";
 
 const roleOptions: { value: Role; label: string }[] = [
   { value: "help_org", label: "Klant" },
@@ -39,7 +41,7 @@ interface UserProfile {
 interface OrganizationRow {
   id: string;
   name: string;
-  type: string;
+  type: Database["public"]["Tables"]["organizations"]["Row"]["type"];
   city: string;
   contactName?: string | null;
   contactEmail?: string | null;
@@ -50,7 +52,7 @@ interface ProductRow {
   id: string;
   name: string;
   sku: string;
-  category: string;
+  category: Database["public"]["Tables"]["products"]["Row"]["category"];
   description: string;
   specificationSummary: string[];
   stockOnHand: number;
@@ -98,6 +100,28 @@ const emptyProductForm: ProductFormState = {
   active: true,
 };
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+type OrganizationQueryRow = Pick<
+  Database["public"]["Tables"]["organizations"]["Row"],
+  "id" | "name" | "type" | "city" | "contact_name" | "contact_email" | "active"
+>;
+
+type ProductQueryRow = Pick<
+  Database["public"]["Tables"]["products"]["Row"],
+  | "id"
+  | "name"
+  | "sku"
+  | "category"
+  | "description"
+  | "specification_summary"
+  | "stock_on_hand"
+  | "stock_reserved"
+  | "active"
+>;
+
 const Settings: React.FC = () => {
   const { user: authUser, authMode } = useAuth();
   const queryClient = useQueryClient();
@@ -111,18 +135,24 @@ const Settings: React.FC = () => {
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "help_org" as Role, organizationId: "" });
   const [userError, setUserError] = useState<string | null>(null);
+  const [addUserLoading, setAddUserLoading] = useState(false);
+  const [userActionId, setUserActionId] = useState<string | null>(null);
 
   const [showOrgForm, setShowOrgForm] = useState(false);
   const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
   const [orgForm, setOrgForm] = useState<OrganizationFormState>(emptyOrgForm);
   const [orgError, setOrgError] = useState<string | null>(null);
   const [orgNotice, setOrgNotice] = useState<string | null>(null);
+  const [orgSaving, setOrgSaving] = useState(false);
+  const [orgDeletingId, setOrgDeletingId] = useState<string | null>(null);
 
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productForm, setProductForm] = useState<ProductFormState>(emptyProductForm);
   const [productError, setProductError] = useState<string | null>(null);
   const [productNotice, setProductNotice] = useState<string | null>(null);
+  const [productSaving, setProductSaving] = useState(false);
+  const [productDeletingId, setProductDeletingId] = useState<string | null>(null);
 
   const { data: organizationsRaw = [] } = useQuery({
     queryKey: queryKeys.organizations.list(),
@@ -132,7 +162,7 @@ const Settings: React.FC = () => {
         .select("id, name, type, city, contact_name, contact_email, active")
         .order("name");
       if (error) throw error;
-      return (data ?? []).map((row: any) => ({
+      return ((data ?? []) as OrganizationQueryRow[]).map((row) => ({
         id: row.id,
         name: row.name,
         type: row.type,
@@ -140,7 +170,7 @@ const Settings: React.FC = () => {
         contactName: row.contact_name,
         contactEmail: row.contact_email,
         active: row.active,
-      })) as OrganizationRow[];
+      }));
     },
   });
 
@@ -171,7 +201,7 @@ const Settings: React.FC = () => {
         .select("id, name, sku, category, description, specification_summary, stock_on_hand, stock_reserved, active")
         .order("name");
       if (error) throw error;
-      return (data ?? []).map((row: any) => ({
+      return ((data ?? []) as ProductQueryRow[]).map((row) => ({
         id: row.id,
         name: row.name,
         sku: row.sku ?? "",
@@ -181,7 +211,7 @@ const Settings: React.FC = () => {
         stockOnHand: row.stock_on_hand ?? 0,
         stockReserved: row.stock_reserved ?? 0,
         active: row.active,
-      })) as ProductRow[];
+      }));
     },
   });
 
@@ -304,6 +334,7 @@ const Settings: React.FC = () => {
       setUserError("Vul alle velden in.");
       return;
     }
+    setAddUserLoading(true);
     try {
       await callAdminFunction({
         action: "create",
@@ -317,27 +348,35 @@ const Settings: React.FC = () => {
       setNewUser({ name: "", email: "", password: "", role: "help_org", organizationId: "" });
       await loadUsers();
       await queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
-    } catch (err: any) {
-      setUserError(err.message ?? "Fout bij aanmaken gebruiker.");
+    } catch (err: unknown) {
+      setUserError(getErrorMessage(err, "Fout bij aanmaken gebruiker."));
+    } finally {
+      setAddUserLoading(false);
     }
   };
 
   const handleUpdateRole = async (profileId: string, role: Role) => {
+    setUserActionId(`role-${profileId}`);
     try {
       await callAdminFunction({ action: "update-role", profileId, role });
       await loadUsers();
       await queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
     } catch {
       // silently fail
+    } finally {
+      setUserActionId(null);
     }
   };
 
   const handleDeactivateUser = async (profileId: string) => {
+    setUserActionId(`deactivate-${profileId}`);
     try {
       await callAdminFunction({ action: "deactivate", profileId });
       await loadUsers();
     } catch {
       // silently fail
+    } finally {
+      setUserActionId(null);
     }
   };
 
@@ -350,6 +389,7 @@ const Settings: React.FC = () => {
     }
 
     try {
+      setOrgSaving(true);
       const supabase = getSupabaseClient();
       const payload = {
         name: orgForm.name.trim(),
@@ -380,8 +420,10 @@ const Settings: React.FC = () => {
 
       closeOrgForm();
       await queryClient.invalidateQueries({ queryKey: queryKeys.organizations.all });
-    } catch (err: any) {
-      setOrgError(err.message ?? "Fout bij opslaan organisatie.");
+    } catch (err: unknown) {
+      setOrgError(getErrorMessage(err, "Fout bij opslaan organisatie."));
+    } finally {
+      setOrgSaving(false);
     }
   };
 
@@ -396,6 +438,7 @@ const Settings: React.FC = () => {
     }
 
     try {
+      setOrgDeletingId(org.id);
       const supabase = getSupabaseClient();
       const { error } = await supabase
         .from("organizations")
@@ -409,8 +452,10 @@ const Settings: React.FC = () => {
       }
       setOrgNotice(`Organisatie "${org.name}" is inactief gemaakt.`);
       await queryClient.invalidateQueries({ queryKey: queryKeys.organizations.all });
-    } catch (err: any) {
-      setOrgError(err.message ?? "Fout bij verwijderen organisatie.");
+    } catch (err: unknown) {
+      setOrgError(getErrorMessage(err, "Fout bij verwijderen organisatie."));
+    } finally {
+      setOrgDeletingId(null);
     }
   };
 
@@ -423,6 +468,7 @@ const Settings: React.FC = () => {
     }
 
     try {
+      setProductSaving(true);
       const supabase = getSupabaseClient();
       const payload = {
         name: productForm.name.trim(),
@@ -458,8 +504,10 @@ const Settings: React.FC = () => {
 
       closeProductForm();
       await queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
-    } catch (err: any) {
-      setProductError(err.message ?? "Fout bij opslaan product.");
+    } catch (err: unknown) {
+      setProductError(getErrorMessage(err, "Fout bij opslaan product."));
+    } finally {
+      setProductSaving(false);
     }
   };
 
@@ -474,6 +522,7 @@ const Settings: React.FC = () => {
     }
 
     try {
+      setProductDeletingId(product.id);
       const supabase = getSupabaseClient();
       const { error } = await supabase
         .from("products")
@@ -487,8 +536,10 @@ const Settings: React.FC = () => {
       }
       setProductNotice(`Product "${product.name}" is inactief gemaakt.`);
       await queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
-    } catch (err: any) {
-      setProductError(err.message ?? "Fout bij verwijderen product.");
+    } catch (err: unknown) {
+      setProductError(getErrorMessage(err, "Fout bij verwijderen product."));
+    } finally {
+      setProductDeletingId(null);
     }
   };
 
@@ -498,6 +549,7 @@ const Settings: React.FC = () => {
       ? [
           { key: "users" as const, label: "Gebruikers" },
           { key: "organizations" as const, label: "Organisaties" },
+          { key: "products" as const, label: "Producten" },
         ]
       : []),
   ];
@@ -636,12 +688,14 @@ const Settings: React.FC = () => {
                 </select>
               </div>
               <div className="flex gap-3">
-                <button
+                <LoadingButton
                   onClick={() => void handleAddUser()}
-                  className="rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
+                  isLoading={addUserLoading}
+                  loadingLabel="Aanmaken..."
+                  disabled={addUserLoading}
                 >
                   Aanmaken
-                </button>
+                </LoadingButton>
                 <button
                   onClick={() => {
                     setShowAddUser(false);
@@ -688,6 +742,7 @@ const Settings: React.FC = () => {
                         <select
                           value={item.role}
                           onChange={(event) => void handleUpdateRole(item.id, event.target.value as Role)}
+                          disabled={userActionId === `role-${item.id}`}
                           className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold outline-none"
                         >
                           {roleOptions.map((role) => (
@@ -703,6 +758,7 @@ const Settings: React.FC = () => {
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => void handleDeactivateUser(item.id)}
+                          disabled={userActionId === `deactivate-${item.id}`}
                           className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
                           title="Deactiveren"
                         >
@@ -792,12 +848,14 @@ const Settings: React.FC = () => {
                 </label>
               </div>
               <div className="flex gap-3">
-                <button
+                <LoadingButton
                   onClick={() => void handleSaveOrg()}
-                  className="rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
+                  isLoading={orgSaving}
+                  loadingLabel="Opslaan..."
+                  disabled={orgSaving}
                 >
                   {editingOrgId ? "Opslaan" : "Aanmaken"}
-                </button>
+                </LoadingButton>
                 <button
                   onClick={closeOrgForm}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
@@ -858,6 +916,7 @@ const Settings: React.FC = () => {
                           </button>
                           <button
                             onClick={() => void handleDeleteOrg(org)}
+                            disabled={orgDeletingId === org.id}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
                             title="Verwijderen"
                           >
@@ -974,12 +1033,14 @@ const Settings: React.FC = () => {
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
               />
               <div className="flex gap-3">
-                <button
+                <LoadingButton
                   onClick={() => void handleSaveProduct()}
-                  className="rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
+                  isLoading={productSaving}
+                  loadingLabel="Opslaan..."
+                  disabled={productSaving}
                 >
                   {editingProductId ? "Opslaan" : "Aanmaken"}
-                </button>
+                </LoadingButton>
                 <button
                   onClick={closeProductForm}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
@@ -1040,6 +1101,7 @@ const Settings: React.FC = () => {
                           </button>
                           <button
                             onClick={() => void handleDeleteProduct(product)}
+                            disabled={productDeletingId === product.id}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
                             title="Verwijderen"
                           >

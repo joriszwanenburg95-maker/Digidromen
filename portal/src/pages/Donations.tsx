@@ -3,11 +3,26 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 
+import { LoadingButton } from "../components/LoadingButton";
+import { SkeletonTableRow } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
-import { formatDate } from "../lib/format";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
 import StatusBadge from "../components/StatusBadge";
+import type { Database } from "../types/database";
+
+type DonationListRow = Pick<
+  Database["public"]["Tables"]["donation_batches"]["Row"],
+  "id" | "status" | "device_count_promised" | "pickup_date" | "created_at"
+> & {
+  organizations: { name: string } | null;
+};
+
+function normalizeOrganization(input: unknown): { name: string } | null {
+  return input && typeof input === "object" && "name" in input && typeof input.name === "string"
+    ? { name: input.name }
+    : null;
+}
 
 const statusTabs = [
   { key: "all", label: "Alle" },
@@ -43,7 +58,14 @@ const Donations: React.FC = () => {
         .select("id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at, organizations(name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        status: row.status,
+        device_count_promised: row.device_count_promised,
+        pickup_date: row.pickup_date,
+        created_at: row.created_at,
+        organizations: normalizeOrganization(row.organizations),
+      })) satisfies DonationListRow[];
     },
     enabled: true,
   });
@@ -195,12 +217,13 @@ const Donations: React.FC = () => {
             placeholder="Aantekeningen voor pickup, telling of refurbish"
           />
 
-          <button
+          <LoadingButton
             type="submit"
-            className="rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white"
+            variant="success"
+            className="px-4 py-3"
           >
             Donatie registreren
-          </button>
+          </LoadingButton>
         </form>
       </div>
     );
@@ -254,17 +277,21 @@ const Donations: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {filteredDonations.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <SkeletonTableRow key={index} cols={6} />
+              ))
+            ) : filteredDonations.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
-                  {isLoading ? "Donaties laden..." : "Nog geen donaties."}
+                  Nog geen donaties.
                 </td>
               </tr>
             ) : (
               filteredDonations.map((donation) => {
-                const orgName = (donation as any).organizations?.name ?? "Onbekende donor";
-                const count = (donation as any).device_count_promised;
-                const pickup = (donation as any).pickup_date;
+                const orgName = donation.organizations?.name ?? "Onbekende donor";
+                const count = donation.device_count_promised;
+                const pickup = donation.pickup_date;
 
                 return (
                   <tr key={donation.id} className="hover:bg-slate-50">

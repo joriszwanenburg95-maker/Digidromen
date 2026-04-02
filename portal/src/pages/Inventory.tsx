@@ -2,9 +2,12 @@ import React, { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileUp, Laptop, PackageCheck, Truck } from "lucide-react";
 
+import { LoadingButton } from "../components/LoadingButton";
+import { SkeletonTableRow } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
+import type { Database } from "../types/database";
 
 type ParsedInventoryImportRow = {
   location: string;
@@ -16,6 +19,49 @@ type ParsedInventoryImportRow = {
 
 const REQUIRED_HEADERS = ["locatie", "beschikbaar", "gereserveerd", "binnenkomend"];
 type InventoryView = "voorraad" | "mutatieregels" | "toekomstige_mutaties";
+
+type InventoryItemRow = Pick<
+  Database["public"]["Tables"]["inventory_items"]["Row"],
+  | "id"
+  | "product_id"
+  | "warehouse_location"
+  | "available_quantity"
+  | "quantity"
+  | "incoming_quantity"
+  | "incoming_eta"
+  | "updated_at"
+  | "stock_location_id"
+> & {
+  stock_locations: { name: string } | null;
+  products: { name: string; category: Database["public"]["Tables"]["products"]["Row"]["category"] } | null;
+};
+
+type OrderInventoryRow = Pick<
+  Database["public"]["Tables"]["orders"]["Row"],
+  "id" | "status" | "organization_id"
+> & {
+  order_lines: Array<{ product_id: string; quantity: number }> | null;
+  organizations: { name: string } | null;
+};
+
+type DonationInventoryRow = Pick<
+  Database["public"]["Tables"]["donation_batches"]["Row"],
+  "id" | "status" | "device_count_promised" | "refurbish_ready_count" | "sponsor_organization_id"
+> & {
+  organizations: { name: string } | null;
+};
+
+const KPI_STYLES = {
+  Beschikbaar: "bg-sky-50 text-sky-600",
+  Gereserveerd: "bg-amber-50 text-amber-600",
+  Binnenkomend: "bg-emerald-50 text-emerald-600",
+} as const;
+
+function normalizeOrganization(input: unknown): { name: string } | null {
+  return input && typeof input === "object" && "name" in input && typeof input.name === "string"
+    ? { name: input.name }
+    : null;
+}
 
 function normalizeHeader(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, "_");
@@ -74,7 +120,7 @@ const Inventory: React.FC = () => {
         .select("id, product_id, warehouse_location, available_quantity, quantity, incoming_quantity, incoming_eta, updated_at, stock_location_id, stock_locations(name), products(name, category)")
         .order("warehouse_location");
       if (error) throw error;
-      return data;
+      return (data ?? []) as InventoryItemRow[];
     },
     enabled: true,
   });
@@ -90,7 +136,13 @@ const Inventory: React.FC = () => {
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return data;
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        status: row.status,
+        organization_id: row.organization_id,
+        order_lines: row.order_lines ?? [],
+        organizations: normalizeOrganization(row.organizations),
+      })) satisfies OrderInventoryRow[];
     },
     enabled: true,
   });
@@ -104,7 +156,14 @@ const Inventory: React.FC = () => {
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return data;
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        status: row.status,
+        device_count_promised: row.device_count_promised,
+        refurbish_ready_count: row.refurbish_ready_count,
+        sponsor_organization_id: row.sponsor_organization_id,
+        organizations: normalizeOrganization(row.organizations),
+      })) satisfies DonationInventoryRow[];
     },
     enabled: true,
   });
@@ -122,7 +181,7 @@ const Inventory: React.FC = () => {
     }>();
 
     for (const item of supabaseInventory) {
-      const key = (item.stock_locations as any)?.name ?? item.warehouse_location ?? item.id;
+      const key = item.stock_locations?.name ?? item.warehouse_location ?? item.id;
       const current = grouped.get(key) ?? {
         id: item.id,
         location: key,
@@ -154,15 +213,15 @@ const Inventory: React.FC = () => {
 
   const mutationRows = useMemo(() => {
     const orderMutations = supabaseOrders.flatMap((order) =>
-      ((order.order_lines ?? []) as any[]).map((line: any) => {
-        const delivered = ["GELEVERD", "AFGESLOTEN"].includes(order.status);
+      (order.order_lines ?? []).map((line) => {
+        const delivered = ["geleverd", "afgesloten"].includes(order.status);
         const planned = ["ingediend", "te_accorderen", "geaccordeerd", "in_voorbereiding"].includes(order.status);
         return {
           id: `order-${order.id}-${line.product_id}`,
           type: "Uitlevering",
           direction: "uit",
           quantity: Number(line.quantity ?? 0),
-          party: (order.organizations as any)?.name ?? "Onbekend",
+          party: order.organizations?.name ?? "Onbekend",
           reference: order.id,
           status: order.status,
           date: "",
@@ -177,7 +236,7 @@ const Inventory: React.FC = () => {
       type: "Donatie",
       direction: "in",
       quantity: Number(donation.refurbish_ready_count ?? donation.device_count_promised ?? 0),
-      party: (donation.organizations as any)?.name ?? "Onbekende donor",
+      party: donation.organizations?.name ?? "Onbekende donor",
       reference: donation.id,
       status: donation.status,
       date: "",
@@ -234,7 +293,7 @@ const Inventory: React.FC = () => {
       const { data: locations } = await supabase
         .from("stock_locations")
         .select("id, name");
-      const locationMap = new Map((locations ?? []).map((l: any) => [l.name, l.id]));
+      const locationMap = new Map((locations ?? []).map((location) => [location.name, location.id]));
 
       for (const row of rows) {
         const locationId = locationMap.get(row.location);
@@ -298,10 +357,10 @@ const Inventory: React.FC = () => {
           { label: "Beschikbaar", value: totals.available, icon: Laptop, color: "sky" },
           { label: "Gereserveerd", value: totals.reserved, icon: PackageCheck, color: "amber" },
           { label: "Binnenkomend", value: totals.incoming, icon: Truck, color: "emerald" },
-        ].map(({ label, value, icon: Icon, color }) => (
+        ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className={`rounded-xl bg-${color}-50 p-2 text-${color}-600`}>
+              <div className={`rounded-xl p-2 ${KPI_STYLES[label as keyof typeof KPI_STYLES]}`}>
                 <Icon size={18} />
               </div>
               <div>
@@ -358,19 +417,21 @@ const Inventory: React.FC = () => {
             className="mt-4 w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none ring-digidromen-primary focus:ring-2"
           />
           <div className="mt-4 flex gap-3">
-            <button
+            <LoadingButton
               onClick={() => { void handleImport(); }}
               disabled={!importText.trim()}
-              className="rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              loadingLabel="Importeren..."
+              className="px-4 py-2"
             >
               Import uitvoeren
-            </button>
-            <button
+            </LoadingButton>
+            <LoadingButton
               onClick={() => { setImportText(""); setImportError(null); setImportNotice(null); }}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+              variant="secondary"
+              className="px-4 py-2"
             >
               Wissen
-            </button>
+            </LoadingButton>
           </div>
         </div>
       ) : null}
@@ -389,10 +450,14 @@ const Inventory: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {inventoryRows.length === 0 ? (
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, index) => (
+                  <SkeletonTableRow key={index} cols={6} />
+                ))
+              ) : inventoryRows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
-                    {isLoading ? "Voorraad laden..." : "Nog geen laptopvoorraad."}
+                    Nog geen laptopvoorraad.
                   </td>
                 </tr>
               ) : (
@@ -425,7 +490,11 @@ const Inventory: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {visibleMutationRows.length === 0 ? (
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, index) => (
+                  <SkeletonTableRow key={index} cols={7} />
+                ))
+              ) : visibleMutationRows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">
                     Geen mutaties voor dit filter.

@@ -8,13 +8,6 @@ export const queryKeys = {
   orderLines: {
     byOrder: (orderId: string) => ["order-lines", orderId] as const,
   },
-  repairs: {
-    all: ["repairs"] as const,
-    list: (filters?: Record<string, unknown>) =>
-      ["repairs", "list", filters ?? {}] as const,
-    detail: (id: string) => ["repairs", "detail", id] as const,
-    logs: (repairCaseId: string) => ["repair-logs", repairCaseId] as const,
-  },
   donations: {
     all: ["donations"] as const,
     list: (filters?: Record<string, unknown>) =>
@@ -68,5 +61,8 @@ export const queryKeys = {
   },
   forecast: {
     latest: () => ["forecast", "latest"] as const,
+  },
+  orderingWindow: {
+    status: () => ["ordering-window"] as const,
   },
 } as const;

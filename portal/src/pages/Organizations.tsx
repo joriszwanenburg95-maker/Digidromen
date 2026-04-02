@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
+import { LoadingButton } from "../components/LoadingButton";
+import { SkeletonTableRow } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
@@ -141,13 +143,15 @@ const Organizations: React.FC = () => {
             </div>
           </div>
           <div className="flex justify-end pt-2">
-            <button
+            <LoadingButton
               onClick={handleCreate}
+              isLoading={createLoading}
+              loadingLabel="Opslaan..."
               disabled={createLoading || !createForm.name}
-              className="inline-flex items-center gap-2 rounded-xl bg-digidromen-primary px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2"
             >
-              {createLoading ? "Opslaan..." : "Organisatie aanmaken"}
-            </button>
+              Organisatie aanmaken
+            </LoadingButton>
           </div>
         </div>
       )}
@@ -164,10 +168,14 @@ const Organizations: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {orgs.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, index) => (
+                <SkeletonTableRow key={index} cols={5} />
+              ))
+            ) : orgs.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">
-                  {isLoading ? "Laden..." : "Geen organisaties gevonden."}
+                  Geen organisaties gevonden.
                 </td>
               </tr>
             ) : (

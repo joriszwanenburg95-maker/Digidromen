@@ -17,17 +17,6 @@ export function initRealtime(queryClient: QueryClient): () => void {
     )
     .subscribe();
 
-  const repairsChannel = supabase
-    .channel("repairs-changes")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "repair_cases" },
-      () => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.repairs.all });
-      },
-    )
-    .subscribe();
-
   const donationsChannel = supabase
     .channel("donations-changes")
     .on(
@@ -65,7 +54,6 @@ export function initRealtime(queryClient: QueryClient): () => void {
 
   return () => {
     supabase.removeChannel(ordersChannel);
-    supabase.removeChannel(repairsChannel);
     supabase.removeChannel(donationsChannel);
     supabase.removeChannel(inventoryChannel);
     supabase.removeChannel(notificationsChannel);
