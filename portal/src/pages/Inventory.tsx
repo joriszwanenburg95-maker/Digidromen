@@ -86,7 +86,7 @@ const Inventory: React.FC = () => {
       const { data, error } = await getSupabaseClient()
         .from("orders")
         .select("id, status, organization_id, order_lines(product_id, quantity), organizations(name)")
-        .not("status", "in", "(AFGESLOTEN,GEANNULEERD)")
+        .not("status", "in", "(afgesloten,afgewezen)")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -156,7 +156,7 @@ const Inventory: React.FC = () => {
     const orderMutations = supabaseOrders.flatMap((order) =>
       ((order.order_lines ?? []) as any[]).map((line: any) => {
         const delivered = ["GELEVERD", "AFGESLOTEN"].includes(order.status);
-        const planned = ["INGEDIEND", "BEOORDEELD", "IN_BEHANDELING", "IN_VOORBEREIDING", "VERZONDEN"].includes(order.status);
+        const planned = ["ingediend", "te_accorderen", "geaccordeerd", "in_voorbereiding"].includes(order.status);
         return {
           id: `order-${order.id}-${line.product_id}`,
           type: "Uitlevering",
@@ -181,8 +181,8 @@ const Inventory: React.FC = () => {
       reference: donation.id,
       status: donation.status,
       date: "",
-      scope: donation.status === "OP_VOORRAAD" ? "historisch" : "toekomstig",
-      note: donation.status === "OP_VOORRAAD" ? "Laptops toegevoegd aan voorraad" : "Donatie in aanloop",
+      scope: donation.status === "verwerkt" ? "historisch" : "toekomstig",
+      note: donation.status === "verwerkt" ? "Laptops toegevoegd aan voorraad" : "Donatie in aanloop",
     }));
 
     const incomingRows = inventoryRows

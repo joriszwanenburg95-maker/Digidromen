@@ -248,17 +248,17 @@ async function reconcileRemoteOrderInventory(orderId: string, previousStatus: Or
   const productId = DEFAULT_LAPTOP_PRODUCT_ID;
   await ensureLaptopProductExists();
 
-  if (nextStatus === "IN_VOORBEREIDING" && previousStatus !== "IN_VOORBEREIDING") {
+  if (nextStatus === "in_voorbereiding" && previousStatus !== "in_voorbereiding") {
     await reserveLaptopInventory(productId, quantity);
     return;
   }
 
-  if (nextStatus === "GEANNULEERD") {
+  if (nextStatus === "afgewezen") {
     await releaseLaptopInventory(productId, quantity);
     return;
   }
 
-  if ((nextStatus === "VERZONDEN" || nextStatus === "GELEVERD") && previousStatus !== "VERZONDEN") {
+  if (nextStatus === "geleverd" && previousStatus !== "geleverd") {
     await shipLaptopInventory(productId, quantity);
   }
 }
@@ -738,7 +738,7 @@ export async function createRemoteOrder(
     id,
     organization_id: input.organizationId,
     requester_user_id: input.requesterUserId,
-    status: "INGEDIEND",
+    status: "ingediend",
     priority: normalizePriority(input.priority),
     preferred_delivery_date: input.preferredDeliveryDate ?? null,
     requested_at: now,
@@ -765,7 +765,7 @@ export async function createRemoteOrder(
     id: makeId("event"),
     case_type: "order",
     case_id: id,
-    status: "INGEDIEND",
+    status: "ingediend",
     title: "Nieuwe orderaanvraag",
     description: "Orderaanvraag is ingediend.",
     created_at: now,
@@ -849,7 +849,7 @@ export async function createRemoteDonation(
   const result = await supabase.from("donation_batches").insert({
     id,
     sponsor_organization_id: input.donorOrganizationId,
-    status: "TOEGEZEGD",
+    status: "aangemeld",
     device_count_promised: input.deviceCount,
     pickup_address: input.street ?? "Onbekend",
     pickup_contact_name: input.contactName ?? viewer.name,
@@ -865,7 +865,7 @@ export async function createRemoteDonation(
     id: makeId("event"),
     case_type: "donation",
     case_id: id,
-    status: "TOEGEZEGD",
+    status: "aangemeld",
     title: "Nieuwe donatiebatch",
     description: "Donatiebatch is geregistreerd.",
     created_at: now,

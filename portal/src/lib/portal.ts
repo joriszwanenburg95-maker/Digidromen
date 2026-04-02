@@ -325,9 +325,9 @@ function buildLegacySnapshotFromRaw(rawData: PortalData, role: Role): LegacySnap
 
   const syncJobs = Object.values(raw.data.crmSync.jobs);
   const metrics = {
-    openOrders: Object.values(raw.data.orders).filter((item) => !["AFGESLOTEN", "GEANNULEERD"].includes(item.status)).length,
+    openOrders: Object.values(raw.data.orders).filter((item) => !["afgesloten", "afgewezen"].includes(item.status)).length,
     openRepairs: Object.values(raw.data.repairs).filter((item) => item.status !== "AFGESLOTEN").length,
-    openDonations: Object.values(raw.data.donations).filter((item) => item.status !== "OP_VOORRAAD").length,
+    openDonations: Object.values(raw.data.donations).filter((item) => item.status !== "verwerkt").length,
     syncHealth: {
       synced: syncJobs.filter((item) => item.state === "synced").length,
       queued: syncJobs.filter((item) => item.state === "queued" || item.state === "retrying").length,
@@ -729,7 +729,7 @@ export const portalStore = {
         await updateRemoteCaseStatus(
           "order",
           input.orderId,
-          input.nextStatus === "GELEVERD" ? "GELEVERD" : "VERZONDEN",
+          input.nextStatus === "geleverd" ? "geleverd" : "in_voorbereiding",
           remoteViewer,
         );
         await refreshRemotePortal();
@@ -739,7 +739,7 @@ export const portalStore = {
       return baseStore.servicePartner.pushShipmentUpdate(
         {
           orderId: input.orderId,
-          deliveredAt: input.nextStatus === "GELEVERD" ? new Date().toISOString() : undefined,
+          deliveredAt: input.nextStatus === "geleverd" ? new Date().toISOString() : undefined,
           notes: input.summary,
         },
         createMutationMeta("service_partner", { id: input.actorUserId, name: "Servicepartner" }, "UI shipmentUpdate"),
@@ -987,17 +987,16 @@ export function formatStatus(status: string): string {
 
 export function statusClasses(status: string): string {
   if (
-    status === "AFGESLOTEN" ||
-    status === "GELEVERD" ||
-    status === "OP_VOORRAAD" ||
-    status === "RAPPORTAGE_GEREED"
+    status === "afgesloten" ||
+    status === "geleverd" ||
+    status === "verwerkt"
   ) {
     return "bg-emerald-100 text-emerald-700";
   }
-  if (status === "GEANNULEERD" || status === "IRREPARABEL" || status === "failed") {
+  if (status === "afgewezen" || status === "geannuleerd" || status === "IRREPARABEL" || status === "failed") {
     return "bg-rose-100 text-rose-700";
   }
-  if (status === "VERZONDEN" || status === "IN_REPARATIE" || status === "queued") {
+  if (status === "IN_REPARATIE" || status === "queued") {
     return "bg-amber-100 text-amber-700";
   }
   if (status === "retrying") {

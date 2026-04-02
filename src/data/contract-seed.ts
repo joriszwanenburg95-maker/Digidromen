@@ -198,44 +198,44 @@ export function createSeedData(): PortalData {
   ];
 
   const orders: Order[] = [
-    createOrder("order-1001", "org-help-amsterdam", "user-help-amsterdam", "IN_BEHANDELING", "high", ts(17, "09:00"), ts(2, "08:30"), "Nieuwe uitgifte voor vijf brugklasleerlingen.", "Wibautstraat 101, 1091 GL Amsterdam", "limited", [{ id: "orderline-1001-1", productId: "product-dell-14", quantity: 5 }], "org-servicepartner", "CRM-REL-HO-101", "CRM-CASE-ORD-1001", "CRM-TASK-ORD-1001", [
-      seedEvent(ts(2, "08:30"), "INGEDIEND", "help_org", "Sanne de Vries", "Aanvraag ingediend", "Aanvraag voor 5 laptops ontvangen.", "user-help-amsterdam"),
-      seedEvent(ts(3, "09:20"), "BEOORDEELD", "digidromen_staff", "Noah Janssen", "Aanvraag beoordeeld", "Aanvraag is compleet en akkoord bevonden.", "user-digidromen-staff"),
-      seedEvent(ts(5, "10:15"), "IN_BEHANDELING", "digidromen_staff", "Noah Janssen", "Order in behandeling", "Order is ingepland voor fulfilment.", "user-digidromen-staff"),
+    createOrder("order-1001", "org-help-amsterdam", "user-help-amsterdam", "te_accorderen", "high", ts(17, "09:00"), ts(2, "08:30"), "Nieuwe uitgifte voor vijf brugklasleerlingen.", "Wibautstraat 101, 1091 GL Amsterdam", "limited", [{ id: "orderline-1001-1", productId: "product-dell-14", quantity: 5 }], "org-servicepartner", "CRM-REL-HO-101", "CRM-CASE-ORD-1001", "CRM-TASK-ORD-1001", [
+      seedEvent(ts(2, "08:30"), "ingediend", "help_org", "Sanne de Vries", "Aanvraag ingediend", "Aanvraag voor 5 laptops ontvangen.", "user-help-amsterdam"),
+      seedEvent(ts(3, "09:20"), "te_accorderen", "digidromen_staff", "Noah Janssen", "Aanvraag beoordeeld", "Aanvraag is compleet en akkoord bevonden.", "user-digidromen-staff"),
+      seedEvent(ts(5, "10:15"), "te_accorderen", "digidromen_staff", "Noah Janssen", "Order in behandeling", "Order is ingepland voor fulfilment.", "user-digidromen-staff"),
     ], [{ at: ts(3, "09:30"), authorRole: "digidromen_staff", authorName: "Noah Janssen", body: "Wij hebben de aanvraag gecontroleerd en pakken deze op.", authorUserId: "user-digidromen-staff" }], [{ at: ts(2, "08:31"), uploadedByUserId: "user-help-amsterdam", uploadedByName: "Sanne de Vries", fileName: "aanvraag-cohort-amsterdam.pdf", fileSizeLabel: "184 KB", mimeType: "application/pdf", kind: "request_attachment" }]),
-    createOrder("order-1002", "org-help-rotterdam", "user-help-rotterdam", "IN_VOORBEREIDING", "urgent", ts(12, "09:00"), ts(4, "11:10"), "Spoeduitvraag voor twee examenkandidaten.", "Putselaan 12, 3074 JB Rotterdam", "limited", [{ id: "orderline-1002-1", productId: "product-lenovo-13", quantity: 2 }], "org-servicepartner", "CRM-REL-HO-102", "CRM-CASE-ORD-1002", "CRM-TASK-ORD-1002", [
-      seedEvent(ts(4, "11:10"), "INGEDIEND", "help_org", "Mourad El Idrissi", "Spoedaanvraag ingediend", "Aanvraag voor 2 laptops is ingestuurd.", "user-help-rotterdam"),
-      seedEvent(ts(4, "13:00"), "BEOORDEELD", "digidromen_staff", "Noah Janssen", "Aanvraag beoordeeld", "Aanvraag is als urgent gemarkeerd.", "user-digidromen-staff"),
-      seedEvent(ts(5, "09:10"), "IN_BEHANDELING", "digidromen_staff", "Noah Janssen", "Order ingepland", "Order is ingepland voor levering.", "user-digidromen-staff"),
-      seedEvent(ts(9, "14:45"), "IN_VOORBEREIDING", "service_partner", "Tom van Aalst", "Picking gestart", "Servicepartner heeft de order gepickt.", "user-service-partner"),
+    createOrder("order-1002", "org-help-rotterdam", "user-help-rotterdam", "in_voorbereiding", "urgent", ts(12, "09:00"), ts(4, "11:10"), "Spoeduitvraag voor twee examenkandidaten.", "Putselaan 12, 3074 JB Rotterdam", "limited", [{ id: "orderline-1002-1", productId: "product-lenovo-13", quantity: 2 }], "org-servicepartner", "CRM-REL-HO-102", "CRM-CASE-ORD-1002", "CRM-TASK-ORD-1002", [
+      seedEvent(ts(4, "11:10"), "ingediend", "help_org", "Mourad El Idrissi", "Spoedaanvraag ingediend", "Aanvraag voor 2 laptops is ingestuurd.", "user-help-rotterdam"),
+      seedEvent(ts(4, "13:00"), "te_accorderen", "digidromen_staff", "Noah Janssen", "Aanvraag beoordeeld", "Aanvraag is als urgent gemarkeerd.", "user-digidromen-staff"),
+      seedEvent(ts(5, "09:10"), "geaccordeerd", "digidromen_staff", "Noah Janssen", "Order ingepland", "Order is ingepland voor levering.", "user-digidromen-staff"),
+      seedEvent(ts(9, "14:45"), "in_voorbereiding", "service_partner", "Tom van Aalst", "Picking gestart", "Servicepartner heeft de order gepickt.", "user-service-partner"),
     ]),
-    createOrder("order-1003", "org-help-eindhoven", "user-help-eindhoven", "VERZONDEN", "normal", ts(8, "09:00"), ts(1, "15:10"), "Aanvulling voor drie leerlingen in bovenbouw.", "Kanaaldijk 4, 5611 AC Eindhoven", "in_stock", [{ id: "orderline-1003-1", productId: "product-dell-14", quantity: 3 }], "org-servicepartner", "CRM-REL-HO-103", "CRM-CASE-ORD-1003", "CRM-TASK-ORD-1003", [
-      seedEvent(ts(1, "15:10"), "INGEDIEND", "help_org", "Linda van Dijk", "Aanvraag ingediend", "Aanvraag voor 3 laptops is ingestuurd.", "user-help-eindhoven"),
-      seedEvent(ts(2, "10:05"), "BEOORDEELD", "digidromen_staff", "Noah Janssen", "Aanvraag goedgekeurd", "Aanvraag is akkoord voor fulfilment.", "user-digidromen-staff"),
-      seedEvent(ts(3, "10:45"), "IN_BEHANDELING", "digidromen_staff", "Noah Janssen", "Order ingepland", "Order is ingepland voor uitlevering.", "user-digidromen-staff"),
-      seedEvent(ts(6, "08:50"), "IN_VOORBEREIDING", "service_partner", "Tom van Aalst", "Pakket samengesteld", "Order is gepickt.", "user-service-partner"),
-      seedEvent(ts(8, "13:35"), "VERZONDEN", "service_partner", "Tom van Aalst", "Pakket verzonden", "Track & trace is gedeeld.", "user-service-partner"),
+    createOrder("order-1003", "org-help-eindhoven", "user-help-eindhoven", "in_voorbereiding", "normal", ts(8, "09:00"), ts(1, "15:10"), "Aanvulling voor drie leerlingen in bovenbouw.", "Kanaaldijk 4, 5611 AC Eindhoven", "in_stock", [{ id: "orderline-1003-1", productId: "product-dell-14", quantity: 3 }], "org-servicepartner", "CRM-REL-HO-103", "CRM-CASE-ORD-1003", "CRM-TASK-ORD-1003", [
+      seedEvent(ts(1, "15:10"), "ingediend", "help_org", "Linda van Dijk", "Aanvraag ingediend", "Aanvraag voor 3 laptops is ingestuurd.", "user-help-eindhoven"),
+      seedEvent(ts(2, "10:05"), "te_accorderen", "digidromen_staff", "Noah Janssen", "Aanvraag goedgekeurd", "Aanvraag is akkoord voor fulfilment.", "user-digidromen-staff"),
+      seedEvent(ts(3, "10:45"), "geaccordeerd", "digidromen_staff", "Noah Janssen", "Order ingepland", "Order is ingepland voor uitlevering.", "user-digidromen-staff"),
+      seedEvent(ts(6, "08:50"), "in_voorbereiding", "service_partner", "Tom van Aalst", "Pakket samengesteld", "Order is gepickt.", "user-service-partner"),
+      seedEvent(ts(8, "13:35"), "in_voorbereiding", "service_partner", "Tom van Aalst", "Pakket verzonden", "Track & trace is gedeeld.", "user-service-partner"),
     ]),
-    createOrder("order-1004", "org-help-amsterdam", "user-help-amsterdam", "GELEVERD", "normal", ts(5, "09:00"), ts(1, "11:05"), "Herlevering na instroom nieuwe gezinnen.", "Wibautstraat 101, 1091 GL Amsterdam", "limited", [{ id: "orderline-1004-1", productId: "product-lenovo-13", quantity: 1 }], "org-servicepartner", "CRM-REL-HO-101", "CRM-CASE-ORD-1004", "CRM-TASK-ORD-1004", [
-      seedEvent(ts(1, "11:05"), "INGEDIEND", "help_org", "Sanne de Vries", "Aanvraag ingediend", "Nieuwe aanvraag ontvangen.", "user-help-amsterdam"),
-      seedEvent(ts(2, "09:45"), "BEOORDEELD", "digidromen_staff", "Noah Janssen", "Aanvraag beoordeeld", "Aanvraag is beoordeeld.", "user-digidromen-staff"),
-      seedEvent(ts(3, "10:20"), "IN_BEHANDELING", "digidromen_staff", "Noah Janssen", "Order ingepland", "Fulfilment staat klaar.", "user-digidromen-staff"),
-      seedEvent(ts(4, "14:00"), "IN_VOORBEREIDING", "service_partner", "Tom van Aalst", "Pakket samengesteld", "Pakket is gepickt.", "user-service-partner"),
-      seedEvent(ts(5, "09:40"), "VERZONDEN", "service_partner", "Tom van Aalst", "Pakket verzonden", "Zending is onderweg.", "user-service-partner"),
-      seedEvent(ts(7, "16:10"), "GELEVERD", "service_partner", "Tom van Aalst", "Ontvangst bevestigd", "Ontvangst is bevestigd door hulporganisatie.", "user-service-partner"),
+    createOrder("order-1004", "org-help-amsterdam", "user-help-amsterdam", "geleverd", "normal", ts(5, "09:00"), ts(1, "11:05"), "Herlevering na instroom nieuwe gezinnen.", "Wibautstraat 101, 1091 GL Amsterdam", "limited", [{ id: "orderline-1004-1", productId: "product-lenovo-13", quantity: 1 }], "org-servicepartner", "CRM-REL-HO-101", "CRM-CASE-ORD-1004", "CRM-TASK-ORD-1004", [
+      seedEvent(ts(1, "11:05"), "ingediend", "help_org", "Sanne de Vries", "Aanvraag ingediend", "Nieuwe aanvraag ontvangen.", "user-help-amsterdam"),
+      seedEvent(ts(2, "09:45"), "te_accorderen", "digidromen_staff", "Noah Janssen", "Aanvraag beoordeeld", "Aanvraag is beoordeeld.", "user-digidromen-staff"),
+      seedEvent(ts(3, "10:20"), "geaccordeerd", "digidromen_staff", "Noah Janssen", "Order ingepland", "Fulfilment staat klaar.", "user-digidromen-staff"),
+      seedEvent(ts(4, "14:00"), "in_voorbereiding", "service_partner", "Tom van Aalst", "Pakket samengesteld", "Pakket is gepickt.", "user-service-partner"),
+      seedEvent(ts(5, "09:40"), "in_voorbereiding", "service_partner", "Tom van Aalst", "Pakket verzonden", "Zending is onderweg.", "user-service-partner"),
+      seedEvent(ts(7, "16:10"), "geleverd", "service_partner", "Tom van Aalst", "Ontvangst bevestigd", "Ontvangst is bevestigd door hulporganisatie.", "user-service-partner"),
     ], [], [{ at: ts(7, "16:20"), uploadedByUserId: "user-help-amsterdam", uploadedByName: "Sanne de Vries", fileName: "pakbon-order-1004.pdf", fileSizeLabel: "98 KB", mimeType: "application/pdf", kind: "shipping_note" }]),
-    createOrder("order-1005", "org-help-rotterdam", "user-help-rotterdam", "AFGESLOTEN", "low", ts(28, "09:00"), ts(1, "09:00"), "Batch voor naschoolse begeleiding.", "Putselaan 12, 3074 JB Rotterdam", "in_stock", [{ id: "orderline-1005-1", productId: "product-dell-14", quantity: 4 }], "org-servicepartner", "CRM-REL-HO-102", "CRM-CASE-ORD-1005", "CRM-TASK-ORD-1005", [
-      seedEvent(ts(1, "09:00"), "INGEDIEND", "help_org", "Mourad El Idrissi", "Aanvraag ingediend", "Nieuwe batchaanvraag ontvangen.", "user-help-rotterdam"),
-      seedEvent(ts(1, "13:20"), "BEOORDEELD", "digidromen_staff", "Noah Janssen", "Aanvraag beoordeeld", "Order is akkoord.", "user-digidromen-staff"),
-      seedEvent(ts(2, "09:50"), "IN_BEHANDELING", "digidromen_staff", "Noah Janssen", "Order ingepland", "Order staat in planning.", "user-digidromen-staff"),
-      seedEvent(ts(2, "15:00"), "IN_VOORBEREIDING", "service_partner", "Tom van Aalst", "Pakket samengesteld", "Picking gereed.", "user-service-partner"),
-      seedEvent(ts(3, "08:00"), "VERZONDEN", "service_partner", "Tom van Aalst", "Pakket verzonden", "Zending onderweg.", "user-service-partner"),
-      seedEvent(ts(4, "14:40"), "GELEVERD", "service_partner", "Tom van Aalst", "Levering afgerond", "Zending ontvangen.", "user-service-partner"),
-      seedEvent(ts(6, "17:30"), "AFGESLOTEN", "digidromen_staff", "Noah Janssen", "Dossier afgesloten", "CRM-registratie is afgerond.", "user-digidromen-staff"),
+    createOrder("order-1005", "org-help-rotterdam", "user-help-rotterdam", "afgesloten", "low", ts(28, "09:00"), ts(1, "09:00"), "Batch voor naschoolse begeleiding.", "Putselaan 12, 3074 JB Rotterdam", "in_stock", [{ id: "orderline-1005-1", productId: "product-dell-14", quantity: 4 }], "org-servicepartner", "CRM-REL-HO-102", "CRM-CASE-ORD-1005", "CRM-TASK-ORD-1005", [
+      seedEvent(ts(1, "09:00"), "ingediend", "help_org", "Mourad El Idrissi", "Aanvraag ingediend", "Nieuwe batchaanvraag ontvangen.", "user-help-rotterdam"),
+      seedEvent(ts(1, "13:20"), "te_accorderen", "digidromen_staff", "Noah Janssen", "Aanvraag beoordeeld", "Order is akkoord.", "user-digidromen-staff"),
+      seedEvent(ts(2, "09:50"), "geaccordeerd", "digidromen_staff", "Noah Janssen", "Order ingepland", "Order staat in planning.", "user-digidromen-staff"),
+      seedEvent(ts(2, "15:00"), "in_voorbereiding", "service_partner", "Tom van Aalst", "Pakket samengesteld", "Picking gereed.", "user-service-partner"),
+      seedEvent(ts(3, "08:00"), "in_voorbereiding", "service_partner", "Tom van Aalst", "Pakket verzonden", "Zending onderweg.", "user-service-partner"),
+      seedEvent(ts(4, "14:40"), "geleverd", "service_partner", "Tom van Aalst", "Levering afgerond", "Zending ontvangen.", "user-service-partner"),
+      seedEvent(ts(6, "17:30"), "afgesloten", "digidromen_staff", "Noah Janssen", "Dossier afgesloten", "CRM-registratie is afgerond.", "user-digidromen-staff"),
     ]),
-    createOrder("order-1006", "org-help-eindhoven", "user-help-eindhoven", "GEANNULEERD", "normal", ts(14, "09:00"), ts(8, "09:40"), "Dubbele aanvraag die later is ingetrokken.", "Kanaaldijk 4, 5611 AC Eindhoven", "out_of_stock", [{ id: "orderline-1006-1", productId: "product-lenovo-13", quantity: 1 }], "org-servicepartner", "CRM-REL-HO-103", "CRM-CASE-ORD-1006", "CRM-TASK-ORD-1006", [
-      seedEvent(ts(8, "09:40"), "INGEDIEND", "help_org", "Linda van Dijk", "Aanvraag ingediend", "Nieuwe aanvraag ontvangen.", "user-help-eindhoven"),
-      seedEvent(ts(8, "12:00"), "GEANNULEERD", "digidromen_staff", "Noah Janssen", "Aanvraag geannuleerd", "Dubbele aanvraag is geannuleerd.", "user-digidromen-staff"),
+    createOrder("order-1006", "org-help-eindhoven", "user-help-eindhoven", "afgewezen", "normal", ts(14, "09:00"), ts(8, "09:40"), "Dubbele aanvraag die later is ingetrokken.", "Kanaaldijk 4, 5611 AC Eindhoven", "out_of_stock", [{ id: "orderline-1006-1", productId: "product-lenovo-13", quantity: 1 }], "org-servicepartner", "CRM-REL-HO-103", "CRM-CASE-ORD-1006", "CRM-TASK-ORD-1006", [
+      seedEvent(ts(8, "09:40"), "ingediend", "help_org", "Linda van Dijk", "Aanvraag ingediend", "Nieuwe aanvraag ontvangen.", "user-help-eindhoven"),
+      seedEvent(ts(8, "12:00"), "afgewezen", "digidromen_staff", "Noah Janssen", "Aanvraag geannuleerd", "Dubbele aanvraag is geannuleerd.", "user-digidromen-staff"),
     ]),
   ];
 
@@ -264,25 +264,25 @@ export function createSeedData(): PortalData {
   ];
 
   const donations: DonationBatch[] = [
-    createDonation("donation-3001", "org-sponsor-techforgood", "OPHAALAFSPRAAK_GEPLAND", 24, "Dataweg 8, 3528 BG Utrecht", "Eva Bos", "impact@techforgood.nl", "2026-03-12 ochtend", ts(4, "10:00"), "org-servicepartner", "CRM-REL-SPONSOR-301", "CRM-CASE-DON-3001", "CRM-TASK-DON-3001", [
-      seedEvent(ts(4, "10:00"), "TOEGEZEGD", "digidromen_staff", "Noah Janssen", "Donatie geregistreerd", "Donatie van 24 devices geregistreerd.", "user-digidromen-staff"),
-      seedEvent(ts(9, "12:00"), "OPHAALAFSPRAAK_GEPLAND", "service_partner", "Tom van Aalst", "Pickup gepland", "Ophaalmoment gepland voor 12 maart.", "user-service-partner"),
+    createDonation("donation-3001", "org-sponsor-techforgood", "pickup_gepland", 24, "Dataweg 8, 3528 BG Utrecht", "Eva Bos", "impact@techforgood.nl", "2026-03-12 ochtend", ts(4, "10:00"), "org-servicepartner", "CRM-REL-SPONSOR-301", "CRM-CASE-DON-3001", "CRM-TASK-DON-3001", [
+      seedEvent(ts(4, "10:00"), "aangemeld", "digidromen_staff", "Noah Janssen", "Donatie geregistreerd", "Donatie van 24 devices geregistreerd.", "user-digidromen-staff"),
+      seedEvent(ts(9, "12:00"), "pickup_gepland", "service_partner", "Tom van Aalst", "Pickup gepland", "Ophaalmoment gepland voor 12 maart.", "user-service-partner"),
     ], [], [], ["digidromen_staff", "digidromen_admin", "service_partner"], "Kantoorvervanging Q1."),
-    createDonation("donation-3002", "org-sponsor-nexbyte", "IN_VERWERKING", 18, "Stationsplein 1, 3818 LE Amersfoort", "Job Meurs", "donaties@nexbyte.nl", "2026-03-06 middag", ts(2, "11:25"), "org-servicepartner", "CRM-REL-SPONSOR-302", "CRM-CASE-DON-3002", "CRM-TASK-DON-3002", [
-      seedEvent(ts(2, "11:25"), "TOEGEZEGD", "digidromen_staff", "Noah Janssen", "Donatie geregistreerd", "Donatie van 18 devices geregistreerd.", "user-digidromen-staff"),
-      seedEvent(ts(3, "10:10"), "OPHAALAFSPRAAK_GEPLAND", "service_partner", "Tom van Aalst", "Pickup ingepland", "Ophaalmoment is ingepland.", "user-service-partner"),
-      seedEvent(ts(6, "09:00"), "OPGEHAALD", "service_partner", "Tom van Aalst", "Batch opgehaald", "Batch is opgehaald op locatie.", "user-service-partner"),
-      seedEvent(ts(7, "11:05"), "AANGEKOMEN_WAREHOUSE", "service_partner", "Tom van Aalst", "Batch warehouse", "Batch is ontvangen in het warehouse.", "user-service-partner"),
-      seedEvent(ts(8, "16:20"), "IN_VERWERKING", "service_partner", "Tom van Aalst", "Refurbish gestart", "Intake en refurbish zijn gestart.", "user-service-partner"),
+    createDonation("donation-3002", "org-sponsor-nexbyte", "in_verwerking", 18, "Stationsplein 1, 3818 LE Amersfoort", "Job Meurs", "donaties@nexbyte.nl", "2026-03-06 middag", ts(2, "11:25"), "org-servicepartner", "CRM-REL-SPONSOR-302", "CRM-CASE-DON-3002", "CRM-TASK-DON-3002", [
+      seedEvent(ts(2, "11:25"), "aangemeld", "digidromen_staff", "Noah Janssen", "Donatie geregistreerd", "Donatie van 18 devices geregistreerd.", "user-digidromen-staff"),
+      seedEvent(ts(3, "10:10"), "pickup_gepland", "service_partner", "Tom van Aalst", "Pickup ingepland", "Ophaalmoment is ingepland.", "user-service-partner"),
+      seedEvent(ts(6, "09:00"), "ontvangen", "service_partner", "Tom van Aalst", "Batch opgehaald", "Batch is opgehaald op locatie.", "user-service-partner"),
+      seedEvent(ts(7, "11:05"), "ontvangen", "service_partner", "Tom van Aalst", "Batch warehouse", "Batch is ontvangen in het warehouse.", "user-service-partner"),
+      seedEvent(ts(8, "16:20"), "in_verwerking", "service_partner", "Tom van Aalst", "Refurbish gestart", "Intake en refurbish zijn gestart.", "user-service-partner"),
     ], [], [], ["digidromen_staff", "digidromen_admin", "service_partner"], "Batch na office refresh."),
-    createDonation("donation-3003", "org-sponsor-techforgood", "OP_VOORRAAD", 15, "Dataweg 8, 3528 BG Utrecht", "Eva Bos", "impact@techforgood.nl", "2026-02-26 middag", ts(1, "12:00"), "org-servicepartner", "CRM-REL-SPONSOR-301", "CRM-CASE-DON-3003", "CRM-TASK-DON-3003", [
-      seedEvent(ts(1, "12:00"), "TOEGEZEGD", "digidromen_admin", "Karin van der Leest", "Donatie geregistreerd", "Donatie van 15 devices geregistreerd.", "user-digidromen-admin"),
-      seedEvent(ts(2, "08:45"), "OPHAALAFSPRAAK_GEPLAND", "service_partner", "Tom van Aalst", "Pickup ingepland", "Ophaalmoment is ingepland.", "user-service-partner"),
-      seedEvent(ts(3, "14:00"), "OPGEHAALD", "service_partner", "Tom van Aalst", "Batch opgehaald", "Batch is opgehaald.", "user-service-partner"),
-      seedEvent(ts(4, "09:25"), "AANGEKOMEN_WAREHOUSE", "service_partner", "Tom van Aalst", "Batch warehouse", "Batch is ontvangen in het warehouse.", "user-service-partner"),
-      seedEvent(ts(5, "15:10"), "IN_VERWERKING", "service_partner", "Tom van Aalst", "Refurbish gestart", "Refurbish intake is gestart.", "user-service-partner"),
-      seedEvent(ts(6, "16:15"), "RAPPORTAGE_GEREED", "service_partner", "Tom van Aalst", "Rapportage gereed", "12 geschikt, 3 afgekeurd.", "user-service-partner"),
-      seedEvent(ts(7, "09:55"), "OP_VOORRAAD", "digidromen_staff", "Noah Janssen", "Op voorraad", "12 laptops toegevoegd aan voorraad.", "user-digidromen-staff"),
+    createDonation("donation-3003", "org-sponsor-techforgood", "verwerkt", 15, "Dataweg 8, 3528 BG Utrecht", "Eva Bos", "impact@techforgood.nl", "2026-02-26 middag", ts(1, "12:00"), "org-servicepartner", "CRM-REL-SPONSOR-301", "CRM-CASE-DON-3003", "CRM-TASK-DON-3003", [
+      seedEvent(ts(1, "12:00"), "aangemeld", "digidromen_admin", "Karin van der Leest", "Donatie geregistreerd", "Donatie van 15 devices geregistreerd.", "user-digidromen-admin"),
+      seedEvent(ts(2, "08:45"), "pickup_gepland", "service_partner", "Tom van Aalst", "Pickup ingepland", "Ophaalmoment is ingepland.", "user-service-partner"),
+      seedEvent(ts(3, "14:00"), "ontvangen", "service_partner", "Tom van Aalst", "Batch opgehaald", "Batch is opgehaald.", "user-service-partner"),
+      seedEvent(ts(4, "09:25"), "ontvangen", "service_partner", "Tom van Aalst", "Batch warehouse", "Batch is ontvangen in het warehouse.", "user-service-partner"),
+      seedEvent(ts(5, "15:10"), "in_verwerking", "service_partner", "Tom van Aalst", "Refurbish gestart", "Refurbish intake is gestart.", "user-service-partner"),
+      seedEvent(ts(6, "16:15"), "in_verwerking", "service_partner", "Tom van Aalst", "Rapportage gereed", "12 geschikt, 3 afgekeurd.", "user-service-partner"),
+      seedEvent(ts(7, "09:55"), "verwerkt", "digidromen_staff", "Noah Janssen", "Op voorraad", "12 laptops toegevoegd aan voorraad.", "user-digidromen-staff"),
     ], [], [{ at: ts(6, "16:20"), uploadedByUserId: "user-service-partner", uploadedByName: "Tom van Aalst", fileName: "refurbish-rapport-3003.xlsx", fileSizeLabel: "72 KB", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", kind: "donation_report" }], ["digidromen_staff", "digidromen_admin", "service_partner"], "Batch al afgerond en toegevoegd aan voorraad.", 12, 3),
   ];
 
@@ -488,7 +488,7 @@ export function buildDashboardView(data: PortalData, role: Role): DashboardView 
     return {
       role,
       metrics: [
-        { id: "pickups", label: "Pickups", value: String(donations.filter((item) => item.status === "OPHAALAFSPRAAK_GEPLAND").length) },
+        { id: "pickups", label: "Pickups", value: String(donations.filter((item) => item.status === "pickup_gepland").length) },
         { id: "open-repairs", label: "Open repairs", value: String(repairs.filter((item) => item.status !== "AFGESLOTEN").length) },
         { id: "stock", label: "Stock mutaties", value: String(Object.values(data.products).filter((item) => item.stockReserved > 0).length) },
       ],
@@ -501,13 +501,13 @@ export function buildDashboardView(data: PortalData, role: Role): DashboardView 
   return {
     role,
     metrics: [
-      { id: "throughput", label: "Orders in flow", value: String(Object.values(data.orders).filter((item) => !["AFGESLOTEN", "GEANNULEERD"].includes(item.status)).length) },
+      { id: "throughput", label: "Orders in flow", value: String(Object.values(data.orders).filter((item) => !["afgesloten", "afgewezen"].includes(item.status)).length) },
       { id: "shortages", label: "Voorraadtekorten", value: String(Object.values(data.products).filter((item) => item.stockOnHand <= 10).length), tone: "warning" },
       { id: "sync-health", label: "Sync health", value: data.crmSync.health, tone: data.crmSync.health === "healthy" ? "good" : "warning" },
     ],
     pendingActions: [
       ...Object.values(data.orders)
-        .filter((item) => item.status === "INGEDIEND")
+        .filter((item) => item.status === "ingediend")
         .map<DashboardAction>((item) => ({
           id: `action-${item.id}`,
           label: "Beoordeel order",

@@ -43,17 +43,16 @@ export function downloadTextFile(
 /** Status-dependent Tailwind classes for badges and indicators. */
 export function statusClasses(status: string): string {
   if (
-    status === "AFGESLOTEN" ||
-    status === "GELEVERD" ||
-    status === "OP_VOORRAAD" ||
-    status === "RAPPORTAGE_GEREED"
+    status === "afgesloten" ||
+    status === "geleverd" ||
+    status === "verwerkt"
   ) {
     return "bg-emerald-100 text-emerald-700";
   }
-  if (status === "GEANNULEERD" || status === "IRREPARABEL" || status === "failed") {
+  if (status === "afgewezen" || status === "geannuleerd" || status === "IRREPARABEL" || status === "failed") {
     return "bg-rose-100 text-rose-700";
   }
-  if (status === "VERZONDEN" || status === "IN_REPARATIE" || status === "queued") {
+  if (status === "IN_REPARATIE" || status === "queued") {
     return "bg-amber-100 text-amber-700";
   }
   if (status === "retrying") {
@@ -64,27 +63,30 @@ export function statusClasses(status: string): string {
 
 /** Human-readable status labels (NL). */
 const STATUS_LABELS: Record<string, string> = {
-  INGEDIEND: "Ingediend",
-  BEOORDEELD: "Beoordeeld",
-  IN_BEHANDELING: "In behandeling",
-  IN_VOORBEREIDING: "In voorbereiding",
-  VERZONDEN: "Verzonden",
-  GELEVERD: "Geleverd",
-  AFGESLOTEN: "Afgesloten",
-  GEANNULEERD: "Geannuleerd",
+  // order_status (lowercase)
+  concept: "Concept",
+  ingediend: "Ingediend",
+  te_accorderen: "Te accorderen",
+  geaccordeerd: "Geaccordeerd",
+  in_voorbereiding: "In voorbereiding",
+  geleverd: "Geleverd",
+  afgesloten: "Afgesloten",
+  afgewezen: "Afgewezen",
+  // donation_status (lowercase)
+  aangemeld: "Aangemeld",
+  pickup_gepland: "Ophaal gepland",
+  ontvangen: "Ontvangen",
+  in_verwerking: "In verwerking",
+  verwerkt: "Verwerkt",
+  geannuleerd: "Geannuleerd",
+  // repair_status (UPPERCASE — unchanged in DB)
   ONTVANGEN: "Ontvangen",
   DIAGNOSE: "Diagnose",
   IN_REPARATIE: "In reparatie",
   TEST: "Test",
   RETOUR: "Retour",
   IRREPARABEL: "Irreparabel",
-  TOEGEZEGD: "Toegezegd",
-  OPHAALAFSPRAAK_GEPLAND: "Ophaalafspraak gepland",
-  OPGEHAALD: "Opgehaald",
-  AANGEKOMEN_WAREHOUSE: "Aangekomen warehouse",
-  IN_VERWERKING: "In verwerking",
-  RAPPORTAGE_GEREED: "Rapportage gereed",
-  OP_VOORRAAD: "Op voorraad",
+  AFGESLOTEN: "Afgesloten",
 };
 
 export function formatStatus(status: string): string {

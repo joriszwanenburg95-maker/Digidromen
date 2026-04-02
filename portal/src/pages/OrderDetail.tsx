@@ -22,14 +22,14 @@ import type { TimelineEvent } from "../types";
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
-    INGEDIEND: "bg-blue-100 text-blue-800",
-    BEOORDEELD: "bg-amber-100 text-amber-800",
-    IN_BEHANDELING: "bg-amber-100 text-amber-800",
-    IN_VOORBEREIDING: "bg-purple-100 text-purple-800",
-    VERZONDEN: "bg-sky-100 text-sky-800",
-    GELEVERD: "bg-green-100 text-green-800",
-    AFGESLOTEN: "bg-slate-100 text-slate-800",
-    GEANNULEERD: "bg-red-100 text-red-800",
+    concept: "bg-slate-100 text-slate-800",
+    ingediend: "bg-blue-100 text-blue-800",
+    te_accorderen: "bg-amber-100 text-amber-800",
+    geaccordeerd: "bg-amber-100 text-amber-800",
+    in_voorbereiding: "bg-purple-100 text-purple-800",
+    geleverd: "bg-green-100 text-green-800",
+    afgesloten: "bg-slate-100 text-slate-800",
+    afgewezen: "bg-red-100 text-red-800",
   };
   return map[status] ?? "bg-slate-100 text-slate-700";
 }
@@ -38,26 +38,25 @@ function getNextStatuses(role: string, status: string): string[] {
   if (role === "help_org") return [];
   if (role === "service_partner") {
     const flow: Record<string, string[]> = {
-      VERZONDEN: ["GELEVERD"],
+      in_voorbereiding: ["geleverd"],
     };
     return flow[status] ?? [];
   }
 
   const flow: Record<string, string[]> = {
-    INGEDIEND: ["BEOORDEELD", "GEANNULEERD"],
-    BEOORDEELD: ["IN_BEHANDELING", "GEANNULEERD"],
-    IN_BEHANDELING: ["IN_VOORBEREIDING", "GEANNULEERD"],
-    IN_VOORBEREIDING: ["VERZONDEN"],
-    VERZONDEN: ["GELEVERD"],
-    GELEVERD: ["AFGESLOTEN"],
+    ingediend: ["te_accorderen", "afgewezen"],
+    te_accorderen: ["geaccordeerd", "afgewezen"],
+    geaccordeerd: ["in_voorbereiding", "afgewezen"],
+    in_voorbereiding: ["geleverd"],
+    geleverd: ["afgesloten"],
   };
   return flow[status] ?? [];
 }
 
 function statusButtonStyle(status: string) {
-  if (status === "GEANNULEERD") return "bg-red-600 hover:bg-red-700 text-white";
-  if (status === "BEOORDEELD" || status === "IN_BEHANDELING") return "bg-amber-500 hover:bg-amber-600 text-white";
-  if (status === "GELEVERD" || status === "AFGESLOTEN") return "bg-green-600 hover:bg-green-700 text-white";
+  if (status === "afgewezen") return "bg-red-600 hover:bg-red-700 text-white";
+  if (status === "te_accorderen" || status === "geaccordeerd") return "bg-amber-500 hover:bg-amber-600 text-white";
+  if (status === "geleverd" || status === "afgesloten") return "bg-green-600 hover:bg-green-700 text-white";
   return "bg-digidromen-primary hover:bg-blue-700 text-white";
 }
 
@@ -250,8 +249,8 @@ const OrderDetail: React.FC = () => {
               onClick={() => transitionMutation.mutate(status)}
               className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${statusButtonStyle(status)}`}
             >
-              {status === "GEANNULEERD" ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
-              {status === "GEANNULEERD" ? "Afwijzen" : status === "BEOORDEELD" ? "Accorderen" : `→ ${status}`}
+              {status === "afgewezen" ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
+              {status === "afgewezen" ? "Afwijzen" : status === "te_accorderen" ? "Accorderen" : `→ ${status}`}
             </button>
           ))}
         </div>

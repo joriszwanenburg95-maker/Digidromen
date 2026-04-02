@@ -14,32 +14,29 @@ import type { TimelineEvent } from "../types";
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
-    TOEGEZEGD: "bg-blue-100 text-blue-800",
-    OPHAALAFSPRAAK_GEPLAND: "bg-amber-100 text-amber-800",
-    OPGEHAALD: "bg-sky-100 text-sky-800",
-    AANGEKOMEN_WAREHOUSE: "bg-purple-100 text-purple-800",
-    IN_VERWERKING: "bg-purple-100 text-purple-800",
-    RAPPORTAGE_GEREED: "bg-sky-100 text-sky-800",
-    OP_VOORRAAD: "bg-green-100 text-green-800",
+    aangemeld: "bg-blue-100 text-blue-800",
+    pickup_gepland: "bg-amber-100 text-amber-800",
+    ontvangen: "bg-sky-100 text-sky-800",
+    in_verwerking: "bg-purple-100 text-purple-800",
+    verwerkt: "bg-green-100 text-green-800",
+    geannuleerd: "bg-red-100 text-red-800",
   };
   return map[status] ?? "bg-slate-100 text-slate-700";
 }
 
 function statusButtonStyle(status: string) {
-  if (status === "OP_VOORRAAD") return "bg-green-600 hover:bg-green-700 text-white";
-  if (status === "OPHAALAFSPRAAK_GEPLAND" || status === "IN_VERWERKING") return "bg-amber-500 hover:bg-amber-600 text-white";
+  if (status === "verwerkt") return "bg-green-600 hover:bg-green-700 text-white";
+  if (status === "pickup_gepland" || status === "in_verwerking") return "bg-amber-500 hover:bg-amber-600 text-white";
   return "bg-digidromen-primary hover:bg-blue-700 text-white";
 }
 
 function getNextStatuses(role: string, status: string): string[] {
   if (role === "help_org") return [];
   const flow: Record<string, string[]> = {
-    TOEGEZEGD: ["OPHAALAFSPRAAK_GEPLAND"],
-    OPHAALAFSPRAAK_GEPLAND: ["OPGEHAALD"],
-    OPGEHAALD: ["AANGEKOMEN_WAREHOUSE"],
-    AANGEKOMEN_WAREHOUSE: ["IN_VERWERKING"],
-    IN_VERWERKING: ["RAPPORTAGE_GEREED"],
-    RAPPORTAGE_GEREED: ["OP_VOORRAAD"],
+    aangemeld: ["pickup_gepland"],
+    pickup_gepland: ["ontvangen"],
+    ontvangen: ["in_verwerking"],
+    in_verwerking: ["verwerkt"],
   };
   return flow[status] ?? [];
 }
@@ -119,8 +116,8 @@ const DonationDetail: React.FC = () => {
         updated_at: new Date().toISOString(),
       };
 
-      if (nextStatus === "OPGEHAALD") patch.picked_up_at = new Date().toISOString();
-      if (nextStatus === "OP_VOORRAAD") patch.processed_at = new Date().toISOString();
+      if (nextStatus === "ontvangen") patch.picked_up_at = new Date().toISOString();
+      if (nextStatus === "verwerkt") patch.processed_at = new Date().toISOString();
 
       const { error } = await getSupabaseClient()
         .from("donation_batches")

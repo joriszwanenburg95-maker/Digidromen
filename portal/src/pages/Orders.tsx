@@ -11,12 +11,11 @@ import StatusBadge from "../components/StatusBadge";
 
 const statusTabs = [
   { key: "all", label: "Alle" },
-  { key: "INGEDIEND", label: "Ingediend" },
-  { key: "IN_BEHANDELING", label: "In behandeling" },
-  { key: "IN_VOORBEREIDING", label: "Voorbereiding" },
-  { key: "VERZONDEN", label: "Verzonden" },
-  { key: "GELEVERD", label: "Geleverd" },
-  { key: "AFGESLOTEN", label: "Afgesloten" },
+  { key: "ingediend", label: "Ingediend" },
+  { key: "te_accorderen", label: "Te accorderen" },
+  { key: "in_voorbereiding", label: "Voorbereiding" },
+  { key: "geleverd", label: "Geleverd" },
+  { key: "afgesloten", label: "Afgesloten" },
 ];
 
 const ORDER_CREATOR_ROLES: string[] = ["help_org", "digidromen_staff", "digidromen_admin"];
@@ -122,7 +121,7 @@ const Orders: React.FC = () => {
           priority,
           preferred_delivery_date: preferredDeliveryDate || null,
           requested_at: new Date().toISOString(),
-          status: "INGEDIEND",
+          status: "ingediend",
           delivery_address: deliveryAddress,
           stock_badge: "available",
         });

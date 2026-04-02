@@ -11,12 +11,12 @@ import StatusBadge from "../components/StatusBadge";
 
 const statusTabs = [
   { key: "all", label: "Alle" },
-  { key: "TOEGEZEGD", label: "Toegezegd" },
-  { key: "OPHAALAFSPRAAK_GEPLAND", label: "Ophaal gepland" },
-  { key: "OPGEHAALD", label: "Opgehaald" },
-  { key: "AANGEKOMEN_WAREHOUSE", label: "Warehouse" },
-  { key: "IN_VERWERKING", label: "In verwerking" },
-  { key: "OP_VOORRAAD", label: "Op voorraad" },
+  { key: "aangemeld", label: "Aangemeld" },
+  { key: "pickup_gepland", label: "Ophaal gepland" },
+  { key: "ontvangen", label: "Ontvangen" },
+  { key: "in_verwerking", label: "In verwerking" },
+  { key: "verwerkt", label: "Verwerkt" },
+  { key: "geannuleerd", label: "Geannuleerd" },
 ];
 
 const Donations: React.FC = () => {
@@ -87,7 +87,7 @@ const Donations: React.FC = () => {
         pickup_contact_name: contactName,
         pickup_contact_email: contactEmail,
         notes: notes.trim() || null,
-        status: "TOEGEZEGD",
+        status: "aangemeld",
         registered_at: new Date().toISOString(),
       });
     if (!error) {

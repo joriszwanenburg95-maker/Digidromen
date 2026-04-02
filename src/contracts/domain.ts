@@ -21,14 +21,14 @@ export type DocumentKind =
   | "other";
 
 export type OrderStatus =
-  | "INGEDIEND"
-  | "BEOORDEELD"
-  | "IN_BEHANDELING"
-  | "IN_VOORBEREIDING"
-  | "VERZONDEN"
-  | "GELEVERD"
-  | "AFGESLOTEN"
-  | "GEANNULEERD";
+  | "concept"
+  | "ingediend"
+  | "te_accorderen"
+  | "geaccordeerd"
+  | "in_voorbereiding"
+  | "geleverd"
+  | "afgesloten"
+  | "afgewezen";
 
 export type RepairStatus =
   | "ONTVANGEN"
@@ -42,20 +42,20 @@ export type RepairStatus =
 export type RepairSubtype = "GENERAL_REPAIR" | "ACCESSORY_ISSUE";
 
 export type DonationStatus =
-  | "TOEGEZEGD"
-  | "OPHAALAFSPRAAK_GEPLAND"
-  | "OPGEHAALD"
-  | "AANGEKOMEN_WAREHOUSE"
-  | "IN_VERWERKING"
-  | "RAPPORTAGE_GEREED"
-  | "OP_VOORRAAD";
+  | "concept"
+  | "aangemeld"
+  | "pickup_gepland"
+  | "ontvangen"
+  | "in_verwerking"
+  | "verwerkt"
+  | "geannuleerd";
 
 export type WorkflowStatus = OrderStatus | RepairStatus | DonationStatus;
 
 export interface Organization {
   id: EntityId;
   name: string;
-  type: "help_org" | "digidromen" | "service_partner" | "sponsor";
+  type: "help_org" | "digidromen" | "service_partner" | "sponsor" | "donor";
   city: string;
   contactName: string;
   contactEmail: string;

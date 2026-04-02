@@ -129,7 +129,7 @@ export function createPortalStore(storageOverride?: StorageLike): ExtendedPortal
       id,
       organizationId: input.organizationId,
       requesterUserId: input.requesterUserId,
-      status: "INGEDIEND",
+      status: "ingediend",
       priority: input.priority ?? "normal",
       preferredDeliveryDate: input.preferredDeliveryDate,
       requestedAt,
@@ -155,7 +155,7 @@ export function createPortalStore(storageOverride?: StorageLike): ExtendedPortal
         draft.data,
         "order",
         id,
-        "INGEDIEND",
+        "ingediend",
         "Nieuwe orderaanvraag",
         "Orderaanvraag is ingediend.",
         meta,
@@ -203,7 +203,7 @@ export function createPortalStore(storageOverride?: StorageLike): ExtendedPortal
         body: `Order ${orderId} staat nu op ${status}.`,
         createdAt: meta.timestamp,
         channel: "email",
-        level: status === "GEANNULEERD" ? "warning" : "info",
+        level: status === "afgewezen" ? "warning" : "info",
         relatedCaseType: "order",
         relatedCaseId: orderId,
       });
@@ -316,7 +316,7 @@ export function createPortalStore(storageOverride?: StorageLike): ExtendedPortal
     const donation: DonationBatch = {
       id,
       sponsorOrganizationId: input.sponsorOrganizationId,
-      status: "TOEGEZEGD",
+      status: "aangemeld",
       deviceCountPromised: input.deviceCountPromised,
       pickupAddress: input.pickupAddress,
       pickupContactName: input.pickupContactName,
@@ -336,7 +336,7 @@ export function createPortalStore(storageOverride?: StorageLike): ExtendedPortal
         draft.data,
         "donation",
         id,
-        "TOEGEZEGD",
+        "aangemeld",
         "Nieuwe donatiebatch",
         "Donatiebatch is geregistreerd.",
         meta,
@@ -388,7 +388,7 @@ export function createPortalStore(storageOverride?: StorageLike): ExtendedPortal
         body: `Donatie ${donationId} staat nu op ${status}.`,
         createdAt: meta.timestamp,
         channel: "portal",
-        level: status === "OP_VOORRAAD" ? "success" : "info",
+        level: status === "verwerkt" ? "success" : "info",
         relatedCaseType: "donation",
         relatedCaseId: donationId,
       });
@@ -399,7 +399,7 @@ export function createPortalStore(storageOverride?: StorageLike): ExtendedPortal
         bufferedChanges: [`Donatiestatus naar ${status}`],
         meta,
       });
-      if (status === "OP_VOORRAAD" && donation.refurbishReadyCount) {
+      if (status === "verwerkt" && donation.refurbishReadyCount) {
         applyStockDelta(draft.data, "product-dell-14", donation.refurbishReadyCount, "donation_intake");
       }
     });
@@ -520,12 +520,12 @@ export function createPortalStore(storageOverride?: StorageLike): ExtendedPortal
       const currentOrder = mustFind(state.data.orders, input.orderId, "Order");
       let order = currentOrder;
       if (input.deliveredAt) {
-        if (currentOrder.status !== "VERZONDEN") {
-          order = updateOrderStatus(input.orderId, "VERZONDEN", meta);
+        if (currentOrder.status !== "in_voorbereiding") {
+          order = updateOrderStatus(input.orderId, "in_voorbereiding", meta);
         }
-        order = updateOrderStatus(input.orderId, "GELEVERD", meta);
-      } else if (currentOrder.status !== "VERZONDEN") {
-        order = updateOrderStatus(input.orderId, "VERZONDEN", meta);
+        order = updateOrderStatus(input.orderId, "geleverd", meta);
+      } else if (currentOrder.status !== "in_voorbereiding") {
+        order = updateOrderStatus(input.orderId, "in_voorbereiding", meta);
       }
       if (input.notes) {
         addMessage({
@@ -799,13 +799,13 @@ function reconcileOrderStock(data: PortalData, order: Order, status: OrderStatus
   if (!line) {
     return;
   }
-  if (status === "IN_VOORBEREIDING") {
+  if (status === "in_voorbereiding") {
     applyStockDelta(data, line.productId, -line.quantity, "order_reservation");
   }
-  if (status === "GEANNULEERD") {
+  if (status === "afgewezen") {
     applyStockDelta(data, line.productId, line.quantity, "order_reservation");
   }
-  if (status === "VERZONDEN") {
+  if (status === "geleverd") {
     applyStockDelta(data, line.productId, 0, "shipment");
   }
 }

@@ -10,8 +10,7 @@ const Layout = lazy(() => import("./components/Layout"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Orders = lazy(() => import("./pages/Orders"));
 const OrderDetail = lazy(() => import("./pages/OrderDetail"));
-const Repairs = lazy(() => import("./pages/Repairs"));
-const RepairDetail = lazy(() => import("./pages/RepairDetail"));
+const Planning = lazy(() => import("./pages/Planning"));
 const Donations = lazy(() => import("./pages/Donations"));
 const DonationDetail = lazy(() => import("./pages/DonationDetail"));
 const Inventory = lazy(() => import("./pages/Inventory"));
@@ -78,8 +77,9 @@ const App: React.FC = () => {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/orders/:id" element={<OrderDetail />} />
-                <Route path="/repairs" element={<Repairs />} />
-                <Route path="/repairs/:id" element={<RepairDetail />} />
+                <Route path="/repairs" element={<Navigate to="/orders" replace />} />
+                <Route path="/repairs/:id" element={<Navigate to="/orders" replace />} />
+                <Route path="/planning" element={<Planning />} />
                 <Route path="/donations" element={<Donations />} />
                 <Route path="/donations/:id" element={<DonationDetail />} />
                 <Route path="/inventory" element={<Inventory />} />

@@ -8,53 +8,43 @@ export interface TransitionEdge<Status extends string> {
 
 export const orderTransitions: TransitionEdge<OrderStatus>[] = [
   {
-    from: "INGEDIEND",
-    to: "BEOORDEELD",
+    from: "ingediend",
+    to: "te_accorderen",
     roles: ["digidromen_staff", "digidromen_admin"],
   },
   {
-    from: "INGEDIEND",
-    to: "GEANNULEERD",
+    from: "ingediend",
+    to: "afgewezen",
     roles: ["help_org", "digidromen_staff", "digidromen_admin"],
   },
   {
-    from: "BEOORDEELD",
-    to: "IN_BEHANDELING",
+    from: "te_accorderen",
+    to: "geaccordeerd",
     roles: ["digidromen_staff", "digidromen_admin"],
   },
   {
-    from: "BEOORDEELD",
-    to: "GEANNULEERD",
+    from: "te_accorderen",
+    to: "afgewezen",
     roles: ["digidromen_staff", "digidromen_admin"],
   },
   {
-    from: "IN_BEHANDELING",
-    to: "IN_VOORBEREIDING",
+    from: "geaccordeerd",
+    to: "in_voorbereiding",
     roles: ["digidromen_staff", "digidromen_admin"],
   },
   {
-    from: "IN_BEHANDELING",
-    to: "GEANNULEERD",
+    from: "geaccordeerd",
+    to: "afgewezen",
     roles: ["digidromen_staff", "digidromen_admin"],
   },
   {
-    from: "IN_VOORBEREIDING",
-    to: "VERZONDEN",
+    from: "in_voorbereiding",
+    to: "geleverd",
     roles: ["digidromen_staff", "digidromen_admin"],
   },
   {
-    from: "IN_VOORBEREIDING",
-    to: "GEANNULEERD",
-    roles: ["digidromen_staff", "digidromen_admin"],
-  },
-  {
-    from: "VERZONDEN",
-    to: "GELEVERD",
-    roles: ["service_partner", "digidromen_staff", "digidromen_admin"],
-  },
-  {
-    from: "GELEVERD",
-    to: "AFGESLOTEN",
+    from: "geleverd",
+    to: "afgesloten",
     roles: ["digidromen_staff", "digidromen_admin"],
   },
 ];
@@ -114,63 +104,56 @@ export const repairTransitions: TransitionEdge<RepairStatus>[] = [
 
 export const donationTransitions: TransitionEdge<DonationStatus>[] = [
   {
-    from: "TOEGEZEGD",
-    to: "OPHAALAFSPRAAK_GEPLAND",
+    from: "aangemeld",
+    to: "pickup_gepland",
     roles: ["digidromen_staff", "digidromen_admin"],
   },
   {
-    from: "OPHAALAFSPRAAK_GEPLAND",
-    to: "OPGEHAALD",
+    from: "pickup_gepland",
+    to: "ontvangen",
     roles: ["service_partner", "digidromen_staff", "digidromen_admin"],
   },
   {
-    from: "OPGEHAALD",
-    to: "AANGEKOMEN_WAREHOUSE",
+    from: "ontvangen",
+    to: "in_verwerking",
     roles: ["service_partner", "digidromen_staff", "digidromen_admin"],
   },
   {
-    from: "AANGEKOMEN_WAREHOUSE",
-    to: "IN_VERWERKING",
-    roles: ["service_partner", "digidromen_staff", "digidromen_admin"],
-  },
-  {
-    from: "IN_VERWERKING",
-    to: "RAPPORTAGE_GEREED",
-    roles: ["service_partner", "digidromen_staff", "digidromen_admin"],
-  },
-  {
-    from: "RAPPORTAGE_GEREED",
-    to: "OP_VOORRAAD",
+    from: "in_verwerking",
+    to: "verwerkt",
     roles: ["service_partner", "digidromen_staff", "digidromen_admin"],
   },
 ];
 
 export const terminalStatuses = {
-  orders: ["AFGESLOTEN", "GEANNULEERD"] satisfies OrderStatus[],
+  orders: ["afgesloten", "afgewezen"] satisfies OrderStatus[],
   repairs: ["AFGESLOTEN"] satisfies RepairStatus[],
-  donations: ["OP_VOORRAAD"] satisfies DonationStatus[],
+  donations: ["verwerkt", "geannuleerd"] satisfies DonationStatus[],
 };
 
 export const statusLabels: Record<string, string> = {
-  INGEDIEND: "Ingediend",
-  BEOORDEELD: "Beoordeeld",
-  IN_BEHANDELING: "In behandeling",
-  IN_VOORBEREIDING: "In voorbereiding",
-  VERZONDEN: "Verzonden",
-  GELEVERD: "Geleverd",
-  AFGESLOTEN: "Afgesloten",
-  GEANNULEERD: "Geannuleerd",
+  // order_status (lowercase)
+  concept: "Concept",
+  ingediend: "Ingediend",
+  te_accorderen: "Te accorderen",
+  geaccordeerd: "Geaccordeerd",
+  in_voorbereiding: "In voorbereiding",
+  geleverd: "Geleverd",
+  afgesloten: "Afgesloten",
+  afgewezen: "Afgewezen",
+  // repair_status (UPPERCASE — unchanged in DB)
   ONTVANGEN: "Ontvangen",
   DIAGNOSE: "Diagnose",
   IN_REPARATIE: "In reparatie",
   TEST: "Test",
   RETOUR: "Retour",
   IRREPARABEL: "Irreparabel",
-  TOEGEZEGD: "Toegezegd",
-  OPHAALAFSPRAAK_GEPLAND: "Ophaalafspraak gepland",
-  OPGEHAALD: "Opgehaald",
-  AANGEKOMEN_WAREHOUSE: "Aangekomen warehouse",
-  IN_VERWERKING: "In verwerking",
-  RAPPORTAGE_GEREED: "Rapportage gereed",
-  OP_VOORRAAD: "Op voorraad",
+  AFGESLOTEN: "Afgesloten",
+  // donation_status (lowercase)
+  aangemeld: "Aangemeld",
+  pickup_gepland: "Ophaal gepland",
+  ontvangen: "Ontvangen",
+  in_verwerking: "In verwerking",
+  verwerkt: "Verwerkt",
+  geannuleerd: "Geannuleerd",
 };

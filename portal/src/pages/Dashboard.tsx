@@ -34,7 +34,7 @@ const Dashboard: React.FC = () => {
       const { data, error } = await getSupabaseClient()
         .from("orders")
         .select("id, status, organization_id, priority, preferred_delivery_date, created_at")
-        .not("status", "in", "(AFGESLOTEN,GEANNULEERD)")
+        .not("status", "in", "(afgesloten,afgewezen)")
         .order("created_at", { ascending: false })
         .limit(20);
       if (error) throw error;
@@ -64,7 +64,7 @@ const Dashboard: React.FC = () => {
       const { data, error } = await getSupabaseClient()
         .from("donation_batches")
         .select("id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at")
-        .neq("status", "OP_VOORRAAD")
+        .neq("status", "verwerkt")
         .order("created_at", { ascending: false })
         .limit(20);
       if (error) throw error;
@@ -125,7 +125,7 @@ const Dashboard: React.FC = () => {
       ? [
           { label: "Open reparaties", value: String(openRepairCount), icon: Wrench, accent: "bg-amber-500" },
           { label: "Donatiebatches", value: String(openDonationCount), icon: HeartHandshake, accent: "bg-emerald-500" },
-          { label: "Te leveren orders", value: String(openOrders.filter((o) => ["IN_VOORBEREIDING", "VERZONDEN"].includes(o.status)).length), icon: ShoppingCart, accent: "bg-digidromen-primary" },
+          { label: "Te leveren orders", value: String(openOrders.filter((o) => ["in_voorbereiding"].includes(o.status)).length), icon: ShoppingCart, accent: "bg-digidromen-primary" },
           { label: "Meldingen", value: String(unreadNotifications), icon: RefreshCw, accent: "bg-digidromen-secondary" },
         ]
       : [

@@ -5,6 +5,7 @@ import {
   Bell,
   Box,
   Building2,
+  Calendar,
   ClipboardList,
   HeartHandshake,
   LayoutDashboard,
@@ -16,7 +17,6 @@ import {
   ShoppingCart,
   TrendingUp,
   Users,
-  Wrench,
   X,
 } from "lucide-react";
 
@@ -40,15 +40,15 @@ const sidebarLinks = [
     roles: ["help_org", "digidromen_staff", "digidromen_admin", "service_partner"],
   },
   {
-    name: "Reparaties",
-    path: "/repairs",
-    icon: Wrench,
-    roles: ["digidromen_staff", "digidromen_admin", "service_partner"],
-  },
-  {
     name: "Donaties",
     path: "/donations",
     icon: HeartHandshake,
+    roles: ["digidromen_staff", "digidromen_admin", "service_partner"],
+  },
+  {
+    name: "Planning",
+    path: "/planning",
+    icon: Calendar,
     roles: ["digidromen_staff", "digidromen_admin", "service_partner"],
   },
   {
