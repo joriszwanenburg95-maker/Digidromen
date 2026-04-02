@@ -170,6 +170,7 @@ export type Database = {
         Row: {
           assigned_service_partner_id: string | null
           batch_number: string | null
+          certificate_required_at: string | null
           certificate_uploaded_at: string | null
           created_at: string
           crm_case_id: string | null
@@ -189,6 +190,7 @@ export type Database = {
           pickup_scheduled_at: string | null
           pickup_window: string | null
           processed_at: string | null
+          processing_result: Json | null
           received_bags: number
           received_chargers: number
           received_headsets: number
@@ -209,6 +211,7 @@ export type Database = {
         Insert: {
           assigned_service_partner_id?: string | null
           batch_number?: string | null
+          certificate_required_at?: string | null
           certificate_uploaded_at?: string | null
           created_at?: string
           crm_case_id?: string | null
@@ -228,6 +231,7 @@ export type Database = {
           pickup_scheduled_at?: string | null
           pickup_window?: string | null
           processed_at?: string | null
+          processing_result?: Json | null
           received_bags?: number
           received_chargers?: number
           received_headsets?: number
@@ -248,6 +252,7 @@ export type Database = {
         Update: {
           assigned_service_partner_id?: string | null
           batch_number?: string | null
+          certificate_required_at?: string | null
           certificate_uploaded_at?: string | null
           created_at?: string
           crm_case_id?: string | null
@@ -267,6 +272,7 @@ export type Database = {
           pickup_scheduled_at?: string | null
           pickup_window?: string | null
           processed_at?: string | null
+          processing_result?: Json | null
           received_bags?: number
           received_chargers?: number
           received_headsets?: number
@@ -394,6 +400,67 @@ export type Database = {
           },
         ]
       }
+      inventory_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          movement_type: Database["public"]["Enums"]["movement_type"]
+          note: string | null
+          product_id: string
+          quantity_delta: number
+          source_case_id: string | null
+          source_case_type: string | null
+          stock_location_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type: Database["public"]["Enums"]["movement_type"]
+          note?: string | null
+          product_id: string
+          quantity_delta: number
+          source_case_id?: string | null
+          source_case_type?: string | null
+          stock_location_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type?: Database["public"]["Enums"]["movement_type"]
+          note?: string | null
+          product_id?: string
+          quantity_delta?: number
+          source_case_id?: string | null
+          source_case_type?: string | null
+          stock_location_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_stock_location_id_fkey"
+            columns: ["stock_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           attachment_document_ids: string[]
@@ -505,6 +572,7 @@ export type Database = {
       }
       order_lines: {
         Row: {
+          attachment_document_ids: string[] | null
           connector_type: string | null
           connector_wattage: string | null
           created_at: string
@@ -515,10 +583,12 @@ export type Database = {
           order_id: string
           product_id: string
           quantity: number
+          replacement_reason: string | null
           rma_category: string | null
           serial_number: string | null
         }
         Insert: {
+          attachment_document_ids?: string[] | null
           connector_type?: string | null
           connector_wattage?: string | null
           created_at?: string
@@ -529,10 +599,12 @@ export type Database = {
           order_id: string
           product_id: string
           quantity?: number
+          replacement_reason?: string | null
           rma_category?: string | null
           serial_number?: string | null
         }
         Update: {
+          attachment_document_ids?: string[] | null
           connector_type?: string | null
           connector_wattage?: string | null
           created_at?: string
@@ -543,6 +615,7 @@ export type Database = {
           order_id?: string
           product_id?: string
           quantity?: number
+          replacement_reason?: string | null
           rma_category?: string | null
           serial_number?: string | null
         }
@@ -566,14 +639,20 @@ export type Database = {
       orders: {
         Row: {
           actual_delivery_date: string | null
+          approval_status: Database["public"]["Enums"]["approval_status"]
           approved_at: string | null
           approved_by_user_id: string | null
+          archive_status: boolean
           assigned_service_partner_id: string | null
           created_at: string
           crm_case_id: string | null
           crm_relation_id: string | null
           crm_task_id: string | null
           delivery_address: string
+          delivery_date: string | null
+          delivery_date_changed_at: string | null
+          delivery_date_set_by: string | null
+          delivery_date_source: string | null
           id: string
           motivation: string
           ordering_window_ref: string | null
@@ -590,14 +669,20 @@ export type Database = {
         }
         Insert: {
           actual_delivery_date?: string | null
+          approval_status?: Database["public"]["Enums"]["approval_status"]
           approved_at?: string | null
           approved_by_user_id?: string | null
+          archive_status?: boolean
           assigned_service_partner_id?: string | null
           created_at?: string
           crm_case_id?: string | null
           crm_relation_id?: string | null
           crm_task_id?: string | null
           delivery_address: string
+          delivery_date?: string | null
+          delivery_date_changed_at?: string | null
+          delivery_date_set_by?: string | null
+          delivery_date_source?: string | null
           id: string
           motivation: string
           ordering_window_ref?: string | null
@@ -614,14 +699,20 @@ export type Database = {
         }
         Update: {
           actual_delivery_date?: string | null
+          approval_status?: Database["public"]["Enums"]["approval_status"]
           approved_at?: string | null
           approved_by_user_id?: string | null
+          archive_status?: boolean
           assigned_service_partner_id?: string | null
           created_at?: string
           crm_case_id?: string | null
           crm_relation_id?: string | null
           crm_task_id?: string | null
           delivery_address?: string
+          delivery_date?: string | null
+          delivery_date_changed_at?: string | null
+          delivery_date_set_by?: string | null
+          delivery_date_source?: string | null
           id?: string
           motivation?: string
           ordering_window_ref?: string | null
@@ -652,6 +743,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "orders_delivery_date_set_by_fkey"
+            columns: ["delivery_date_set_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orders_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -667,6 +765,47 @@ export type Database = {
           },
         ]
       }
+      organization_contacts: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          is_primary: boolean
+          name: string
+          organization_id: string
+          phone: string | null
+          role: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          name: string
+          organization_id: string
+          phone?: string | null
+          role?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          name?: string
+          organization_id?: string
+          phone?: string | null
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_contacts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           active: boolean
@@ -677,9 +816,13 @@ export type Database = {
           created_at: string
           crm_hubspot_id: string | null
           crm_relation_id: string | null
+          donor_since: string | null
           id: string
+          is_orderable: boolean
           name: string
           postal_code: string | null
+          preferred_pickup_day: string | null
+          reminder_opt_in: boolean
           type: Database["public"]["Enums"]["organization_type"]
           updated_at: string
         }
@@ -692,9 +835,13 @@ export type Database = {
           created_at?: string
           crm_hubspot_id?: string | null
           crm_relation_id?: string | null
+          donor_since?: string | null
           id: string
+          is_orderable?: boolean
           name: string
           postal_code?: string | null
+          preferred_pickup_day?: string | null
+          reminder_opt_in?: boolean
           type: Database["public"]["Enums"]["organization_type"]
           updated_at?: string
         }
@@ -707,9 +854,13 @@ export type Database = {
           created_at?: string
           crm_hubspot_id?: string | null
           crm_relation_id?: string | null
+          donor_since?: string | null
           id?: string
+          is_orderable?: boolean
           name?: string
           postal_code?: string | null
+          preferred_pickup_day?: string | null
+          reminder_opt_in?: boolean
           type?: Database["public"]["Enums"]["organization_type"]
           updated_at?: string
         }
@@ -742,13 +893,18 @@ export type Database = {
           description: string
           id: string
           image_url: string | null
+          inventory_managed: boolean
+          is_orderable: boolean
           is_package: boolean
+          is_replacement_product: boolean
           name: string
+          order_scenario: string
           package_components: Json | null
           sku: string
           specification_summary: string[]
           stock_on_hand: number
           stock_reserved: number
+          unit: string
           updated_at: string
         }
         Insert: {
@@ -759,13 +915,18 @@ export type Database = {
           description: string
           id: string
           image_url?: string | null
+          inventory_managed?: boolean
+          is_orderable?: boolean
           is_package?: boolean
+          is_replacement_product?: boolean
           name: string
+          order_scenario?: string
           package_components?: Json | null
           sku: string
           specification_summary?: string[]
           stock_on_hand?: number
           stock_reserved?: number
+          unit?: string
           updated_at?: string
         }
         Update: {
@@ -776,13 +937,18 @@ export type Database = {
           description?: string
           id?: string
           image_url?: string | null
+          inventory_managed?: boolean
+          is_orderable?: boolean
           is_package?: boolean
+          is_replacement_product?: boolean
           name?: string
+          order_scenario?: string
           package_components?: Json | null
           sku?: string
           specification_summary?: string[]
           stock_on_hand?: number
           stock_reserved?: number
+          unit?: string
           updated_at?: string
         }
         Relationships: []
@@ -1048,16 +1214,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      case_write_allowed: {
+        Args: {
+          _case_id: string
+          _case_type: Database["public"]["Enums"]["case_type"]
+        }
+        Returns: boolean
+      }
+      check_ordering_window: {
+        Args: never
+        Returns: {
+          close_day: number
+          is_open: boolean
+          open_day: number
+          today_day: number
+        }[]
+      }
       current_app_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
       current_organization_id: { Args: never; Returns: string }
+      current_user_profile_id: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
-      is_ordering_window_open: {
-        Args: { target_month: string }
-        Returns: boolean
-      }
+      is_ordering_window_open:
+        | { Args: never; Returns: boolean }
+        | { Args: { target_month: string }; Returns: boolean }
       is_staff_or_admin: { Args: never; Returns: boolean }
     }
     Enums: {
@@ -1066,6 +1248,7 @@ export type Database = {
         | "digidromen_staff"
         | "digidromen_admin"
         | "service_partner"
+      approval_status: "in_afwachting" | "goedgekeurd" | "afgewezen"
       case_type: "order" | "repair" | "donation"
       crm_entity_name:
         | "organization"
@@ -1090,13 +1273,13 @@ export type Database = {
         | "supabase_storage"
         | "crm_reference"
       donation_status:
-        | "TOEGEZEGD"
-        | "OPHAALAFSPRAAK_GEPLAND"
-        | "OPGEHAALD"
-        | "AANGEKOMEN_WAREHOUSE"
-        | "IN_VERWERKING"
-        | "RAPPORTAGE_GEREED"
-        | "OP_VOORRAAD"
+        | "concept"
+        | "aangemeld"
+        | "pickup_gepland"
+        | "ontvangen"
+        | "in_verwerking"
+        | "verwerkt"
+        | "geannuleerd"
       inventory_condition:
         | "new"
         | "refurbished"
@@ -1104,22 +1287,29 @@ export type Database = {
         | "reserved"
         | "in_repair"
       message_kind: "internal" | "manual" | "system"
+      movement_type:
+        | "order_fulfillment"
+        | "donation_receipt"
+        | "adjustment"
+        | "return"
+        | "repair_consumption"
       notification_channel: "email" | "portal" | "system"
       notification_level: "info" | "success" | "warning" | "error"
       order_status:
-        | "INGEDIEND"
-        | "BEOORDEELD"
-        | "IN_BEHANDELING"
-        | "IN_VOORBEREIDING"
-        | "VERZONDEN"
-        | "GELEVERD"
-        | "AFGESLOTEN"
-        | "GEANNULEERD"
+        | "concept"
+        | "ingediend"
+        | "te_accorderen"
+        | "geaccordeerd"
+        | "in_voorbereiding"
+        | "geleverd"
+        | "afgesloten"
+        | "afgewezen"
       organization_type:
         | "help_org"
         | "digidromen"
         | "service_partner"
         | "sponsor"
+        | "donor"
       priority_level: "low" | "normal" | "high" | "urgent"
       product_category: "laptop" | "accessory" | "service"
       repair_status:
@@ -1264,6 +1454,7 @@ export const Constants = {
         "digidromen_admin",
         "service_partner",
       ],
+      approval_status: ["in_afwachting", "goedgekeurd", "afgewezen"],
       case_type: ["order", "repair", "donation"],
       crm_entity_name: [
         "organization",
@@ -1291,13 +1482,13 @@ export const Constants = {
         "crm_reference",
       ],
       donation_status: [
-        "TOEGEZEGD",
-        "OPHAALAFSPRAAK_GEPLAND",
-        "OPGEHAALD",
-        "AANGEKOMEN_WAREHOUSE",
-        "IN_VERWERKING",
-        "RAPPORTAGE_GEREED",
-        "OP_VOORRAAD",
+        "concept",
+        "aangemeld",
+        "pickup_gepland",
+        "ontvangen",
+        "in_verwerking",
+        "verwerkt",
+        "geannuleerd",
       ],
       inventory_condition: [
         "new",
@@ -1307,23 +1498,31 @@ export const Constants = {
         "in_repair",
       ],
       message_kind: ["internal", "manual", "system"],
+      movement_type: [
+        "order_fulfillment",
+        "donation_receipt",
+        "adjustment",
+        "return",
+        "repair_consumption",
+      ],
       notification_channel: ["email", "portal", "system"],
       notification_level: ["info", "success", "warning", "error"],
       order_status: [
-        "INGEDIEND",
-        "BEOORDEELD",
-        "IN_BEHANDELING",
-        "IN_VOORBEREIDING",
-        "VERZONDEN",
-        "GELEVERD",
-        "AFGESLOTEN",
-        "GEANNULEERD",
+        "concept",
+        "ingediend",
+        "te_accorderen",
+        "geaccordeerd",
+        "in_voorbereiding",
+        "geleverd",
+        "afgesloten",
+        "afgewezen",
       ],
       organization_type: [
         "help_org",
         "digidromen",
         "service_partner",
         "sponsor",
+        "donor",
       ],
       priority_level: ["low", "normal", "high", "urgent"],
       product_category: ["laptop", "accessory", "service"],
