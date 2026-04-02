@@ -1,6 +1,6 @@
-# Digidromen Portal — Claude Context
+# Digidromen Portal — Actuele Context
 
-Dit bestand bevat projectcontext voor Claude (beide accounts). Altijd lezen aan het begin van een sessie.
+Dit bestand bevat de actuele projectcontext voor vervolgwerk. Lees dit aan het begin van een sessie.
 
 ## Wat is dit project?
 
@@ -14,10 +14,10 @@ Dit bestand bevat projectcontext voor Claude (beide accounts). Altijd lezen aan 
 | Laag | Tech |
 |---|---|
 | Frontend | Vite 6 + React 18 SPA, React Router v7, Tailwind 4.2, Lucide icons |
-| Data fetching | TanStack Query v5 (vervanger van custom portal context store) |
+| Data fetching | TanStack Query v5 |
 | Backend | Supabase (Postgres + Auth + Storage + Edge Functions + Realtime) |
 | Deployment | Vercel (framework: vite, niet Next.js) |
-| CRM | HubSpot (outbound-only, outbox pattern) | INSTALLEER CLI VOOR HUBSPOT 
+| CRM | HubSpot (outbound-only, outbox pattern) |
 
 **Belangrijk**: Dit is een Vite SPA, geen Next.js. Geen server-side rendering, geen route handlers.
 
@@ -26,44 +26,47 @@ Dit bestand bevat projectcontext voor Claude (beide accounts). Altijd lezen aan 
 - **Supabase project**: `oyxcwfozoxlgdclchden`
 - **Vercel project**: `digidromen` (`prj_LBxwTADV6A0COItPTCubcwF4XJVe`)
 - **GitHub**: `joriszwanenburg95-maker`
+- **Publieke portal URL**: `https://digidromenportal.vercel.app`
 
-## Planning Docs
+## Huidige status
 
-Alles in `.planning/`:
+- Demo mode is verwijderd uit `portal/src`. De app draait live-only op Supabase.
+- Magic link login is actief via Supabase Auth.
+- `joris.zwanenburg@eyeti.nl` is expliciet geborgd als `digidromen_admin`.
+- Detailpagina's voor orders, reparaties en donaties zijn Supabase-only.
+- `admin-users`, `hubspot-sync` en `reminder-cron` zijn live gedeployed.
+- De operationele en voorraaddata zijn bewust gereset. Users en organisaties zijn behouden.
 
-| Bestand | Inhoud |
-|---|---|
-| `00-PROJECT.md` | Projectoverzicht, rolmapping, architectuurbeslissingen |
-| `01-ARCHITECTURE.md` | Technische architectuur, TanStack Query setup, datamodel |
-| `02-DATABASE-MIGRATIONS.md` | Alle SQL migraties in volgorde |
-| `03-AUTH-MAGIC-LINK.md` | Magic Link auth implementatie |
-| `04-EDGE-FUNCTIONS.md` | 3 Edge Functions (admin-users, hubspot-sync, reminder-cron) |
-| `05-HUBSPOT-INTEGRATION.md` | HubSpot outbound-only sync via outbox |
-| `06-FRONTEND-REDESIGN.md` | Pagina's, TanStack Query migratie, mobile-first warehouse |
-| `07-VERCEL-SUPABASE-CONFIG.md` | Deployment, env vars, lokale setup |
-| `08-EXECUTION-ORDER.md` | 8 fases, dependencies, complexiteit |
+## Belangrijke recente wijzigingen
 
-**Lees de relevante planning docs vóór je aan een fase begint.**
+- Security hardening live:
+  - vaste `search_path` op advisor-gemelde functies
+  - strengere insert policies op `messages` en `documents`
+- Migratiehistorie tussen repo en live project is uitgelijnd met placeholders voor remote-only timestamps.
+- Orderflow gerepareerd:
+  - `Bestelling toevoegen` zichtbaar voor `help_org`, `digidromen_staff`, `digidromen_admin`
+  - `line_type` gebruikt nu `new_request`
+  - config key gebruikt nu `ordering_windows`
+  - nette lege-state als er nog geen actief laptopproduct bestaat
+- User admin gerepareerd:
+  - uitnodigen gebruikt magic-link invite flow
+  - verwijderen vanuit UI toegevoegd
+  - users zonder gekoppelde dossiers worden verwijderd
+  - users met gekoppelde orders/reparaties worden gedeactiveerd
 
-## Uitvoeringsstatus
+## Wat is nu expliciet niet meer relevant
 
-Kijk in `08-EXECUTION-ORDER.md` voor de actuele fasering. Kort overzicht:
-
-- **Fase 1**: DB migraties + `supabase gen types` → `portal/src/types/database.ts`
-- **Fase 2**: Magic link auth (onafhankelijk van Fase 1)
-- **Fase 3**: TanStack Query setup + gedeelde componenten (onafhankelijk)
-- **Fase 4-5**: Frontend pagina's, stapsgewijs van `usePortalContext()` naar TanStack Query
-- **Fase 6**: 3 Edge Functions (admin-users uitbreiden, hubspot-sync, reminder-cron)
-- **Fase 7**: HubSpot outbound activeren
-- **Fase 8**: Polish, mobile test, productie
-
-Fases 1, 2 en 3 kunnen **parallel** worden uitgevoerd.
+- Demo mode / persona switching in `portal/src`
+- Oude aannames dat Vercel env-vars ontbreken in live build
+- Oude faseplanning als leidend document voor “wat moet nog”
+- `src/contracts/navigation.ts` als runtime-bron voor de portal navigatie
+- Handmatige demo-seedflows als testbasis
 
 ## Architectuurprincipes
 
 ### Data fetching
-- **NIET** via `usePortalContext()` — dit laadt alles in één keer, schaalt slecht
-- **WEL** via TanStack Query met gefilterde Supabase calls per pagina
+- **Voorkeur**: TanStack Query met gerichte Supabase calls per pagina
+- `usePortalContext()` bestaat nog als legacy bridge, maar niet meer als demo runtimepad in de UI
 - Query key factory staat in `src/lib/queryKeys.ts`
 - Realtime updates via Supabase channel → `queryClient.invalidateQueries()`
 
@@ -114,10 +117,26 @@ supabase gen types typescript --project-id oyxcwfozoxlgdclchden > portal/src/typ
 
 ## Werkaccount context
 
-Dit project wordt beheerd via `joriszwanenburg95-maker` GitHub account. De Vercel en Supabase dashboards zijn gekoppeld aan dit account, niet aan het primaire Joris-account.
+GitHub en het gebruikte lokale werkaccount lopen via `joriszwanenburg95-maker`.
+
+Let op:
+- de huidige Vercel CLI login in deze sessie had geen toegang tot het echte `digidromen` project
+- de publieke URL `https://digidromenportal.vercel.app` serveert wel de juiste app
+- redirectproblemen bij magic link zaten aan Supabase Auth URL-configuratie, niet aan de frontend build
 
 ## Communicatie
 
 - Joris werkt in het **Nederlands** — antwoord in het Nederlands tenzij code/technische termen
 - Directe actie voorkeur — geen uitleg tenzij gevraagd
 - Begin met implementatie, niet met vragen stellen
+
+## Volgende logische stappen
+
+- Richt minimaal één actief laptopproduct en eventueel voorraad opnieuw in, zodat de orderflow end-to-end testbaar is.
+- Doorloop de hoofdflows met live data:
+  - order aanmaken
+  - repair aanmaken
+  - donation aanmaken
+  - user invite en user delete/deactivate
+- Controleer Vercel projecttoegang met het juiste account/team, zodat env-vars en deployments ook vanuit CLI beheerbaar zijn.
+- Werk legacy documentatie in `.planning/` alleen bij als die weer als bron van waarheid moet dienen.
