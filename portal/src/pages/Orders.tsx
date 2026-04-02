@@ -19,6 +19,8 @@ const statusTabs = [
   { key: "AFGESLOTEN", label: "Afgesloten" },
 ];
 
+const ORDER_CREATOR_ROLES: string[] = ["help_org", "digidromen_staff", "digidromen_admin"];
+
 const Orders: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -57,7 +59,7 @@ const Orders: React.FC = () => {
         .eq("active", true)
         .eq("category", "laptop")
         .limit(1)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -65,15 +67,20 @@ const Orders: React.FC = () => {
   });
 
   const { data: orderWindow } = useQuery({
-    queryKey: ["portal-config", "order-window"],
+    queryKey: queryKeys.portalConfig.key("ordering_windows"),
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("portal_config")
         .select("value")
-        .eq("key", "order_window")
+        .eq("key", "ordering_windows")
         .maybeSingle();
       if (error) throw error;
-      return data?.value as { open: boolean; deadline?: string } | null;
+      return data?.value as {
+        open?: boolean;
+        deadline?: string;
+        open_day_of_month?: number;
+        close_day_of_next_month?: number;
+      } | null;
     },
   });
 
@@ -82,6 +89,7 @@ const Orders: React.FC = () => {
     ? displayOrders
     : displayOrders.filter((o) => o.status === statusFilter);
   const role = user?.role ?? "help_org";
+  const canCreateOrder = ORDER_CREATOR_ROLES.includes(role);
   const windowOpen = orderWindow?.open !== false;
 
   const submitOrder = async () => {
@@ -98,7 +106,11 @@ const Orders: React.FC = () => {
         .eq("category", "laptop")
         .eq("active", true)
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (!laptop) {
+        throw new Error("Er is nog geen actief laptopproduct beschikbaar. Voeg eerst een product toe in instellingen.");
+      }
 
       const { error: orderError } = await getSupabaseClient()
         .from("orders")
@@ -124,7 +136,7 @@ const Orders: React.FC = () => {
             order_id: id,
             product_id: laptop.id,
             quantity,
-            line_type: "regular",
+            line_type: "new_request",
           });
         if (lineError) throw lineError;
       }
@@ -158,6 +170,7 @@ const Orders: React.FC = () => {
   const activeLaptop = laptopProduct;
   const laptopAvailable = (laptopProduct?.stock_on_hand ?? 0) - (laptopProduct?.stock_reserved ?? 0);
   const laptopReserved = laptopProduct?.stock_reserved ?? 0;
+  const canSubmitOrder = quantity > 0 && Boolean(motivation.trim()) && Boolean(activeLaptop);
 
   if (showNewOrder) {
     return (
@@ -211,8 +224,13 @@ const Orders: React.FC = () => {
                 <ShoppingCart size={18} className="mr-2" />
                 Aanvraaggegevens
               </h3>
-              <div className="space-y-4">
+                <div className="space-y-4">
                 {orderError ? <p className="text-sm text-rose-600">{orderError}</p> : null}
+                {!activeLaptop ? (
+                  <p className="text-sm text-amber-700">
+                    Er is nog geen actief laptopproduct ingericht. Voeg eerst voorraad of een product toe voordat je een bestelling aanmaakt.
+                  </p>
+                ) : null}
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Aantal laptops
@@ -291,7 +309,7 @@ const Orders: React.FC = () => {
                 </div>
                 <button
                   onClick={() => { void submitOrder(); }}
-                  disabled={quantity <= 0 || !motivation.trim()}
+                  disabled={!canSubmitOrder}
                   className="w-full rounded-xl bg-digidromen-primary px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   Bestelling indienen
@@ -313,13 +331,13 @@ const Orders: React.FC = () => {
             {isLoading ? "Laden..." : `${displayOrders.length} orders`}
           </p>
         </div>
-        {role === "help_org" ? (
+        {canCreateOrder ? (
           <button
             onClick={() => setShowNewOrder(true)}
             disabled={!windowOpen}
             className="rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            Nieuwe aanvraag
+            Bestelling toevoegen
           </button>
         ) : null}
       </div>

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, X } from "lucide-react";
+import { Trash2, UserPlus, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
@@ -13,7 +13,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const Users: React.FC = () => {
-  const { authMode } = useAuth();
+  const { authMode, user } = useAuth();
   const queryClient = useQueryClient();
 
   const [showInvite, setShowInvite] = useState(false);
@@ -21,6 +21,8 @@ const Users: React.FC = () => {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
+  const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: queryKeys.users.list(),
@@ -55,11 +57,11 @@ const Users: React.FC = () => {
     try {
       const { data, error } = await getSupabaseClient().functions.invoke("admin-users", {
         body: {
-          action: "create",
+          action: "invite",
           name: inviteForm.name,
           email: inviteForm.email,
           role: inviteForm.role,
-          organizationId: inviteForm.organizationId || undefined,
+          organizationId: inviteForm.organizationId || user?.organizationId,
         },
       });
       if (error) throw error;
@@ -77,6 +79,38 @@ const Users: React.FC = () => {
 
   const needsOrg = inviteForm.role === "help_org" || inviteForm.role === "service_partner";
 
+  const handleDeleteUser = async (profileId: string, name: string) => {
+    if (!confirm(`Gebruiker "${name}" verwijderen? Gebruikers met gekoppelde orders of reparaties worden gedeactiveerd in plaats van volledig verwijderd.`)) {
+      return;
+    }
+
+    setDeleteLoadingId(profileId);
+    setDeleteNotice(null);
+
+    try {
+      const { data, error } = await getSupabaseClient().functions.invoke("admin-users", {
+        body: {
+          action: "deactivate",
+          profileId,
+        },
+      });
+
+      if (error) throw error;
+
+      const mode = (data as { mode?: string } | null)?.mode;
+      setDeleteNotice(
+        mode === "deleted"
+          ? "Gebruiker verwijderd."
+          : "Gebruiker gedeactiveerd omdat er nog gekoppelde dossiers bestaan.",
+      );
+      await queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+    } catch (err: unknown) {
+      setInviteError(err instanceof Error ? err.message : "Gebruiker kon niet worden verwijderd.");
+    } finally {
+      setDeleteLoadingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -93,6 +127,12 @@ const Users: React.FC = () => {
       {inviteSuccess && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
           Uitnodiging verstuurd! De gebruiker ontvangt een magic link per e-mail.
+        </div>
+      )}
+
+      {deleteNotice && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          {deleteNotice}
         </div>
       )}
 
@@ -171,12 +211,13 @@ const Users: React.FC = () => {
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Email</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Rol</th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Organisatie</th>
+              <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Acties</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
             {users.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-12 text-center text-sm text-slate-400">
+                <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">
                   {isLoading ? "Laden..." : "Geen gebruikers gevonden."}
                 </td>
               </tr>
@@ -191,6 +232,21 @@ const Users: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">{(u.organizations as any)?.name ?? "-"}</td>
+                  <td className="px-6 py-4 text-right">
+                    {u.id !== user?.id ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteUser(u.id, u.name ?? u.email ?? "gebruiker")}
+                        disabled={deleteLoadingId === u.id}
+                        className="inline-flex items-center gap-1 rounded-lg px-3 py-1 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                      >
+                        <Trash2 size={14} />
+                        {deleteLoadingId === u.id ? "Bezig..." : "Verwijderen"}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-slate-400">Huidige gebruiker</span>
+                    )}
+                  </td>
                 </tr>
               ))
             )}

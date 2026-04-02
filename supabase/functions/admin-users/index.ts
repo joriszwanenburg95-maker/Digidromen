@@ -141,9 +141,55 @@ Deno.serve(async (req) => {
       // Get auth_user_id from profile
       const { data: profile } = await adminClient
         .from("user_profiles")
-        .select("auth_user_id")
+        .select("id, auth_user_id")
         .eq("id", profileId)
         .maybeSingle();
+
+      if (!profile) {
+        return new Response(JSON.stringify({ error: "Profile not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const [{ count: orderCount }, { count: repairCount }] = await Promise.all([
+        adminClient
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("requester_user_id", profile.id),
+        adminClient
+          .from("repair_cases")
+          .select("id", { count: "exact", head: true })
+          .eq("requester_user_id", profile.id),
+      ]);
+
+      if ((orderCount ?? 0) === 0 && (repairCount ?? 0) === 0) {
+        const { error: deleteProfileError } = await adminClient
+          .from("user_profiles")
+          .delete()
+          .eq("id", profileId);
+
+        if (deleteProfileError) {
+          return new Response(JSON.stringify({ error: deleteProfileError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        if (profile.auth_user_id) {
+          const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(profile.auth_user_id);
+          if (deleteAuthError) {
+            return new Response(JSON.stringify({ error: deleteAuthError.message }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+
+        return new Response(JSON.stringify({ success: true, mode: "deleted" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       if (profile?.auth_user_id) {
         await adminClient.auth.admin.updateUserById(profile.auth_user_id, {
@@ -151,7 +197,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ success: true, mode: "deactivated" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
