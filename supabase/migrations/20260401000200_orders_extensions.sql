@@ -18,13 +18,35 @@ ALTER TABLE public.order_lines
   ADD COLUMN IF NOT EXISTS rma_category TEXT;
 
 -- Constraints
-ALTER TABLE public.order_lines
-  ADD CONSTRAINT chk_line_type CHECK (line_type IN ('new_request', 'rma_defect'));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'chk_line_type'
+      AND conrelid = 'public.order_lines'::regclass
+  ) THEN
+    ALTER TABLE public.order_lines
+      ADD CONSTRAINT chk_line_type CHECK (line_type IN ('new_request', 'rma_defect'));
+  END IF;
+END
+$$;
 
-ALTER TABLE public.order_lines
-  ADD CONSTRAINT chk_rma_category CHECK (
-    rma_category IS NULL OR rma_category IN ('laptop', 'voedingskabel', 'randapparatuur')
-  );
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'chk_rma_category'
+      AND conrelid = 'public.order_lines'::regclass
+  ) THEN
+    ALTER TABLE public.order_lines
+      ADD CONSTRAINT chk_rma_category CHECK (
+        rma_category IS NULL OR rma_category IN ('laptop', 'voedingskabel', 'randapparatuur')
+      );
+  END IF;
+END
+$$;
 
 -- Index
 CREATE INDEX IF NOT EXISTS idx_orders_target_month ON public.orders(target_month);

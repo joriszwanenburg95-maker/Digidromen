@@ -6,9 +6,11 @@ CREATE TABLE IF NOT EXISTS public.portal_config (
 
 ALTER TABLE public.portal_config ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "authenticated read portal_config" ON public.portal_config;
 CREATE POLICY "authenticated read portal_config"
   ON public.portal_config FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "admin manage portal_config" ON public.portal_config;
 CREATE POLICY "admin manage portal_config"
   ON public.portal_config FOR ALL TO authenticated
   USING (public.is_admin())

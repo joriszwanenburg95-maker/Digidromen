@@ -8,9 +8,11 @@ CREATE TABLE IF NOT EXISTS public.forecast_snapshots (
 
 ALTER TABLE public.forecast_snapshots ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "authenticated read forecasts" ON public.forecast_snapshots;
 CREATE POLICY "authenticated read forecasts"
   ON public.forecast_snapshots FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "staff manage forecasts" ON public.forecast_snapshots;
 CREATE POLICY "staff manage forecasts"
   ON public.forecast_snapshots FOR ALL TO authenticated
   USING (public.is_staff_or_admin())

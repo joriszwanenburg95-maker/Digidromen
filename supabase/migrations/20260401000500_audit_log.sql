@@ -17,6 +17,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_created
 
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "admin read audit_log" ON public.audit_log;
 CREATE POLICY "admin read audit_log"
   ON public.audit_log FOR SELECT TO authenticated
   USING (public.is_admin());
@@ -52,13 +53,18 @@ END;
 $$;
 
 -- Triggers op key tabellen
+DROP TRIGGER IF EXISTS audit_orders ON public.orders;
 CREATE TRIGGER audit_orders AFTER INSERT OR UPDATE OR DELETE ON public.orders
   FOR EACH ROW EXECUTE FUNCTION public.audit_trigger_fn();
+DROP TRIGGER IF EXISTS audit_repair_cases ON public.repair_cases;
 CREATE TRIGGER audit_repair_cases AFTER INSERT OR UPDATE OR DELETE ON public.repair_cases
   FOR EACH ROW EXECUTE FUNCTION public.audit_trigger_fn();
+DROP TRIGGER IF EXISTS audit_donation_batches ON public.donation_batches;
 CREATE TRIGGER audit_donation_batches AFTER INSERT OR UPDATE OR DELETE ON public.donation_batches
   FOR EACH ROW EXECUTE FUNCTION public.audit_trigger_fn();
+DROP TRIGGER IF EXISTS audit_inventory_items ON public.inventory_items;
 CREATE TRIGGER audit_inventory_items AFTER INSERT OR UPDATE OR DELETE ON public.inventory_items
   FOR EACH ROW EXECUTE FUNCTION public.audit_trigger_fn();
+DROP TRIGGER IF EXISTS audit_organizations ON public.organizations;
 CREATE TRIGGER audit_organizations AFTER INSERT OR UPDATE OR DELETE ON public.organizations
   FOR EACH ROW EXECUTE FUNCTION public.audit_trigger_fn();

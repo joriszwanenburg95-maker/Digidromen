@@ -15,9 +15,11 @@ CREATE INDEX IF NOT EXISTS idx_repair_logs_case
 
 ALTER TABLE public.repair_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "authenticated read repair_logs" ON public.repair_logs;
 CREATE POLICY "authenticated read repair_logs"
   ON public.repair_logs FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "staff or partner manage repair_logs" ON public.repair_logs;
 CREATE POLICY "staff or partner manage repair_logs"
   ON public.repair_logs FOR ALL TO authenticated
   USING (

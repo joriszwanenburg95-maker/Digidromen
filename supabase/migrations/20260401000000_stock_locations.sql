@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.stock_locations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
 );
 
+DROP TRIGGER IF EXISTS set_stock_locations_updated_at ON public.stock_locations;
 CREATE TRIGGER set_stock_locations_updated_at
   BEFORE UPDATE ON public.stock_locations
   FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
@@ -27,14 +28,17 @@ CREATE INDEX IF NOT EXISTS idx_inventory_items_stock_location
 -- RLS
 ALTER TABLE public.stock_locations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "authenticated read stock_locations" ON public.stock_locations;
 CREATE POLICY "authenticated read stock_locations"
   ON public.stock_locations FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "staff manage stock_locations" ON public.stock_locations;
 CREATE POLICY "staff manage stock_locations"
   ON public.stock_locations FOR ALL TO authenticated
   USING (public.is_staff_or_admin())
   WITH CHECK (public.is_staff_or_admin());
 
+DROP POLICY IF EXISTS "service_partner read own locations" ON public.stock_locations;
 CREATE POLICY "service_partner read own locations"
   ON public.stock_locations FOR SELECT TO authenticated
   USING (
