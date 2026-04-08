@@ -128,7 +128,7 @@ const Settings: React.FC = () => {
   const isAdmin = authUser?.role === "digidromen_admin";
   const isSupabase = authMode === "supabase";
 
-  const [activeTab, setActiveTab] = useState<"profile" | "users" | "organizations" | "products">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "users" | "organizations" | "products" | "bestelvenster">("profile");
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -151,6 +151,12 @@ const Settings: React.FC = () => {
   const [productForm, setProductForm] = useState<ProductFormState>(emptyProductForm);
   const [productError, setProductError] = useState<string | null>(null);
   const [productNotice, setProductNotice] = useState<string | null>(null);
+
+  const [orderingWindowOpen, setOrderingWindowOpen] = useState<number>(1);
+  const [orderingWindowClose, setOrderingWindowClose] = useState<number>(7);
+  const [orderingWindowSaving, setOrderingWindowSaving] = useState(false);
+  const [orderingWindowError, setOrderingWindowError] = useState<string | null>(null);
+  const [orderingWindowNotice, setOrderingWindowNotice] = useState<string | null>(null);
   const [productSaving, setProductSaving] = useState(false);
   const [productDeletingId, setProductDeletingId] = useState<string | null>(null);
 
@@ -223,6 +229,25 @@ const Settings: React.FC = () => {
       }),
     [productsRaw],
   );
+
+  useQuery({
+    queryKey: queryKeys.portalConfig.key("ordering_windows"),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("portal_config")
+        .select("value")
+        .eq("key", "ordering_windows")
+        .single();
+      if (error) throw error;
+      const value = data?.value as { open_day?: number; close_day?: number } | null;
+      if (value) {
+        setOrderingWindowOpen(value.open_day ?? 1);
+        setOrderingWindowClose(value.close_day ?? 7);
+      }
+      return value;
+    },
+    enabled: isAdmin,
+  });
 
   const loadUsers = useCallback(async () => {
     if (!isSupabase || !isAdmin) {
@@ -550,6 +575,7 @@ const Settings: React.FC = () => {
           { key: "users" as const, label: "Gebruikers" },
           { key: "organizations" as const, label: "Organisaties" },
           { key: "products" as const, label: "Producten" },
+          { key: "bestelvenster" as const, label: "Bestelvenster" },
         ]
       : []),
   ];
@@ -1114,6 +1140,85 @@ const Settings: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === "bestelvenster" && isAdmin ? (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-slate-900">Bestelvenster</h3>
+          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+            <p className="mb-4 text-sm text-slate-500">
+              Hulporganisaties kunnen alleen bestellen tussen dag <strong>{orderingWindowOpen}</strong> en dag <strong>{orderingWindowClose}</strong> van elke maand.
+              Buiten dit venster is de bestelknop geblokkeerd.
+            </p>
+            {orderingWindowError ? (
+              <p className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{orderingWindowError}</p>
+            ) : null}
+            {orderingWindowNotice ? (
+              <p className="mb-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{orderingWindowNotice}</p>
+            ) : null}
+            <div className="grid gap-4 sm:grid-cols-2 max-w-sm">
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Openingsdag (dag v/d maand)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={28}
+                  value={orderingWindowOpen}
+                  onChange={(e) => setOrderingWindowOpen(parseInt(e.target.value, 10) || 1)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Sluitingsdag (dag v/d maand)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={28}
+                  value={orderingWindowClose}
+                  onChange={(e) => setOrderingWindowClose(parseInt(e.target.value, 10) || 7)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                />
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                setOrderingWindowSaving(true);
+                setOrderingWindowError(null);
+                setOrderingWindowNotice(null);
+                try {
+                  const { error } = await getSupabaseClient()
+                    .from("portal_config")
+                    .update({
+                      value: {
+                        open_day: orderingWindowOpen,
+                        close_day: orderingWindowClose,
+                        timezone: "Europe/Amsterdam",
+                        admin_bypass: true,
+                      },
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq("key", "ordering_windows");
+                  if (error) throw error;
+                  void queryClient.invalidateQueries({ queryKey: queryKeys.portalConfig.key("ordering_windows") });
+                  void queryClient.invalidateQueries({ queryKey: queryKeys.orderingWindow.status() });
+                  setOrderingWindowNotice("Bestelvenster opgeslagen.");
+                } catch (err) {
+                  setOrderingWindowError(err instanceof Error ? err.message : "Fout bij opslaan.");
+                } finally {
+                  setOrderingWindowSaving(false);
+                }
+              }}
+              disabled={orderingWindowSaving}
+              className="mt-4 rounded-xl bg-digidromen-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {orderingWindowSaving ? "Opslaan..." : "Opslaan"}
+            </button>
           </div>
         </div>
       ) : null}

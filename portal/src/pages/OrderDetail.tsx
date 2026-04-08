@@ -55,6 +55,29 @@ function getNextStatuses(role: string, status: string): string[] {
   return flow[status] ?? [];
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  concept: "Concept",
+  ingediend: "Ingediend",
+  te_accorderen: "Ter accordering",
+  geaccordeerd: "Geaccordeerd",
+  in_voorbereiding: "In voorbereiding",
+  geleverd: "Geleverd",
+  afgesloten: "Afgesloten",
+  afgewezen: "Afgewezen",
+};
+
+function statusActionLabel(status: string): string {
+  const labels: Record<string, string> = {
+    afgewezen: "Afwijzen",
+    te_accorderen: "Ter accordering",
+    geaccordeerd: "Accorderen",
+    in_voorbereiding: "In voorbereiding zetten",
+    geleverd: "Markeren als geleverd",
+    afgesloten: "Afsluiten",
+  };
+  return labels[status] ?? `→ ${STATUS_LABELS[status] ?? status}`;
+}
+
 function statusButtonStyle(status: string) {
   if (status === "afgewezen") return "bg-red-600 hover:bg-red-700 text-white";
   if (status === "te_accorderen" || status === "geaccordeerd") return "bg-amber-500 hover:bg-amber-600 text-white";
@@ -94,6 +117,68 @@ async function logOrderMovements(
     console.error("inventory_movements insert failed:", error.message);
   }
 }
+
+const PreferredDeliverySection: React.FC<{
+  orderId: string;
+  preferredDate: string | null;
+  role: string;
+  status: string;
+  onSaved: () => void;
+}> = ({ orderId, preferredDate, role, status, onSaved }) => {
+  const [editing, setEditing] = useState(false);
+  const [date, setDate] = useState(preferredDate ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const canEdit = role === "help_org" && !["geleverd", "afgesloten", "afgewezen"].includes(status);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
+    const { error: updateError } = await getSupabaseClient()
+      .from("orders")
+      .update({ preferred_delivery_date: date || null })
+      .eq("id", orderId);
+    setIsSaving(false);
+    if (updateError) { setError(updateError.message); return; }
+    setEditing(false);
+    onSaved();
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Gewenste leverdatum</p>
+      {editing && canEdit ? (
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-digidromen-primary/40"
+          />
+          <button type="button" onClick={() => { void handleSave(); }} disabled={isSaving}
+            className="rounded-lg bg-digidromen-primary px-3 py-1.5 text-xs font-semibold text-digidromen-dark disabled:opacity-50">
+            {isSaving ? "Opslaan..." : "Opslaan"}
+          </button>
+          <button type="button" onClick={() => setEditing(false)} className="text-xs text-slate-500 hover:text-slate-700">Annuleren</button>
+          {error ? <p className="text-xs text-red-500">{error}</p> : null}
+        </div>
+      ) : (
+        <div className="mt-1 flex items-center justify-between gap-4">
+          <p className="text-sm font-medium text-slate-800">
+            {preferredDate ? new Date(preferredDate).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })
+              : <span className="italic text-slate-400">Nog niet ingevuld</span>}
+          </p>
+          {canEdit ? (
+            <button type="button" onClick={() => setEditing(true)} className="text-xs text-digidromen-primary hover:underline">
+              {preferredDate ? "Wijzigen" : "Invullen"}
+            </button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const DeliveryDateSection: React.FC<{
   orderId: string;
@@ -398,7 +483,7 @@ const OrderDetail: React.FC = () => {
               className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${statusButtonStyle(status)}`}
             >
               {status === "afgewezen" ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
-              {status === "afgewezen" ? "Afwijzen" : status === "te_accorderen" ? "Accorderen" : `→ ${status}`}
+              {statusActionLabel(status)}
             </button>
           ))}
         </div>
@@ -414,7 +499,7 @@ const OrderDetail: React.FC = () => {
                 <p className="text-sm text-slate-500">Geplaatst op {formatDate(order.created_at)}</p>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusBadge(order.status)}`}>
-                {order.status}
+                {STATUS_LABELS[order.status] ?? order.status}
               </span>
             </div>
 
@@ -564,10 +649,6 @@ const OrderDetail: React.FC = () => {
               Zaaksamenvatting
             </h3>
             <dl className="space-y-3 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Gewenste leverdatum</dt>
-                <dd className="font-semibold text-slate-800">{order.preferred_delivery_date ?? "-"}</dd>
-              </div>
               {order.scheduled_delivery_date ? (
                 <div className="flex justify-between gap-4">
                   <dt className="text-slate-500">Geplande leverdatum</dt>
@@ -584,17 +665,35 @@ const OrderDetail: React.FC = () => {
               </div>
             </dl>
 
-            <div className="mt-4">
-              <DeliveryDateSection
+            <div className="mt-4 space-y-3">
+              <PreferredDeliverySection
                 orderId={order.id}
-                deliveryDate={order.delivery_date ?? null}
+                preferredDate={order.preferred_delivery_date ?? null}
                 role={role}
+                status={order.status}
                 onSaved={() => {
-                  void queryClient.invalidateQueries({
-                    queryKey: queryKeys.orders.detail(id!),
-                  });
+                  void queryClient.invalidateQueries({ queryKey: queryKeys.orders.detail(id!) });
                 }}
               />
+              {role !== "help_org" ? (
+                <DeliveryDateSection
+                  orderId={order.id}
+                  deliveryDate={order.delivery_date ?? null}
+                  role={role}
+                  onSaved={() => {
+                    void queryClient.invalidateQueries({
+                      queryKey: queryKeys.orders.detail(id!),
+                    });
+                  }}
+                />
+              ) : order.delivery_date ? (
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bezorgdatum</p>
+                  <p className="mt-1 text-sm font-medium text-slate-800">
+                    {new Date(order.delivery_date).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })}
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
 
