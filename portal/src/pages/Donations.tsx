@@ -57,7 +57,9 @@ const Donations: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("donation_batches")
-        .select("id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at, organizations(name)")
+        .select(
+          "id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at, organizations!donation_batches_sponsor_organization_id_fkey(name)",
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map((row) => ({

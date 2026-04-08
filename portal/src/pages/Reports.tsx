@@ -51,7 +51,9 @@ const Reports: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("orders")
-        .select("id, status, priority, preferred_delivery_date, created_at, organizations(name), order_lines(id)")
+        .select(
+          "id, status, priority, preferred_delivery_date, created_at, organizations!orders_organization_id_fkey(name), order_lines(id)",
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map((row) => ({
@@ -71,7 +73,9 @@ const Reports: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("donation_batches")
-        .select("id, status, device_count_promised, refurbish_ready_count, rejected_count, pickup_date, created_at, organizations(name)")
+        .select(
+          "id, status, device_count_promised, refurbish_ready_count, rejected_count, pickup_date, created_at, organizations!donation_batches_sponsor_organization_id_fkey(name)",
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map((row) => ({

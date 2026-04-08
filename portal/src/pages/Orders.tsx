@@ -54,7 +54,9 @@ const Orders: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("orders")
-        .select("id, status, organization_id, priority, preferred_delivery_date, created_at, organizations(name)")
+        .select(
+          "id, status, organization_id, priority, preferred_delivery_date, created_at, organizations!orders_organization_id_fkey(name)",
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map((order) => {

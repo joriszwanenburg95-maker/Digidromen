@@ -131,7 +131,9 @@ const Inventory: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("orders")
-        .select("id, status, organization_id, order_lines(product_id, quantity), organizations(name)")
+        .select(
+          "id, status, organization_id, order_lines(product_id, quantity), organizations!orders_organization_id_fkey(name)",
+        )
         .not("status", "in", "(afgesloten,afgewezen)")
         .order("created_at", { ascending: false })
         .limit(50);
@@ -152,7 +154,9 @@ const Inventory: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("donation_batches")
-        .select("id, status, device_count_promised, refurbish_ready_count, sponsor_organization_id, organizations(name)")
+        .select(
+          "id, status, device_count_promised, refurbish_ready_count, sponsor_organization_id, organizations!donation_batches_sponsor_organization_id_fkey(name)",
+        )
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
