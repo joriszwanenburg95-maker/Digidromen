@@ -42,8 +42,7 @@ function statusButtonStyle(status: string) {
   return "bg-digidromen-primary hover:bg-blue-700 text-white";
 }
 
-function getNextStatuses(role: string, status: DonationStatus): DonationStatus[] {
-  if (role === "help_org") return [];
+function getNextStatuses(status: DonationStatus): DonationStatus[] {
   const flow: Partial<Record<DonationStatus, DonationStatus[]>> = {
     aangemeld: ["pickup_gepland"],
     pickup_gepland: ["ontvangen"],
@@ -51,6 +50,23 @@ function getNextStatuses(role: string, status: DonationStatus): DonationStatus[]
     in_verwerking: ["verwerkt"],
   };
   return flow[status] ?? [];
+}
+
+/** Staff/admin: altijd; service_partner: alleen als batch aan hun organisatie is toegewezen. */
+function canManageDonationWorkflow(
+  role: string,
+  userOrganizationId: string | undefined,
+  assignedServicePartnerId: string | null,
+): boolean {
+  if (role === "help_org") return false;
+  if (role === "digidromen_staff" || role === "digidromen_admin") return true;
+  if (role === "service_partner") {
+    return (
+      !!assignedServicePartnerId &&
+      assignedServicePartnerId === userOrganizationId
+    );
+  }
+  return false;
 }
 
 const DonationDetail: React.FC = () => {
@@ -61,6 +77,9 @@ const DonationDetail: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"status" | "berichten" | "documenten">("status");
   const [message, setMessage] = useState("");
   const [documentName, setDocumentName] = useState("");
+  const [pickupModalOpen, setPickupModalOpen] = useState(false);
+  const [pickupPlanDate, setPickupPlanDate] = useState("");
+  const [pickupPlanWindow, setPickupPlanWindow] = useState("");
 
   const { data: donation, isLoading } = useQuery({
     queryKey: queryKeys.donations.detail(id!),
@@ -121,12 +140,25 @@ const DonationDetail: React.FC = () => {
     enabled: !!id,
   });
 
+  type TransitionPayload = {
+    nextStatus: DonationStatus;
+    pickupPlan?: { pickup_date: string; pickup_window?: string };
+  };
+
   const transitionMutation = useMutation({
-    mutationFn: async (nextStatus: DonationStatus) => {
+    mutationFn: async ({ nextStatus, pickupPlan }: TransitionPayload) => {
       const patch: Record<string, unknown> = {
         status: nextStatus,
         updated_at: new Date().toISOString(),
       };
+
+      if (nextStatus === "pickup_gepland" && pickupPlan?.pickup_date) {
+        patch.pickup_date = pickupPlan.pickup_date;
+        patch.pickup_scheduled_at = new Date().toISOString();
+        if (pickupPlan.pickup_window?.trim()) {
+          patch.pickup_window = pickupPlan.pickup_window.trim();
+        }
+      }
 
       if (nextStatus === "ontvangen") patch.picked_up_at = new Date().toISOString();
       if (nextStatus === "verwerkt") patch.processed_at = new Date().toISOString();
@@ -152,6 +184,9 @@ const DonationDetail: React.FC = () => {
       if (eventError) throw eventError;
     },
     onSuccess: () => {
+      setPickupModalOpen(false);
+      setPickupPlanDate("");
+      setPickupPlanWindow("");
       void queryClient.invalidateQueries({ queryKey: queryKeys.donations.detail(id!) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.donations.all });
       void queryClient.invalidateQueries({ queryKey: ["workflow-events", "donation", id] });
@@ -226,7 +261,38 @@ const DonationDetail: React.FC = () => {
   }
 
   const role = user?.role ?? "help_org";
-  const nextStatuses = getNextStatuses(role, donation.status);
+  const canManage = canManageDonationWorkflow(
+    role,
+    user?.organizationId,
+    donation.assigned_service_partner_id,
+  );
+  const nextStatuses = canManage ? getNextStatuses(donation.status) : [];
+
+  const handleTransitionClick = (next: DonationStatus) => {
+    transitionMutation.reset();
+    if (next === "pickup_gepland") {
+      setPickupPlanDate(
+        donation.pickup_date
+          ? donation.pickup_date.slice(0, 10)
+          : "",
+      );
+      setPickupPlanWindow(donation.pickup_window ?? "");
+      setPickupModalOpen(true);
+    } else {
+      transitionMutation.mutate({ nextStatus: next });
+    }
+  };
+
+  const handleConfirmPickupPlan = () => {
+    if (!pickupPlanDate.trim()) return;
+    transitionMutation.mutate({
+      nextStatus: "pickup_gepland",
+      pickupPlan: {
+        pickup_date: pickupPlanDate,
+        pickup_window: pickupPlanWindow.trim() || undefined,
+      },
+    });
+  };
   const timelineEvents: TimelineEvent[] = workflowEvents.map((event) => ({
     id: event.id,
     status: event.status,
@@ -242,20 +308,125 @@ const DonationDetail: React.FC = () => {
           <ArrowLeft size={18} className="mr-2" />
           Terug naar donaties
         </button>
-        <div className="flex flex-wrap justify-end gap-2">
-          {nextStatuses.map((status) => (
-            <button
-              key={status}
-              disabled={transitionMutation.isPending}
-              onClick={() => transitionMutation.mutate(status)}
-              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${statusButtonStyle(status)}`}
-            >
-              <CheckCircle2 size={15} />
-              {status === "pickup_gepland" ? "Pickup plannen" : `→ ${status}`}
-            </button>
-          ))}
+        <div className="flex max-w-xl flex-col items-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            {nextStatuses.map((next) => (
+              <button
+                key={next}
+                type="button"
+                disabled={transitionMutation.isPending}
+                onClick={() => handleTransitionClick(next)}
+                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${statusButtonStyle(next)}`}
+              >
+                <CheckCircle2 size={15} />
+                {next === "pickup_gepland" ? "Pickup plannen" : `→ ${next}`}
+              </button>
+            ))}
+          </div>
+          {nextStatuses.length > 0 ? (
+            <p className="text-right text-xs text-slate-500">
+              Geen aparte pagina: de status wordt hier bijgewerkt. Bij pickup
+              plannen vul je de geplande ophaaldatum in.
+            </p>
+          ) : null}
+          {role === "service_partner" && !canManage ? (
+            <p className="text-right text-xs text-amber-800">
+              Deze batch is nog niet aan jullie servicepunt toegewezen. Tot die
+              tijd kan alleen Digidromen de voortgang bijwerken.
+            </p>
+          ) : null}
+          {transitionMutation.isError ? (
+            <p className="text-right text-sm text-red-600" role="alert">
+              {transitionMutation.error instanceof Error
+                ? transitionMutation.error.message
+                : "Actie mislukt. Mogelijk ontbreken rechten (bijv. toewijzing voor servicepartner)."}
+            </p>
+          ) : null}
         </div>
       </div>
+
+      {pickupModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center">
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-labelledby="pickup-plan-title"
+          >
+            <h2
+              id="pickup-plan-title"
+              className="text-lg font-bold text-slate-900"
+            >
+              Pickup plannen
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Zet de status op &apos;Ophaal gepland&apos; en vul wanneer de
+              hardware opgehaald wordt.
+            </p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label
+                  htmlFor="pickup-plan-date"
+                  className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
+                  Geplande ophaaldatum *
+                </label>
+                <input
+                  id="pickup-plan-date"
+                  type="date"
+                  value={pickupPlanDate}
+                  onChange={(e) => setPickupPlanDate(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="pickup-plan-window"
+                  className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
+                  Tijdvenster (optioneel)
+                </label>
+                <input
+                  id="pickup-plan-window"
+                  type="text"
+                  value={pickupPlanWindow}
+                  onChange={(e) => setPickupPlanWindow(e.target.value)}
+                  placeholder="bijv. ochtend 09:00–12:00"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            {transitionMutation.isError ? (
+              <p className="mt-3 text-sm text-red-600" role="alert">
+                {transitionMutation.error instanceof Error
+                  ? transitionMutation.error.message
+                  : "Opslaan mislukt."}
+              </p>
+            ) : null}
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  transitionMutation.reset();
+                  setPickupModalOpen(false);
+                }}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+              >
+                Annuleren
+              </button>
+              <button
+                type="button"
+                disabled={
+                  !pickupPlanDate.trim() || transitionMutation.isPending
+                }
+                onClick={() => handleConfirmPickupPlan()}
+                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+              >
+                {transitionMutation.isPending ? "Bezig..." : "Opslaan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <section className="space-y-6">
