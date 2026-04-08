@@ -54,23 +54,27 @@ export function useOrderDraft() {
         };
 
         if (draftId) {
-          const { error } = await supabase
+          const { error, data: updated } = await supabase
             .from('orders')
             .update(payload)
             .eq('id', draftId)
-            .eq('status', 'concept');
+            .eq('status', 'concept')
+            .select('id');
           if (error) throw error;
-          return draftId;
-        } else {
-          const id = `ord-draft-${Date.now()}`;
-          const { error } = await supabase
-            .from('orders')
-            .insert({ ...payload, id });
-          if (error) throw error;
-          setDraftId(id);
-          localStorage.setItem(DRAFT_KEY, id);
-          return id;
+          // UPDATE matched the existing draft — we're done
+          if (updated && updated.length > 0) return draftId;
+          // 0 rows updated: stale draft ID (e.g. after data reset). Clear it and fall through to INSERT.
+          localStorage.removeItem(DRAFT_KEY);
+          setDraftId(null);
         }
+        const id = `ord-draft-${Date.now()}`;
+        const { error } = await supabase
+          .from('orders')
+          .insert({ ...payload, id });
+        if (error) throw error;
+        setDraftId(id);
+        localStorage.setItem(DRAFT_KEY, id);
+        return id;
       } finally {
         setIsSaving(false);
       }
