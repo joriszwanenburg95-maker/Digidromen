@@ -14,6 +14,7 @@ const SCENARIO_LABELS: Record<ProductScenario, string> = {
 };
 
 interface Props {
+  organizationLabel: string;
   scenario: ProductScenario;
   productFields: ProductFieldValues;
   delivery: DeliveryValues;
@@ -32,6 +33,7 @@ const Row: React.FC<{ label: string; value: string }> = ({ label, value }) => (
 );
 
 export const StepConfirm: React.FC<Props> = ({
+  organizationLabel,
   scenario,
   productFields,
   delivery,
@@ -47,6 +49,7 @@ export const StepConfirm: React.FC<Props> = ({
       <h2 className="text-base font-semibold text-slate-800">Overzicht</h2>
 
       <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+        <Row label="Organisatie" value={organizationLabel} />
         <Row label="Type" value={SCENARIO_LABELS[scenario]} />
         {productFields.quantity > 1 ? (
           <Row label="Aantal" value={String(productFields.quantity)} />

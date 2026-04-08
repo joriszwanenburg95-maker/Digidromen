@@ -1,11 +1,13 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
+import { useAuth } from "../../context/AuthContext";
 import { queryKeys } from "../../lib/queryKeys";
 import { getSupabaseClient } from "../../lib/supabase";
 import { useOrderDraft } from "../../hooks/useOrderDraft";
 import { StepConfirm } from "./StepConfirm";
+import { StepOrganization } from "./StepOrganization";
 import {
   StepDelivery,
   type DeliveryValues,
@@ -21,7 +23,15 @@ import {
   type ProductScenario,
 } from "./StepProductType";
 
-const STEP_LABELS = ["Type", "Gegevens", "Levering", "Bevestigen"];
+const STEP_LABELS = [
+  "Organisatie",
+  "Type",
+  "Gegevens",
+  "Levering",
+  "Bevestigen",
+];
+
+const STAFF_ORDER_ROLES = ["digidromen_staff", "digidromen_admin"] as const;
 
 const EMPTY_PRODUCT_FIELDS: ProductFieldValues = {
   motivation: "",
@@ -116,10 +126,17 @@ function resolveProductId(
 
 export const OrderWizard: React.FC<Props> = ({ onClose }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { draftId, isSaving, saveDraft, scheduleSave, submitDraft } =
     useOrderDraft();
 
+  const role = user?.role ?? "help_org";
+  const isStaffOrderer = STAFF_ORDER_ROLES.includes(
+    role as (typeof STAFF_ORDER_ROLES)[number],
+  );
+
   const [step, setStep] = useState(0);
+  const [orderOrganizationId, setOrderOrganizationId] = useState("");
   const [scenario, setScenario] = useState<ProductScenario | null>(null);
   const [productFields, setProductFields] =
     useState<ProductFieldValues>(EMPTY_PRODUCT_FIELDS);
@@ -127,6 +144,69 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: helpOrganizations = [], isLoading: helpOrgsLoading } = useQuery({
+    queryKey: queryKeys.organizations.list({ type: "help_org", active: true }),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("organizations")
+        .select("id, name, city")
+        .eq("type", "help_org")
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!user && isStaffOrderer,
+  });
+
+  const { data: ownHelpOrg, isLoading: ownOrgLoading } = useQuery({
+    queryKey: queryKeys.organizations.detail(user?.organizationId ?? ""),
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("organizations")
+        .select("id, name, city")
+        .eq("id", user!.organizationId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && user.role === "help_org" && !!user.organizationId,
+  });
+
+  const organizationOptions = useMemo(() => {
+    if (!user) return [];
+    if (isStaffOrderer) {
+      return helpOrganizations.map((o) => ({
+        id: o.id,
+        name: o.name,
+        city: o.city,
+      }));
+    }
+    if (ownHelpOrg) {
+      return [
+        { id: ownHelpOrg.id, name: ownHelpOrg.name, city: ownHelpOrg.city },
+      ];
+    }
+    return user.organizationId
+      ? [
+          {
+            id: user.organizationId,
+            name: "Jouw organisatie",
+            city: null as string | null,
+          },
+        ]
+      : [];
+  }, [user, helpOrganizations, ownHelpOrg, isStaffOrderer]);
+
+  const orgLoading = isStaffOrderer ? helpOrgsLoading : ownOrgLoading;
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === "help_org" && user.organizationId) {
+      setOrderOrganizationId(user.organizationId);
+    }
+  }, [user]);
 
   const { data: products } = useQuery({
     queryKey: queryKeys.products.active(),
@@ -153,6 +233,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     setErrors((current) => ({ ...current, [field]: "" }));
 
     scheduleSave({
+      organization_id: orderOrganizationId,
       motivation: nextValues.motivation,
       delivery_address: delivery.delivery_address,
       preferred_delivery_date: delivery.preferred_delivery_date || null,
@@ -165,6 +246,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     setErrors((current) => ({ ...current, [field]: "" }));
 
     scheduleSave({
+      organization_id: orderOrganizationId,
       delivery_address: `${nextValues.delivery_address}, ${nextValues.postal_code} ${nextValues.city}`.trim(),
       preferred_delivery_date: nextValues.preferred_delivery_date || null,
     });
@@ -174,12 +256,25 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     setSubmitError(null);
 
     if (step === 0) {
-      if (!scenario) {
-        setErrors({ scenario: "Kies een type bestelling" });
+      const effectiveOrgId =
+        role === "help_org"
+          ? (user?.organizationId ?? orderOrganizationId)
+          : orderOrganizationId;
+      if (!effectiveOrgId?.trim()) {
+        setErrors({
+          organization:
+            role === "help_org"
+              ? "Je account heeft geen organisatie. Neem contact op met Digidromen."
+              : "Kies voor welke organisatie deze bestelling is.",
+        });
         return;
+      }
+      if (role === "help_org" && user?.organizationId) {
+        setOrderOrganizationId(user.organizationId);
       }
 
       await saveDraft({
+        organization_id: effectiveOrgId,
         motivation: "",
         delivery_address: "",
         preferred_delivery_date: null,
@@ -190,25 +285,46 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
       return;
     }
 
-    if (step === 1 && scenario) {
+    if (step === 1) {
+      if (!scenario) {
+        setErrors({ scenario: "Kies een type bestelling" });
+        return;
+      }
+
+      await saveDraft({
+        organization_id:
+          role === "help_org"
+            ? (user?.organizationId ?? orderOrganizationId)
+            : orderOrganizationId,
+        motivation: "",
+        delivery_address: "",
+        preferred_delivery_date: null,
+        lines: [],
+      });
+      setErrors({});
+      setStep(2);
+      return;
+    }
+
+    if (step === 2 && scenario) {
       const nextErrors = validateProductFields(scenario, productFields);
       if (Object.keys(nextErrors).length > 0) {
         setErrors(nextErrors as Record<string, string>);
         return;
       }
       setErrors({});
-      setStep(2);
+      setStep(3);
       return;
     }
 
-    if (step === 2) {
+    if (step === 3) {
       const nextErrors = validateDelivery(delivery);
       if (Object.keys(nextErrors).length > 0) {
         setErrors(nextErrors as Record<string, string>);
         return;
       }
       setErrors({});
-      setStep(3);
+      setStep(4);
     }
   };
 
@@ -256,7 +372,17 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
         },
       ];
 
+      const effectiveOrgId =
+        role === "help_org"
+          ? (user?.organizationId ?? orderOrganizationId)
+          : orderOrganizationId;
+      if (!effectiveOrgId?.trim()) {
+        setSubmitError("Geen organisatie geselecteerd.");
+        return;
+      }
+
       const savedId = await saveDraft({
+        organization_id: effectiveOrgId,
         motivation: productFields.motivation,
         delivery_address: `${delivery.delivery_address}, ${delivery.postal_code} ${delivery.city}`,
         preferred_delivery_date: delivery.preferred_delivery_date || null,
@@ -267,15 +393,22 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
       navigate(`/orders/${orderId}`);
       onClose();
     } catch (error) {
-      setSubmitError(
+      const msg =
         error instanceof Error
           ? error.message
-          : "Er is een fout opgetreden bij het indienen.",
-      );
+          : typeof error === "object" && error !== null && "message" in error
+            ? String((error as { message: unknown }).message)
+            : JSON.stringify(error);
+      setSubmitError(msg || "Er is een fout opgetreden bij het indienen.");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const confirmOrganizationLabel =
+    organizationOptions.find((o) => o.id === orderOrganizationId)?.name ??
+    ownHelpOrg?.name ??
+    "—";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center">
@@ -317,6 +450,24 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
 
         <div className="px-6 py-5">
           {step === 0 ? (
+            <StepOrganization
+              mode={isStaffOrderer ? "select" : "fixed"}
+              options={organizationOptions}
+              selectedId={
+                isStaffOrderer
+                  ? orderOrganizationId
+                  : (user?.organizationId ?? orderOrganizationId)
+              }
+              onChange={(id) => {
+                setOrderOrganizationId(id);
+                setErrors((current) => ({ ...current, organization: "" }));
+              }}
+              error={errors.organization}
+              isLoading={orgLoading}
+            />
+          ) : null}
+
+          {step === 1 ? (
             <StepProductType
               selected={scenario}
               error={errors.scenario}
@@ -327,7 +478,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
             />
           ) : null}
 
-          {step === 1 && scenario ? (
+          {step === 2 && scenario ? (
             <StepProductFields
               scenario={scenario}
               values={productFields}
@@ -338,7 +489,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
             />
           ) : null}
 
-          {step === 2 ? (
+          {step === 3 ? (
             <StepDelivery
               values={delivery}
               onChange={updateDelivery}
@@ -346,8 +497,9 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
             />
           ) : null}
 
-          {step === 3 && scenario ? (
+          {step === 4 && scenario ? (
             <StepConfirm
+              organizationLabel={confirmOrganizationLabel}
               scenario={scenario}
               productFields={productFields}
               delivery={delivery}
@@ -367,7 +519,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
           ) : null}
         </div>
 
-        {step < 3 ? (
+        {step < 4 ? (
           <div className="flex justify-between border-t border-slate-100 px-6 py-4">
             <button
               type="button"

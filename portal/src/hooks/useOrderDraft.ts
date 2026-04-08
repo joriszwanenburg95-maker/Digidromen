@@ -2,9 +2,11 @@ import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import type { Role } from '../types';
 
 export interface OrderDraftData {
-  organization_id: string;
+  /** Clientorganisatie; verplicht voor staff (namens hulporg), voor help_org altijd eigen org in saveDraft. */
+  organization_id?: string;
   motivation: string;
   delivery_address: string;
   preferred_delivery_date: string | null;
@@ -24,6 +26,20 @@ export interface OrderDraftData {
 
 const DRAFT_KEY = 'order_draft_id';
 
+function resolveOrderOrganizationId(
+  role: Role,
+  userOrganizationId: string,
+  dataOrganizationId: string | undefined,
+): string {
+  if (role === 'help_org') {
+    return userOrganizationId;
+  }
+  if (dataOrganizationId) {
+    return dataOrganizationId;
+  }
+  return userOrganizationId;
+}
+
 export function useOrderDraft() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -40,8 +56,13 @@ export function useOrderDraft() {
       setIsSaving(true);
       try {
         const supabase = getSupabaseClient();
+        const organizationId = resolveOrderOrganizationId(
+          user.role,
+          user.organizationId,
+          data.organization_id,
+        );
         const payload = {
-          organization_id: user.organizationId,
+          organization_id: organizationId,
           requester_user_id: user.id,
           status: 'concept' as const,
           motivation: data.motivation ?? '',
@@ -79,7 +100,7 @@ export function useOrderDraft() {
         setIsSaving(false);
       }
     },
-    [draftId, user]
+    [draftId, user],
   );
 
   const scheduleSave = useCallback(
