@@ -256,14 +256,14 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
         },
       ];
 
-      await saveDraft({
+      const savedId = await saveDraft({
         motivation: productFields.motivation,
         delivery_address: `${delivery.delivery_address}, ${delivery.postal_code} ${delivery.city}`,
         preferred_delivery_date: delivery.preferred_delivery_date || null,
         lines,
       });
 
-      const orderId = await submitDraft(lines);
+      const orderId = await submitDraft(lines, savedId);
       navigate(`/orders/${orderId}`);
       onClose();
     } catch (error) {

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 
 import { LoadingButton } from "../components/LoadingButton";
@@ -37,6 +37,7 @@ const statusTabs = [
 const Donations: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [showNewDonation, setShowNewDonation] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [createdId, setCreatedId] = useState<string | null>(null);
@@ -49,6 +50,7 @@ const Donations: React.FC = () => {
   const [contactEmail, setContactEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [donorOrgId, setDonorOrgId] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { data: supabaseDonations = [], isLoading } = useQuery({
     queryKey: queryKeys.donations.list(),
@@ -94,8 +96,12 @@ const Donations: React.FC = () => {
     event.preventDefault();
     if (!user) return;
 
+    setSubmitError(null);
     const selectedDonor = donorOrgId || donorOrgs[0]?.id;
-    if (!selectedDonor) return;
+    if (!selectedDonor) {
+      setSubmitError("Selecteer een donerende organisatie.");
+      return;
+    }
     const id = crypto.randomUUID();
     const pickupAddress = [contactName, street, postalCode, city].filter(Boolean).join(", ");
     const { error } = await getSupabaseClient()
@@ -112,11 +118,14 @@ const Donations: React.FC = () => {
         status: "aangemeld",
         registered_at: new Date().toISOString(),
       });
-    if (!error) {
-      setCreatedId(id);
-      setShowNewDonation(false);
-      setNotes("");
+    if (error) {
+      setSubmitError(error.message);
+      return;
     }
+    await queryClient.invalidateQueries({ queryKey: queryKeys.donations.list() });
+    setCreatedId(id);
+    setShowNewDonation(false);
+    setNotes("");
   };
 
   if (createdId) {
@@ -217,6 +226,11 @@ const Donations: React.FC = () => {
             placeholder="Aantekeningen voor pickup, telling of refurbish"
           />
 
+          {submitError && (
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              {submitError}
+            </p>
+          )}
           <LoadingButton
             type="submit"
             variant="success"

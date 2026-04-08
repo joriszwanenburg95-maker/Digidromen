@@ -34,8 +34,8 @@ export function useOrderDraft() {
   const [isSaving, setIsSaving] = useState(false);
 
   const saveDraft = useCallback(
-    async (data: Partial<OrderDraftData>) => {
-      if (!user) return;
+    async (data: Partial<OrderDraftData>): Promise<string> => {
+      if (!user) throw new Error('Niet ingelogd');
 
       setIsSaving(true);
       try {
@@ -60,6 +60,7 @@ export function useOrderDraft() {
             .eq('id', draftId)
             .eq('status', 'concept');
           if (error) throw error;
+          return draftId;
         } else {
           const id = `ord-draft-${Date.now()}`;
           const { error } = await supabase
@@ -68,6 +69,7 @@ export function useOrderDraft() {
           if (error) throw error;
           setDraftId(id);
           localStorage.setItem(DRAFT_KEY, id);
+          return id;
         }
       } finally {
         setIsSaving(false);
@@ -97,21 +99,22 @@ export function useOrderDraft() {
   }, [draftId, queryClient]);
 
   const submitDraft = useCallback(
-    async (lines: OrderDraftData['lines']) => {
-      if (!draftId) throw new Error('Geen concept order aanwezig');
+    async (lines: OrderDraftData['lines'], resolvedDraftId?: string) => {
+      const effectiveDraftId = resolvedDraftId ?? draftId;
+      if (!effectiveDraftId) throw new Error('Geen concept order aanwezig');
 
       const supabase = getSupabaseClient();
 
       const { error: deleteError } = await supabase
         .from('order_lines')
         .delete()
-        .eq('order_id', draftId);
+        .eq('order_id', effectiveDraftId);
       if (deleteError) throw deleteError;
 
       // Insert order lines
       const lineRows = lines.map((l, i) => ({
-        id: `${draftId}-line-${i}`,
-        order_id: draftId,
+        id: `${effectiveDraftId}-line-${i}`,
+        order_id: effectiveDraftId,
         product_id: l.product_id,
         quantity: l.quantity,
         line_type: l.line_type,
@@ -136,7 +139,7 @@ export function useOrderDraft() {
           status: 'ingediend',
           requested_at: new Date().toISOString(),
         })
-        .eq('id', draftId)
+        .eq('id', effectiveDraftId)
         .eq('status', 'concept');
       if (error) throw error;
 
@@ -144,7 +147,7 @@ export function useOrderDraft() {
       setDraftId(null);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
 
-      return draftId;
+      return effectiveDraftId;
     },
     [draftId, queryClient]
   );
