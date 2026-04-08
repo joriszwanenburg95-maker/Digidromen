@@ -15,11 +15,14 @@ import type { Database } from "../types/database";
 
 const statusTabs = [
   { key: "all", label: "Alle" },
+  { key: "concept", label: "Concept" },
   { key: "ingediend", label: "Ingediend" },
   { key: "te_accorderen", label: "Te accorderen" },
+  { key: "geaccordeerd", label: "Geaccordeerd" },
   { key: "in_voorbereiding", label: "Voorbereiding" },
   { key: "geleverd", label: "Geleverd" },
   { key: "afgesloten", label: "Afgesloten" },
+  { key: "afgewezen", label: "Afgewezen" },
 ];
 
 const ORDER_CREATOR_ROLES: string[] = [
@@ -147,7 +150,9 @@ const Orders: React.FC = () => {
             ) : filteredOrders.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
-                  Nog geen bestellingen.
+                  {statusFilter === "all"
+                    ? "Nog geen bestellingen."
+                    : "Geen bestellingen met deze status. Kies ‘Alle’ om het volledige overzicht te zien."}
                 </td>
               </tr>
             ) : (
