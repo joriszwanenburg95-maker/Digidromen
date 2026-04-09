@@ -39,6 +39,7 @@ type OrderListRow = Pick<
   | "priority"
   | "preferred_delivery_date"
   | "created_at"
+  | "assigned_service_partner_id"
 > & {
   organizations: { name: string } | null;
 };
@@ -55,7 +56,7 @@ const Orders: React.FC = () => {
       const { data, error } = await getSupabaseClient()
         .from("orders")
         .select(
-          "id, status, organization_id, priority, preferred_delivery_date, created_at, organizations!orders_organization_id_fkey(name)",
+          "id, status, organization_id, priority, preferred_delivery_date, created_at, assigned_service_partner_id, organizations!orders_organization_id_fkey(name)",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -68,6 +69,7 @@ const Orders: React.FC = () => {
           : null;
 
         return {
+          assigned_service_partner_id: order.assigned_service_partner_id,
           created_at: order.created_at,
           id: order.id,
           organization_id: order.organization_id,
@@ -83,11 +85,18 @@ const Orders: React.FC = () => {
 
   const { data: window } = useOrderingWindow();
 
-  const displayOrders = supabaseOrders;
+  const role = user?.role ?? "help_org";
+
+  // Service partners: alleen orders die aan hen zijn toegewezen
+  // Help orgs: alleen orders van hun eigen organisatie
+  const displayOrders = role === "service_partner"
+    ? supabaseOrders.filter((o) => o.assigned_service_partner_id === user?.organizationId)
+    : role === "help_org"
+      ? supabaseOrders.filter((o) => o.organization_id === user?.organizationId)
+      : supabaseOrders;
   const filteredOrders = statusFilter === "all"
     ? displayOrders
     : displayOrders.filter((o) => o.status === statusFilter);
-  const role = user?.role ?? "help_org";
   const canCreateOrder = ORDER_CREATOR_ROLES.includes(role);
   const canOrder =
     user?.role !== "help_org" || !window || window.isOpen || window.bypassActive;

@@ -13,7 +13,7 @@ import type { Database } from "../types/database";
 
 type DonationListRow = Pick<
   Database["public"]["Tables"]["donation_batches"]["Row"],
-  "id" | "status" | "device_count_promised" | "pickup_date" | "created_at"
+  "id" | "status" | "device_count_promised" | "pickup_date" | "created_at" | "assigned_service_partner_id"
 > & {
   organizations: { name: string } | null;
 };
@@ -58,7 +58,7 @@ const Donations: React.FC = () => {
       const { data, error } = await getSupabaseClient()
         .from("donation_batches")
         .select(
-          "id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at, organizations!donation_batches_sponsor_organization_id_fkey(name)",
+          "id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at, assigned_service_partner_id, organizations!donation_batches_sponsor_organization_id_fkey(name)",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -68,6 +68,7 @@ const Donations: React.FC = () => {
         device_count_promised: row.device_count_promised,
         pickup_date: row.pickup_date,
         created_at: row.created_at,
+        assigned_service_partner_id: row.assigned_service_partner_id,
         organizations: normalizeOrganization(row.organizations),
       })) satisfies DonationListRow[];
     },
@@ -88,11 +89,15 @@ const Donations: React.FC = () => {
     },
     enabled: showNewDonation,
   });
-  const displayDonations = supabaseDonations;
+  const role = user?.role ?? "help_org";
+
+  // Service partners: toon alleen donaties die aan hen zijn toegewezen
+  const displayDonations = role === "service_partner"
+    ? supabaseDonations.filter((d) => (d as Record<string, unknown>).assigned_service_partner_id === user?.organizationId)
+    : supabaseDonations;
   const filteredDonations = statusFilter === "all"
     ? displayDonations
     : displayDonations.filter((d) => d.status === statusFilter);
-  const role = user?.role ?? "help_org";
 
   const submitDonation = async (event: React.FormEvent) => {
     event.preventDefault();

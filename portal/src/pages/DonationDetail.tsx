@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, HeartHandshake, Paperclip, Send } from "lucide-react";
 
 import CrmPreparationCard from "../components/CrmPreparationCard";
+import DonationAssignmentModal from "../components/DonationAssignmentModal";
 import { SkeletonDetailSection } from "../components/Skeleton";
 import Timeline from "../components/Timeline";
 import { useAuth } from "../context/AuthContext";
@@ -17,6 +18,7 @@ import type { Database } from "../types/database";
 type DonationDetailRow = Database["public"]["Tables"]["donation_batches"]["Row"] & {
   organizations: { name: string } | null;
   service_partner: { name: string } | null;
+  assigned_location: { name: string; city: string | null } | null;
 };
 
 type WorkflowEventRow = Database["public"]["Tables"]["workflow_events"]["Row"];
@@ -80,13 +82,14 @@ const DonationDetail: React.FC = () => {
   const [pickupModalOpen, setPickupModalOpen] = useState(false);
   const [pickupPlanDate, setPickupPlanDate] = useState("");
   const [pickupPlanWindow, setPickupPlanWindow] = useState("");
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
 
   const { data: donation, isLoading } = useQuery({
     queryKey: queryKeys.donations.detail(id!),
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("donation_batches")
-        .select("*, organizations!donation_batches_sponsor_organization_id_fkey(name), service_partner:organizations!donation_batches_assigned_service_partner_id_fkey(name)")
+        .select("*, organizations!donation_batches_sponsor_organization_id_fkey(name), service_partner:organizations!donation_batches_assigned_service_partner_id_fkey(name), assigned_location:stock_locations!donation_batches_assigned_stock_location_id_fkey(name, city)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -345,6 +348,15 @@ const DonationDetail: React.FC = () => {
         </div>
       </div>
 
+      <DonationAssignmentModal
+        donationId={donation.id}
+        open={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        onAssigned={() => setAssignModalOpen(false)}
+        currentPartnerId={donation.assigned_service_partner_id}
+        currentLocationId={(donation as Record<string, unknown>).assigned_stock_location_id as string | null | undefined}
+      />
+
       {pickupModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center">
           <div
@@ -579,13 +591,37 @@ const DonationDetail: React.FC = () => {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Servicepartner</dt>
-                <dd className="font-semibold text-slate-800">{donation.service_partner?.name ?? "-"}</dd>
+                <dd className="font-semibold text-slate-800">
+                  {donation.service_partner?.name ?? (
+                    <span className="text-amber-600">Niet toegewezen</span>
+                  )}
+                </dd>
               </div>
+              {donation.assigned_location && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Locatie</dt>
+                  <dd className="font-semibold text-slate-800">
+                    {donation.assigned_location.name}
+                    {donation.assigned_location.city ? ` — ${donation.assigned_location.city}` : ""}
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Laatste update</dt>
                 <dd className="font-semibold text-slate-800">{formatDateTime(donation.updated_at)}</dd>
               </div>
             </dl>
+            {/* Toewijzen knop: zichtbaar voor staff/admin als status nog vroeg is */}
+            {(role === "digidromen_staff" || role === "digidromen_admin") &&
+              !["ontvangen", "in_verwerking", "verwerkt", "geannuleerd"].includes(donation.status) && (
+              <button
+                type="button"
+                onClick={() => setAssignModalOpen(true)}
+                className="mt-4 w-full rounded-lg bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                {donation.assigned_service_partner_id ? "Hertoewijzen" : "Servicepartner toewijzen"}
+              </button>
+            )}
           </div>
 
           <CrmPreparationCard

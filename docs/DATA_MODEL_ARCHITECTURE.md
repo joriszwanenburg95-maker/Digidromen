@@ -1,7 +1,7 @@
 # Data Model Architecture
 
-**Laatste update:** 2026-04-09  
-**Status:** Live (implementatie v1)
+**Laatste update:** 2026-04-09 (v2)  
+**Status:** Live (implementatie v2 — donation flow, inventory redesign, org self-edit)
 
 ## Overzicht
 
@@ -28,6 +28,8 @@ organizations (1)
 │                       └─→ rma_category: laptop | voedingskabel | powerbank | muis | rugzak
 │
 ├─→ (many) donation_batches
+│           ├─→ assigned_service_partner_id (optional FK → organizations)
+│           ├─→ assigned_stock_location_id (optional FK → stock_locations) [NEW v2]
 │           └─→ (many) inventory_items
 │
 └─→ (many) repair_cases
@@ -131,6 +133,27 @@ inventory_items
 | **Muis** | **prod-muis** | **true** | **true** | **replacement** |
 | **Rugzak** | **prod-rugzak** | **true** | **true** | **replacement** |
 | Headset (in pakket) | prod-headset | false | false | accessory |
+
+---
+
+### `donation_batches` — sleutelvelden (v2)
+
+| Veld | Type | Doel |
+|---|---|---|
+| `assigned_service_partner_id` | UUID FK? | Welke SP verwerkt deze batch |
+| `assigned_stock_location_id` | UUID FK? | **[NEW v2]** Warehouse locatie voor opslag |
+| `status` | enum | aangemeld → pickup_gepland → ontvangen → in_verwerking → verwerkt |
+
+**Assignment flow (v2):**
+1. Donatie aangemaakt → status `aangemeld`, geen SP/locatie
+2. Staff wijst toe via `DonationAssignmentModal` (SP dropdown + locatiekeuze)
+3. Auto-select als 1 SP of 1 locatie; dropdown bij meerdere; waarschuwing bij 0 locaties
+4. Failsafe: Aces Direct (`org-aces-direct`) wordt standaard voorgeselecteerd
+5. Hertoewijzen mogelijk zolang status < `ontvangen`
+
+**Servicepartner data-scope:**
+- Servicepartner ziet alleen donaties met `assigned_service_partner_id = hun_org_id`
+- Filtering op frontend (uitbreidbaar naar Supabase query-level bij schaalgroei)
 
 ---
 
@@ -404,7 +427,34 @@ END IF;
 
 ---
 
-## 6. Future Improvements
+## 6. Organisatie Self-Edit (v2)
+
+Hulporganisaties en servicepartners kunnen hun **eigen** organisatieprofiel bewerken via `OrganizationDetail.tsx`.
+
+**Bewerkbare velden (eigen org):**
+- `contact_name`, `contact_email` — contactpersoon en email
+- `address`, `postal_code`, `city` — adresgegevens
+- `target_group_description` — doelgroepomschrijving (pre-fill voor orders)
+- `preferred_pickup_day` — voorkeur ophaaldag
+
+**Niet bewerkbaar door eigen org:** `name` (alleen staff/admin), `type`, `active`
+
+**RLS:** Policy `organizations can update own record` — UPDATE toegestaan als `id = user_profile.organization_id`.
+
+**Inventorispagina (v2):**
+- CRM-stijl tabel met kolommen: SKU | Product | Categorie | Locatie | Conditie | Totaal | Beschikbaar
+- Categorie badges: Laptop (blauw) / Accessoire (paars) / Service (amber)
+- Conditie badges: Nieuw / Refurbished / Beschadigd / Gereserveerd / In reparatie
+- Zoekbalk (SKU, productnaam, locatie) + categoriefilter + conditiefilter
+- Import teruggebracht tot kleine knoppen rechtsboven (collapsed panel)
+
+**Orders data-scope servicepartner (v2):**
+- Servicepartner ziet alleen orders met `assigned_service_partner_id = hun_org_id`
+- Help_org ziet alleen orders met `organization_id = hun_org_id`
+
+---
+
+## 7. Future Improvements
 
 ### Laag prioriteit, Niet in v1:
 
@@ -434,7 +484,7 @@ END IF;
 
 ---
 
-## 7. TypeScript Types
+## 8. TypeScript Types
 
 Gegenereerd uit `portal/src/types/database.ts`:
 
@@ -482,8 +532,31 @@ type OrderLine = {
 
 ---
 
-## 8. Deployment Checklist
+## 9. Deployment Checklist
 
+### Code & Infrastructure — v2 (2026-04-09)
+- [x] Migration `20260409200000_donation_flow_org_selfedit.sql`
+  - `donation_batches.assigned_stock_location_id` kolom toegevoegd
+  - RLS policy: organisaties kunnen eigen record updaten
+  - Indexen op assigned_service_partner_id + assigned_stock_location_id
+
+- [x] Frontend changes
+  - `DonationAssignmentModal.tsx`: SP dropdown + locatiekeuze, Aces Direct failsafe
+  - `DonationDetail.tsx`: assignment modal geïntegreerd, locatie getoond, hertoewijzen knop
+  - `Donations.tsx`: service partner filtering op `assigned_service_partner_id`
+  - `Orders.tsx`: service partner + help_org filtering toegevoegd
+  - `Inventory.tsx`: volledig herschreven — CRM tabel, categorie/conditie badges, zoek+filter, import collapsed
+  - `OrganizationDetail.tsx`: inline self-edit voor eigen org (contact, adres, doelgroep)
+
+- [x] Git commit & push
+
+- [ ] Supabase migratie uitvoeren op live project
+  - File: `supabase/migrations/20260409200000_donation_flow_org_selfedit.sql`
+  - Via SQL Editor of `supabase db push`
+
+- [ ] Vercel deployment (auto via GitHub push)
+
+### Code & Infrastructure — v1 (2026-04-09)
 - [x] Migration `20260409100000_test_users_and_model_improvements.sql`
   - Organizations schema: target_group_description
   - Products update: muis/rugzak orderable
@@ -498,12 +571,67 @@ type OrderLine = {
   - OrderWizard.tsx: pre-fill logic + ORG_SELECT expand
   - StepConfirm.tsx: SCENARIO_LABELS update
   - database.ts: target_group_description type
+
+- [x] Git commit & push
+  - Commit: `883f728` (feat: password login, test users, muis/rugzak replacements, pre-fill delivery/doelgroep)
+  - Pushed to `origin/main`
   
-- [ ] Run migration op live Supabase
-- [ ] Run `create-test-users.mjs` met service role key
+- [x] Vercel deployment
+  - Auto-triggered via GitHub webhook
+  - Status: Deploying / Ready (check https://vercel.com/joriszwanenburg95-maker/digidromen)
+
+### Database Setup
+- [x] Run migration op live Supabase
+  - Via SQL Editor: All statements executed
+  - target_group_description kolom: ✓
+  - RMA trigger: ✓
+  - Test organizations: ✓
+  
+- [x] Run `create-test-users.mjs` met service role key
+  - testuserserviceorganisatie: de0bf3cc-fbd2-45a1-914f-b8b7d1a05bee
+  - testuserhulporganisatie: df74a097-5b74-4b7b-9877-b3283fcbdc7c
+  - user_profiles auth_user_id: ✓ Updated
+
+### Testing (Ready)
 - [ ] Test login: beide test users + magic link
+  - Service Partner: testuserserviceorganisatie@digidromen.test / test123
+  - Hulporganisatie: testuserhulporganisatie@digidromen.test / test123
+  - Magic link: Still functional
+  
 - [ ] Test order flow:
-  - [ ] new_request → pak pre-filled
-  - [ ] muis_replacement → pre-filled address
-  - [ ] rugzak_replacement → pre-filled address
+  - [ ] new_request → pak pre-filled (gemeente-test address)
+  - [ ] mouse_replacement → pre-filled address
+  - [ ] backpack_replacement → pre-filled address
+  
 - [ ] Verify RMA validation (serial_number optional voor muis/rugzak)
+  - [ ] Laptop: serial_number + defect_description REQUIRED
+  - [ ] Muis/rugzak: defect_description (reden) REQUIRED, serial_number OPTIONAL
+  
+- [ ] Test doelgroepomschrijving pre-fill
+  - Gemeente Test org has default: "Kinderen uit minimagezinnen..."
+  - Should auto-fill in motivation field
+  - User can override per order
+
+---
+
+## 10. Environment & Secrets
+
+### .env.local (Gitignored - Do NOT commit)
+
+```bash
+# Supabase (for frontend)
+VITE_SUPABASE_URL=https://oyxcwfozoxlgdclchden.supabase.co
+VITE_SUPABASE_ANON_KEY=<your-anon-key>
+
+# For setup scripts only (never commit)
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95eGN3Zm96b3hsZ2RjbGNoZGVuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzMwMzg1MywiZXhwIjoyMDg4ODc5ODUzfQ.xKb1lvfKL-v7e-QVAZ8s2lb_Pp_nUNMso7CWokMIV5s
+```
+
+### Setup Scripts (One-time)
+
+```bash
+# Create test users in Supabase Auth
+SUPABASE_SERVICE_ROLE_KEY=... node scripts/create-test-users.mjs
+```
+
+**Warning:** Service role key is sensitive. Only used for one-time setup in development.
