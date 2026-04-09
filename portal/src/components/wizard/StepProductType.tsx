@@ -1,8 +1,10 @@
 import React from "react";
 import {
+  Backpack,
   Battery,
   Cable,
   Laptop,
+  Mouse,
   Package,
   type LucideIcon,
 } from "lucide-react";
@@ -11,7 +13,9 @@ export type ProductScenario =
   | "new_request"
   | "laptop_replacement"
   | "cable_replacement"
-  | "powerbank_replacement";
+  | "powerbank_replacement"
+  | "mouse_replacement"
+  | "backpack_replacement";
 
 interface Props {
   error?: string;
@@ -48,6 +52,18 @@ const OPTIONS: Array<{
     label: "Vervanging powerbank",
     description: "Defecte powerbank vervangen. SRN en klacht zijn verplicht.",
     icon: Battery,
+  },
+  {
+    scenario: "mouse_replacement",
+    label: "Vervanging muis",
+    description: "Defecte of ontbrekende muis vervangen.",
+    icon: Mouse,
+  },
+  {
+    scenario: "backpack_replacement",
+    label: "Vervanging rugzak",
+    description: "Defecte of ontbrekende rugzak vervangen.",
+    icon: Backpack,
   },
 ];
 

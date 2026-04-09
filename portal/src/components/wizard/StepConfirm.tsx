@@ -11,6 +11,8 @@ const SCENARIO_LABELS: Record<ProductScenario, string> = {
   laptop_replacement: "Vervanging laptop",
   cable_replacement: "Vervanging voedingskabel",
   powerbank_replacement: "Vervanging powerbank",
+  mouse_replacement: "Vervanging muis",
+  backpack_replacement: "Vervanging rugzak",
 };
 
 interface Props {

@@ -3,12 +3,18 @@ import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
 const Login: React.FC = () => {
-  const { error, loading, magicLinkSent, sendMagicLink, supabaseConfigured } = useAuth();
+  const { error, loading, magicLinkSent, sendMagicLink, signInWithPassword, supabaseConfigured } = useAuth();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginMode, setLoginMode] = useState<"magic" | "password">("magic");
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    await sendMagicLink(email);
+    if (loginMode === "password") {
+      await signInWithPassword(email, password);
+    } else {
+      await sendMagicLink(email);
+    }
   };
 
   return (
@@ -58,10 +64,12 @@ const Login: React.FC = () => {
             Inloggen
           </h2>
           <p className="mt-2 text-sm text-digidromen-dark/50">
-            Voer je e-mailadres in en ontvang een login-link.
+            {loginMode === "magic"
+              ? "Voer je e-mailadres in en ontvang een login-link."
+              : "Log in met e-mailadres en wachtwoord."}
           </p>
 
-          {magicLinkSent ? (
+          {magicLinkSent && loginMode === "magic" ? (
             <div className="mt-8 rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-5">
               <p className="text-sm font-semibold text-emerald-800">Login link verstuurd</p>
               <p className="mt-1 text-sm text-emerald-700">
@@ -91,12 +99,44 @@ const Login: React.FC = () => {
                   autoComplete="email"
                 />
               </div>
+
+              {loginMode === "password" ? (
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-digidromen-dark/40">
+                    Wachtwoord
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="w-full rounded-xl border border-digidromen-cream bg-white p-3.5 text-sm text-digidromen-dark outline-none transition-colors focus:border-digidromen-primary focus:ring-2 focus:ring-digidromen-primary/20"
+                    placeholder="Wachtwoord"
+                    disabled={!supabaseConfigured}
+                    autoComplete="current-password"
+                  />
+                </div>
+              ) : null}
+
               <button
                 type="submit"
-                disabled={loading || !email || !supabaseConfigured}
+                disabled={loading || !email || !supabaseConfigured || (loginMode === "password" && !password)}
                 className="w-full rounded-xl bg-digidromen-primary px-4 py-3.5 text-sm font-bold text-digidromen-dark shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:bg-digidromen-cream disabled:text-digidromen-dark/30 disabled:shadow-none"
               >
-                {loading ? "Bezig..." : "Stuur login link →"}
+                {loading
+                  ? "Bezig..."
+                  : loginMode === "password"
+                    ? "Inloggen →"
+                    : "Stuur login link →"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLoginMode(loginMode === "magic" ? "password" : "magic")}
+                className="w-full text-center text-xs text-digidromen-dark/40 underline underline-offset-2 hover:text-digidromen-dark/60"
+              >
+                {loginMode === "magic"
+                  ? "Inloggen met wachtwoord"
+                  : "Inloggen met magic link"}
               </button>
             </form>
           )}

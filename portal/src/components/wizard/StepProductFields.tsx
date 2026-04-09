@@ -200,6 +200,56 @@ export const StepProductFields: React.FC<Props> = ({
     );
   }
 
+  if (scenario === "mouse_replacement") {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold text-slate-800">
+          Vervanging muis
+        </h2>
+
+        <TextField
+          label="Serienummer / ordernummer (optioneel)"
+          value={values.serial_number}
+          error={errors.serial_number}
+          onChange={(value) => onChange("serial_number", value)}
+        />
+
+        <TextAreaField
+          required
+          label="Reden voor vervanging"
+          value={values.defect_description}
+          error={errors.defect_description}
+          onChange={(value) => onChange("defect_description", value)}
+        />
+      </div>
+    );
+  }
+
+  if (scenario === "backpack_replacement") {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold text-slate-800">
+          Vervanging rugzak
+        </h2>
+
+        <TextField
+          label="Serienummer / ordernummer (optioneel)"
+          value={values.serial_number}
+          error={errors.serial_number}
+          onChange={(value) => onChange("serial_number", value)}
+        />
+
+        <TextAreaField
+          required
+          label="Reden voor vervanging"
+          value={values.defect_description}
+          error={errors.defect_description}
+          onChange={(value) => onChange("defect_description", value)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-base font-semibold text-slate-800">
@@ -268,6 +318,12 @@ export function validateProductFields(
     }
     if (!values.defect_description.trim()) {
       errors.defect_description = "Klachtomschrijving is verplicht";
+    }
+  }
+
+  if (scenario === "mouse_replacement" || scenario === "backpack_replacement") {
+    if (!values.defect_description.trim()) {
+      errors.defect_description = "Reden voor vervanging is verplicht";
     }
   }
 

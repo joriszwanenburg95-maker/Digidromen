@@ -16,6 +16,7 @@ interface AuthContextType {
   user: AuthUser | null;
   setRole: (role: Role) => void;
   sendMagicLink: (email: string) => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   authMode: "supabase";
   supabaseConfigured: boolean;
@@ -108,6 +109,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setRole = (_role: Role) => {};
 
+  const signInWithPassword = async (email: string, password: string) => {
+    if (!portalEnv.isSupabaseConfigured) {
+      const envError = new Error("Supabase-configuratie ontbreekt.");
+      setError(envError.message);
+      throw envError;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const { error: signInError } = await getSupabaseClient().auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (signInError) {
+      setError(signInError.message);
+      throw signInError;
+    }
+  };
+
   const sendMagicLink = async (email: string) => {
     if (!portalEnv.isSupabaseConfigured) {
       const envError = new Error("Supabase-configuratie ontbreekt.");
@@ -151,6 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         setRole,
         sendMagicLink,
+        signInWithPassword,
         logout,
         authMode,
         supabaseConfigured: portalEnv.isSupabaseConfigured,

@@ -823,6 +823,7 @@ export type Database = {
           postal_code: string | null
           preferred_pickup_day: string | null
           reminder_opt_in: boolean
+          target_group_description: string | null
           type: Database["public"]["Enums"]["organization_type"]
           updated_at: string
         }
@@ -842,6 +843,7 @@ export type Database = {
           postal_code?: string | null
           preferred_pickup_day?: string | null
           reminder_opt_in?: boolean
+          target_group_description?: string | null
           type: Database["public"]["Enums"]["organization_type"]
           updated_at?: string
         }
@@ -861,6 +863,7 @@ export type Database = {
           postal_code?: string | null
           preferred_pickup_day?: string | null
           reminder_opt_in?: boolean
+          target_group_description?: string | null
           type?: Database["public"]["Enums"]["organization_type"]
           updated_at?: string
         }

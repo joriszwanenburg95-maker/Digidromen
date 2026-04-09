@@ -112,6 +112,32 @@ function resolveProductId(
     );
   }
 
+  if (scenario === "mouse_replacement") {
+    return (
+      products.find((product) => product.id === "prod-muis")?.id ??
+      products.find(
+        (product) =>
+          product.active &&
+          product.is_orderable &&
+          product.name.toLowerCase().includes("muis"),
+      )?.id ??
+      null
+    );
+  }
+
+  if (scenario === "backpack_replacement") {
+    return (
+      products.find((product) => product.id === "prod-rugzak")?.id ??
+      products.find(
+        (product) =>
+          product.active &&
+          product.is_orderable &&
+          product.name.toLowerCase().includes("rugzak"),
+      )?.id ??
+      null
+    );
+  }
+
   return (
     products.find((product) => product.id === "prod-powerbank")?.id ??
     products.find(
@@ -145,12 +171,14 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const ORG_SELECT = "id, name, city, address, postal_code, target_group_description" as const;
+
   const { data: helpOrganizations = [], isLoading: helpOrgsLoading } = useQuery({
     queryKey: queryKeys.organizations.list({ type: "help_org", active: true }),
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("organizations")
-        .select("id, name, city")
+        .select(ORG_SELECT)
         .eq("type", "help_org")
         .eq("active", true)
         .order("name");
@@ -165,7 +193,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("organizations")
-        .select("id, name, city")
+        .select(ORG_SELECT)
         .eq("id", user!.organizationId)
         .single();
       if (error) throw error;
@@ -174,18 +202,37 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     enabled: !!user && user.role === "help_org" && !!user.organizationId,
   });
 
-  const organizationOptions = useMemo(() => {
+  type OrgOption = {
+    id: string;
+    name: string;
+    city: string | null;
+    address: string | null;
+    postal_code: string | null;
+    target_group_description: string | null;
+  };
+
+  const organizationOptions = useMemo((): OrgOption[] => {
     if (!user) return [];
     if (isStaffOrderer) {
       return helpOrganizations.map((o) => ({
         id: o.id,
         name: o.name,
         city: o.city,
+        address: o.address,
+        postal_code: o.postal_code,
+        target_group_description: o.target_group_description,
       }));
     }
     if (ownHelpOrg) {
       return [
-        { id: ownHelpOrg.id, name: ownHelpOrg.name, city: ownHelpOrg.city },
+        {
+          id: ownHelpOrg.id,
+          name: ownHelpOrg.name,
+          city: ownHelpOrg.city,
+          address: ownHelpOrg.address,
+          postal_code: ownHelpOrg.postal_code,
+          target_group_description: ownHelpOrg.target_group_description,
+        },
       ];
     }
     return user.organizationId
@@ -193,7 +240,10 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
           {
             id: user.organizationId,
             name: "Jouw organisatie",
-            city: null as string | null,
+            city: null,
+            address: null,
+            postal_code: null,
+            target_group_description: null,
           },
         ]
       : [];
@@ -207,6 +257,31 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
       setOrderOrganizationId(user.organizationId);
     }
   }, [user]);
+
+  // Pre-fill delivery + doelgroepomschrijving when organization changes
+  useEffect(() => {
+    if (!orderOrganizationId) return;
+    const org = organizationOptions.find((o) => o.id === orderOrganizationId);
+    if (!org) return;
+
+    // Pre-fill delivery address from organization
+    if (org.address || org.city || org.postal_code) {
+      setDelivery((prev) => ({
+        delivery_address: prev.delivery_address || org.address || "",
+        postal_code: prev.postal_code || org.postal_code || "",
+        city: prev.city || org.city || "",
+        preferred_delivery_date: prev.preferred_delivery_date,
+      }));
+    }
+
+    // Pre-fill doelgroepomschrijving from organization
+    if (org.target_group_description) {
+      setProductFields((prev) => ({
+        ...prev,
+        motivation: prev.motivation || org.target_group_description || "",
+      }));
+    }
+  }, [orderOrganizationId, organizationOptions]);
 
   const { data: products } = useQuery({
     queryKey: queryKeys.products.active(),
@@ -345,14 +420,14 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     setSubmitError(null);
 
     try {
-      const rmaCategory =
-        scenario === "laptop_replacement"
-          ? "laptop"
-          : scenario === "cable_replacement"
-            ? "voedingskabel"
-            : scenario === "powerbank_replacement"
-              ? "powerbank"
-              : undefined;
+      const rmaCategoryMap: Record<string, string> = {
+        laptop_replacement: "laptop",
+        cable_replacement: "voedingskabel",
+        powerbank_replacement: "powerbank",
+        mouse_replacement: "muis",
+        backpack_replacement: "rugzak",
+      };
+      const rmaCategory = rmaCategoryMap[scenario];
 
       const lines = [
         {
