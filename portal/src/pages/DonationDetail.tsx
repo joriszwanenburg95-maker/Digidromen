@@ -222,6 +222,7 @@ const DonationDetail: React.FC = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.donations.detail(id!) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.donations.all });
       void queryClient.invalidateQueries({ queryKey: ["workflow-events", "donation", id] });
+      void queryClient.invalidateQueries({ queryKey: ["workflow-events"] });
     },
   });
 

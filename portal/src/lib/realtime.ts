@@ -52,10 +52,22 @@ export function initRealtime(queryClient: QueryClient): () => void {
     )
     .subscribe();
 
+  const workflowChannel = supabase
+    .channel("workflow-events-changes")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "workflow_events" },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ["workflow-events"] });
+      },
+    )
+    .subscribe();
+
   return () => {
     supabase.removeChannel(ordersChannel);
     supabase.removeChannel(donationsChannel);
     supabase.removeChannel(inventoryChannel);
     supabase.removeChannel(notificationsChannel);
+    supabase.removeChannel(workflowChannel);
   };
 }

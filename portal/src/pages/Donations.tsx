@@ -129,7 +129,25 @@ const Donations: React.FC = () => {
       setSubmitError(error.message);
       return;
     }
+    const { error: eventError } = await getSupabaseClient().from("workflow_events").insert({
+      id: crypto.randomUUID(),
+      case_id: id,
+      case_type: "donation",
+      status: "aangemeld",
+      title: "Donatie aangemeld",
+      description: `${user.name} heeft een nieuwe donatiebatch geregistreerd.`,
+      actor_name: user.name,
+      actor_role: user.role,
+      created_at: new Date().toISOString(),
+      metadata: {},
+    });
+    if (eventError) {
+      await getSupabaseClient().from("donation_batches").delete().eq("id", id);
+      setSubmitError(eventError.message);
+      return;
+    }
     await queryClient.invalidateQueries({ queryKey: queryKeys.donations.list() });
+    void queryClient.invalidateQueries({ queryKey: ["workflow-events"] });
     setCreatedId(id);
     setShowNewDonation(false);
     setNotes("");

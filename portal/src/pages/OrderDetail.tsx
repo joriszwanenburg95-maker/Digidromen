@@ -386,6 +386,7 @@ const OrderDetail: React.FC = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all });
       void queryClient.invalidateQueries({ queryKey: ["workflow-events", "order", id] });
+      void queryClient.invalidateQueries({ queryKey: ["workflow-events"] });
     },
   });
 

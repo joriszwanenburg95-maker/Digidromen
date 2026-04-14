@@ -174,13 +174,28 @@ export function useOrderDraft() {
         );
       }
 
+      const { error: eventError } = await supabase.from('workflow_events').insert({
+        id: crypto.randomUUID(),
+        case_id: effectiveDraftId,
+        case_type: 'order',
+        status: 'ingediend',
+        title: 'Bestelling ingediend',
+        description: `${user?.name ?? 'Gebruiker'} heeft de bestelling ingediend.`,
+        actor_name: user?.name ?? 'Onbekend',
+        actor_role: user?.role ?? 'digidromen_staff',
+        created_at: new Date().toISOString(),
+        metadata: {},
+      });
+      if (eventError) throw eventError;
+
       localStorage.removeItem(DRAFT_KEY);
       setDraftId(null);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      void queryClient.invalidateQueries({ queryKey: ['workflow-events'] });
 
       return effectiveDraftId;
     },
-    [draftId, queryClient]
+    [draftId, queryClient, user]
   );
 
   return { draftId, isSaving, saveDraft, scheduleSave, discardDraft, submitDraft };

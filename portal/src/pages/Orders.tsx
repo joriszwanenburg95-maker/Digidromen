@@ -8,6 +8,7 @@ import { OrderingWindowBanner } from "../components/OrderingWindowBanner";
 import { SkeletonTableRow } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import { getSupabaseClient } from "../lib/supabase";
+import { canPlaceOrder } from "../lib/canPlaceOrder";
 import { queryKeys } from "../lib/queryKeys";
 import { useOrderingWindow } from "../hooks/useOrderingWindow";
 import StatusBadge from "../components/StatusBadge";
@@ -98,8 +99,7 @@ const Orders: React.FC = () => {
     ? displayOrders
     : displayOrders.filter((o) => o.status === statusFilter);
   const canCreateOrder = ORDER_CREATOR_ROLES.includes(role);
-  const canOrder =
-    user?.role !== "help_org" || !window || window.isOpen || window.bypassActive;
+  const canOrder = canPlaceOrder(user?.role, window);
 
   return (
     <div className="space-y-6">
