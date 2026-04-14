@@ -154,6 +154,7 @@ const Settings: React.FC = () => {
 
   const [orderingWindowOpen, setOrderingWindowOpen] = useState<number>(1);
   const [orderingWindowClose, setOrderingWindowClose] = useState<number>(7);
+  const [orderingWindowForceOpen, setOrderingWindowForceOpen] = useState(false);
   const [orderingWindowSaving, setOrderingWindowSaving] = useState(false);
   const [orderingWindowError, setOrderingWindowError] = useState<string | null>(null);
   const [orderingWindowNotice, setOrderingWindowNotice] = useState<string | null>(null);
@@ -239,10 +240,15 @@ const Settings: React.FC = () => {
         .eq("key", "ordering_windows")
         .single();
       if (error) throw error;
-      const value = data?.value as { open_day?: number; close_day?: number } | null;
+      const value = data?.value as {
+        open_day?: number;
+        close_day?: number;
+        force_open_help_org?: boolean;
+      } | null;
       if (value) {
         setOrderingWindowOpen(value.open_day ?? 1);
         setOrderingWindowClose(value.close_day ?? 7);
+        setOrderingWindowForceOpen(value.force_open_help_org ?? false);
       }
       return value;
     },
@@ -1150,8 +1156,22 @@ const Settings: React.FC = () => {
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <p className="mb-4 text-sm text-slate-500">
               Hulporganisaties kunnen alleen bestellen tussen dag <strong>{orderingWindowOpen}</strong> en dag <strong>{orderingWindowClose}</strong> van elke maand.
-              Buiten dit venster is de bestelknop geblokkeerd.
+              Buiten dit venster is de bestelknop geblokkeerd, tenzij je het venster hieronder handmatig opent.
             </p>
+            <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-violet-100 bg-violet-50/60 p-4">
+              <input
+                type="checkbox"
+                checked={orderingWindowForceOpen}
+                onChange={(e) => setOrderingWindowForceOpen(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-digidromen-primary focus:ring-digidromen-primary"
+              />
+              <span className="text-sm text-slate-700">
+                <strong className="text-slate-900">Bestelvenster handmatig open voor hulporganisaties</strong>
+                <span className="mt-1 block text-slate-600">
+                  Zet dit aan om bugfixes door te voeren of buiten het vaste venster bestellingen van klanten toe te staan. Laat het uit om weer alleen het kalendervenster te gebruiken.
+                </span>
+              </span>
+            </label>
             {orderingWindowError ? (
               <p className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{orderingWindowError}</p>
             ) : null}
@@ -1200,6 +1220,7 @@ const Settings: React.FC = () => {
                         close_day: orderingWindowClose,
                         timezone: "Europe/Amsterdam",
                         admin_bypass: true,
+                        force_open_help_org: orderingWindowForceOpen,
                       },
                       updated_at: new Date().toISOString(),
                     })

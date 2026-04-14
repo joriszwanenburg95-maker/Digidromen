@@ -1238,6 +1238,7 @@ export type Database = {
         Args: never
         Returns: {
           close_day: number
+          forced_open_help_org: boolean
           is_open: boolean
           open_day: number
           today_day: number

@@ -17,7 +17,18 @@ export const OrderingWindowBanner: React.FC = () => {
       <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
         <CheckCircle2 size={16} className="shrink-0" />
         <span>
-          <strong>Bestelvenster is open</strong> — je kunt bestellen tot en met dag {data.closeDay} van deze maand.
+          <strong>Bestelvenster is open</strong>
+          {data.forcedOpenHelpOrg ? (
+            <>
+              {" "}
+              — tijdelijk geopend door Digidromen (ook buiten de vaste dagen). Je kunt nu bestellen.
+            </>
+          ) : (
+            <>
+              {" "}
+              — je kunt bestellen tot en met dag {data.closeDay} van deze maand.
+            </>
+          )}
         </span>
       </div>
     );
