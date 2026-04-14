@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileUp, Laptop, Monitor, Package, Search, SlidersHorizontal, Wrench } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Download, FileUp, Laptop, Monitor, Package, Search, SlidersHorizontal, Wrench } from "lucide-react";
 
 import DataTable, { type Column } from "../components/DataTable";
 import { LoadingButton } from "../components/LoadingButton";
 import { useAuth } from "../context/AuthContext";
+import { useOrderingWindow } from "../hooks/useOrderingWindow";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
 import type { Database } from "../types/database";
@@ -109,7 +111,11 @@ function parseImportRows(input: string) {
 type OrderMutRow = {
   id: string;
   status: string;
-  order_lines: Array<{ product_id: string; quantity: number }> | null;
+  order_lines: Array<{
+    product_id: string;
+    quantity: number;
+    products: { category: ProductCategory } | null;
+  }> | null;
   organizations: { name: string } | null;
 };
 
@@ -127,6 +133,21 @@ function normalizeOrg(input: unknown): { name: string } | null {
     : null;
 }
 
+function lineCategory(line: { products: { category: ProductCategory } | null }): ProductCategory {
+  return line.products?.category ?? "laptop";
+}
+
+function orderMutationNote(category: ProductCategory, delivered: boolean): string {
+  if (delivered) {
+    if (category === "laptop") return "Laptop uitgeleverd";
+    if (category === "accessory") return "Accessoire uitgeleverd";
+    return "Service uitgeleverd";
+  }
+  if (category === "laptop") return "Laptopaanvraag";
+  if (category === "accessory") return "Accessoire-aanvraag";
+  return "Service-aanvraag";
+}
+
 /* ─── Component ─── */
 
 const Inventory: React.FC = () => {
@@ -134,6 +155,8 @@ const Inventory: React.FC = () => {
   const queryClient = useQueryClient();
   const role = user?.role ?? "help_org";
   const canImport = role === "digidromen_admin" || role === "digidromen_staff";
+  const isDigidromenMgmt = role === "digidromen_admin" || role === "digidromen_staff";
+  const { data: orderingWindow, isLoading: orderingWindowLoading } = useOrderingWindow();
 
   const [activeView, setActiveView] = useState<InventoryView>("voorraad");
   const [search, setSearch] = useState("");
@@ -163,7 +186,9 @@ const Inventory: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("orders")
-        .select("id, status, organization_id, order_lines(product_id, quantity), organizations!orders_organization_id_fkey(name)")
+               .select(
+          "id, status, organization_id, order_lines(product_id, quantity, products(category)), organizations!orders_organization_id_fkey(name)",
+        )
         .not("status", "in", "(afgesloten,afgewezen)")
         .order("created_at", { ascending: false })
         .limit(50);
@@ -253,23 +278,38 @@ const Inventory: React.FC = () => {
     [inventoryRows],
   );
 
+  const laptopAccessoryTotals = useMemo(
+    () =>
+      inventoryRows.reduce(
+        (acc, r) => {
+          if (r.category === "laptop") acc.laptopAvailable += r.available;
+          else acc.nonLaptopAvailable += r.available;
+          return acc;
+        },
+        { laptopAvailable: 0, nonLaptopAvailable: 0 },
+      ),
+    [inventoryRows],
+  );
+
   // ── Mutation rows ──
 
   const mutationRows = useMemo(() => {
-    const orderMuts = orders.flatMap((order) =>
+       const orderMuts = orders.flatMap((order) =>
       (order.order_lines ?? []).map((line) => {
         const delivered = ["geleverd", "afgesloten"].includes(order.status);
         const planned = ["ingediend", "te_accorderen", "geaccordeerd", "in_voorbereiding"].includes(order.status);
+        const category = lineCategory(line);
         return {
           id: `order-${order.id}-${line.product_id}`,
           type: "Uitlevering",
           direction: "uit" as const,
+          category,
           quantity: Number(line.quantity ?? 0),
           party: order.organizations?.name ?? "Onbekend",
           reference: order.id,
           status: order.status,
           scope: delivered ? "historisch" : planned ? "toekomstig" : "historisch",
-          note: delivered ? "Laptop uitgeleverd" : "Laptopaanvraag",
+          note: orderMutationNote(category, delivered),
         };
       }),
     );
@@ -277,12 +317,13 @@ const Inventory: React.FC = () => {
       id: `donation-${d.id}`,
       type: "Donatie",
       direction: "in" as const,
+      category: "laptop" as const satisfies ProductCategory,
       quantity: Number(d.refurbish_ready_count ?? d.device_count_promised ?? 0),
       party: d.organizations?.name ?? "Onbekende donor",
       reference: d.id,
       status: d.status,
       scope: d.status === "verwerkt" ? "historisch" : "toekomstig",
-      note: d.status === "verwerkt" ? "Toegevoegd aan voorraad" : "Donatie in aanloop",
+      note: d.status === "verwerkt" ? "Laptops toegevoegd aan voorraad" : "Donatie laptops in aanloop",
     }));
     return [...donationMuts, ...orderMuts].filter((r) => r.quantity > 0);
   }, [orders, donations]);
@@ -451,6 +492,47 @@ const Inventory: React.FC = () => {
         ))}
       </div>
 
+      {/* ── Digidromen: accessoires vs laptopvoorraad (kleine opzet) ── */}
+      {isDigidromenMgmt && (
+        <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/80 to-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-slate-900">Intern bestelvenster: accessoires en overige producten</h3>
+              <p className="max-w-2xl text-xs text-slate-600">
+                Donaties zijn altijd laptops. Accessoires en overige producttypen komen vooral binnen via bestellingen die jij als
+                Digidromen-staff of -admin plaatst. Gebruik de laptopvoorraad hieronder om te bepalen of accessoires (muis, tas, adapter, …)
+                nog bijbesteld moeten worden.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-1">
+                <div className="rounded-xl border border-white/80 bg-white/90 px-3 py-2 shadow-sm">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Laptops beschikbaar</p>
+                  <p className="text-lg font-bold tabular-nums text-slate-900">{laptopAccessoryTotals.laptopAvailable}</p>
+                </div>
+                <div className="rounded-xl border border-white/80 bg-white/90 px-3 py-2 shadow-sm">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Niet-laptop (acc. / service)</p>
+                  <p className="text-lg font-bold tabular-nums text-violet-800">{laptopAccessoryTotals.nonLaptopAvailable}</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                {orderingWindowLoading
+                  ? "Bestelvenster laden…"
+                  : orderingWindow?.isOpen
+                    ? "Maandvenster voor hulporganisaties: nu geopend."
+                    : `Maandvenster voor hulporganisaties: gesloten — volgende opening rond ${orderingWindow?.nextOpenDate ?? "—"}.`}{" "}
+                Jij kunt via Bestellingen altijd een order plaatsen (ook buiten hun venster).
+              </p>
+            </div>
+            <Link
+              to="/orders"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2.5 text-sm font-semibold text-digidromen-dark shadow-sm hover:opacity-90"
+            >
+              Naar bestellingen
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* ── View tabs ── */}
       <div className="flex gap-2 rounded-2xl bg-slate-100 p-1">
         {([
@@ -565,6 +647,7 @@ const Inventory: React.FC = () => {
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Product</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Partij</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Referentie</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Mutatie</th>
@@ -575,7 +658,7 @@ const Inventory: React.FC = () => {
             <tbody className="divide-y divide-slate-100 bg-white">
               {visibleMutations.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">
                     Geen mutaties voor dit filter.
                   </td>
                 </tr>
@@ -583,6 +666,9 @@ const Inventory: React.FC = () => {
                 visibleMutations.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 text-sm font-semibold text-slate-900">{row.type}</td>
+                    <td className="px-6 py-4">
+                      <CategoryBadge category={row.category} />
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-600">{row.party}</td>
                     <td className="px-6 py-4 font-mono text-sm text-slate-600">{row.reference}</td>
                     <td className={`px-6 py-4 text-sm font-semibold ${row.direction === "in" ? "text-emerald-600" : "text-rose-600"}`}>
