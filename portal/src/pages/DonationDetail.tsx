@@ -26,6 +26,29 @@ type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 type DocumentRow = Database["public"]["Tables"]["documents"]["Row"];
 type DonationStatus = Database["public"]["Enums"]["donation_status"];
 
+function normalizeNamedRelation(input: unknown): { name: string } | null {
+  if (!input || typeof input !== "object" || !("name" in input) || typeof input.name !== "string") {
+    return null;
+  }
+
+  return { name: (input as { name: string }).name };
+}
+
+function normalizeAssignedLocation(input: unknown): DonationDetailRow["assigned_location"] {
+  if (!input || typeof input !== "object" || !("name" in input) || typeof input.name !== "string") {
+    return null;
+  }
+
+  const name = (input as { name: string }).name;
+  const city = (input as { city?: unknown }).city;
+  const normalizedCity: string | null = typeof city === "string" ? city : null;
+
+  return {
+    name,
+    city: normalizedCity,
+  };
+}
+
 function statusBadge(status: string) {
   const map: Record<string, string> = {
     aangemeld: "bg-blue-100 text-blue-800",
@@ -93,7 +116,13 @@ const DonationDetail: React.FC = () => {
         .eq("id", id!)
         .single();
       if (error) throw error;
-      return data as DonationDetailRow;
+      const { organizations, service_partner, assigned_location, ...batch } = data;
+      return {
+        ...batch,
+        organizations: normalizeNamedRelation(organizations),
+        service_partner: normalizeNamedRelation(service_partner),
+        assigned_location: normalizeAssignedLocation(assigned_location),
+      };
     },
     enabled: !!id,
   });
@@ -354,7 +383,7 @@ const DonationDetail: React.FC = () => {
         onClose={() => setAssignModalOpen(false)}
         onAssigned={() => setAssignModalOpen(false)}
         currentPartnerId={donation.assigned_service_partner_id}
-        currentLocationId={(donation as Record<string, unknown>).assigned_stock_location_id as string | null | undefined}
+        currentLocationId={donation.assigned_stock_location_id}
       />
 
       {pickupModalOpen ? (

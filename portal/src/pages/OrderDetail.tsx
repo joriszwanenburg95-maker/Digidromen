@@ -686,14 +686,18 @@ const OrderDetail: React.FC = () => {
                     });
                   }}
                 />
-              ) : order.delivery_date ? (
+              ) : (
                 <div className="rounded-xl border border-slate-200 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bezorgdatum</p>
                   <p className="mt-1 text-sm font-medium text-slate-800">
-                    {new Date(order.delivery_date).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })}
+                    {order.delivery_date ? (
+                      new Date(order.delivery_date).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })
+                    ) : (
+                      <span className="italic text-slate-400">Nog niet ingevuld door servicepartner</span>
+                    )}
                   </p>
                 </div>
-              ) : null}
+              )}
             </div>
           </div>
 

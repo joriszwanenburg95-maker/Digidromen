@@ -57,7 +57,7 @@ const REQUIRED_HEADERS = ["locatie", "beschikbaar", "gereserveerd", "binnenkomen
 /* ─── Helpers ─── */
 
 function CategoryBadge({ category }: { category: ProductCategory }) {
-  const config = CATEGORY_CONFIG[category];
+  const config = CATEGORY_CONFIG[category] ?? CATEGORY_CONFIG.laptop;
   const Icon = config.icon;
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${config.className}`}>
@@ -311,8 +311,7 @@ const Inventory: React.FC = () => {
       for (const row of rows) {
         const locId = locMap.get(row.location);
         if (!locId) throw new Error(`Locatie "${row.location}" niet gevonden.`);
-        const { error } = await sb.from("inventory_items").upsert({
-          id: crypto.randomUUID(),
+        const payload = {
           product_id: defaultProduct.id,
           stock_location_id: locId,
           warehouse_location: row.location,
@@ -321,8 +320,25 @@ const Inventory: React.FC = () => {
           quantity: row.available + row.reserved,
           incoming_quantity: row.incoming,
           incoming_eta: row.eta ?? null,
-        }, { onConflict: "product_id,stock_location_id" });
-        if (error) throw error;
+          last_mutation_at: new Date().toISOString(),
+        };
+        const { data: existing, error: findError } = await sb
+          .from("inventory_items")
+          .select("id")
+          .eq("product_id", defaultProduct.id)
+          .eq("stock_location_id", locId)
+          .maybeSingle();
+        if (findError) throw findError;
+        if (existing?.id) {
+          const { error } = await sb.from("inventory_items").update(payload).eq("id", existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await sb.from("inventory_items").insert({
+            id: crypto.randomUUID(),
+            ...payload,
+          });
+          if (error) throw error;
+        }
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all });
       setImportNotice(`${rows.length} regels geimporteerd.`);
@@ -536,7 +552,7 @@ const Inventory: React.FC = () => {
           {/* Inventory table */}
           <DataTable<InventoryRow>
             columns={inventoryColumns}
-            data={filteredRows as unknown as (InventoryRow & Record<string, unknown>)[]}
+            data={filteredRows}
             isLoading={isLoading}
             emptyMessage="Geen voorraad gevonden voor deze filters."
             keyField="id"

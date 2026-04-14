@@ -54,7 +54,7 @@ export default function DonationAssignmentModal({
 
   // Fetch locations for selected partner
   const { data: locations = [] } = useQuery({
-    queryKey: queryKeys.stockLocations.all.concat(["partner", selectedPartnerId]) as unknown as readonly string[],
+    queryKey: queryKeys.stockLocations.byPartner(selectedPartnerId),
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("stock_locations")

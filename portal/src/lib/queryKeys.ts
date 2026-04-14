@@ -23,6 +23,8 @@ export const queryKeys = {
   },
   stockLocations: {
     all: ["stock-locations"] as const,
+    byPartner: (partnerId: string) =>
+      ["stock-locations", "partner", partnerId] as const,
   },
   organizations: {
     all: ["organizations"] as const,

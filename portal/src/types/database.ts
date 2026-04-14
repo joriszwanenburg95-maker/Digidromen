@@ -169,6 +169,7 @@ export type Database = {
       donation_batches: {
         Row: {
           assigned_service_partner_id: string | null
+          assigned_stock_location_id: string | null
           batch_number: string | null
           certificate_required_at: string | null
           certificate_uploaded_at: string | null
@@ -210,6 +211,7 @@ export type Database = {
         }
         Insert: {
           assigned_service_partner_id?: string | null
+          assigned_stock_location_id?: string | null
           batch_number?: string | null
           certificate_required_at?: string | null
           certificate_uploaded_at?: string | null
@@ -251,6 +253,7 @@ export type Database = {
         }
         Update: {
           assigned_service_partner_id?: string | null
+          assigned_stock_location_id?: string | null
           batch_number?: string | null
           certificate_required_at?: string | null
           certificate_uploaded_at?: string | null
@@ -296,6 +299,13 @@ export type Database = {
             columns: ["assigned_service_partner_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "donation_batches_assigned_stock_location_id_fkey"
+            columns: ["assigned_stock_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
             referencedColumns: ["id"]
           },
           {

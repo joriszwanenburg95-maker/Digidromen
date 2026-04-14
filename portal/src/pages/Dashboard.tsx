@@ -14,6 +14,7 @@ import KpiCard from "../components/KpiCard";
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const role = user?.role ?? "help_org";
 
   const { data: notifications = [], isLoading: notificationsLoading } = useQuery({
     queryKey: queryKeys.notifications.unread(),
@@ -31,18 +32,26 @@ const Dashboard: React.FC = () => {
   });
 
   const { data: openOrders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: queryKeys.orders.list({ status: "open" }),
+    queryKey: queryKeys.orders.list({
+      status: "open",
+      scope: role === "help_org" ? "own_org" : "all",
+      organizationId: role === "help_org" ? user?.organizationId ?? null : null,
+    }),
     queryFn: async () => {
-      const { data, error } = await getSupabaseClient()
+      let q = getSupabaseClient()
         .from("orders")
         .select("id, status, organization_id, priority, preferred_delivery_date, created_at")
         .not("status", "in", "(afgesloten,afgewezen)")
         .order("created_at", { ascending: false })
         .limit(20);
+      if (role === "help_org" && user?.organizationId) {
+        q = q.eq("organization_id", user.organizationId);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
-    enabled: true,
+    enabled: role !== "help_org" || !!user?.organizationId,
   });
 
   const { data: openDonations = [], isLoading: donationsLoading } = useQuery({
@@ -57,7 +66,7 @@ const Dashboard: React.FC = () => {
       if (error) throw error;
       return data;
     },
-    enabled: true,
+    enabled: role !== "help_org",
   });
 
   const { data: recentEvents = [], isLoading: eventsLoading } = useQuery({
@@ -86,20 +95,21 @@ const Dashboard: React.FC = () => {
       if (error) throw error;
       return data;
     },
-    enabled: true,
+    enabled: role !== "help_org",
   });
 
-  const role = user?.role ?? "help_org";
   const openOrderCount = openOrders.length;
   const openDonationCount = openDonations.length;
 
-  const displayEvents = recentEvents.map((e) => ({
-    id: e.id,
-    summary: e.title,
-    createdAt: e.created_at,
-    subjectType: e.case_type,
-    subjectId: e.case_id,
-  }));
+  const displayEvents = recentEvents
+    .filter((e) => role !== "help_org" || e.case_type === "order")
+    .map((e) => ({
+      id: e.id,
+      summary: e.title,
+      createdAt: e.created_at,
+      subjectType: e.case_type,
+      subjectId: e.case_id,
+    }));
 
   const displayLowStock = lowStockProducts.map((p) => ({
     productId: p.id,
@@ -117,9 +127,9 @@ const Dashboard: React.FC = () => {
   const isLoading =
     notificationsLoading ||
     ordersLoading ||
-    donationsLoading ||
+    (role !== "help_org" && donationsLoading) ||
     eventsLoading ||
-    stockLoading;
+    (role !== "help_org" && stockLoading);
 
   const cards = role === "help_org"
     ? [
@@ -254,30 +264,31 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Alerts */}
-          <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
-            <h3 className="mb-4 text-base font-bold text-digidromen-dark">Signalen</h3>
-            <div className="space-y-2.5">
-              {displayLowStock.length > 0 ? (
-                displayLowStock.slice(0, 2).map((product) => (
-                  <div key={product.productId} className="flex items-start gap-3 rounded-xl bg-amber-50 p-3.5">
-                    <TriangleAlert size={16} className="mt-0.5 shrink-0 text-amber-600" />
-                    <div>
-                      <p className="text-sm font-semibold text-digidromen-dark">{product.name}</p>
-                      <p className="text-xs text-digidromen-dark/50">Beschikbaar: {product.availableQuantity}</p>
+          {role !== "help_org" ? (
+            <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
+              <h3 className="mb-4 text-base font-bold text-digidromen-dark">Signalen</h3>
+              <div className="space-y-2.5">
+                {displayLowStock.length > 0 ? (
+                  displayLowStock.slice(0, 2).map((product) => (
+                    <div key={product.productId} className="flex items-start gap-3 rounded-xl bg-amber-50 p-3.5">
+                      <TriangleAlert size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-digidromen-dark">{product.name}</p>
+                        <p className="text-xs text-digidromen-dark/50">Beschikbaar: {product.availableQuantity}</p>
+                      </div>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen actieve signalen.</p>
-              )}
+                  ))
+                ) : (
+                  <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen actieve signalen.</p>
+                )}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
 
       {/* Spotlight cards */}
-      <div className={`grid gap-6 ${role === "help_org" ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
+        <div className={`grid gap-6 ${role === "help_org" ? "lg:grid-cols-1" : "lg:grid-cols-3"}`}>
         <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
           <div className="mb-4 flex items-center gap-2">
             <ShoppingCart size={16} className="text-digidromen-primary" />
@@ -297,24 +308,26 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <HeartHandshake size={16} className="text-emerald-500" />
-            <h3 className="text-base font-bold text-digidromen-dark">Donaties</h3>
+        {role !== "help_org" ? (
+          <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <HeartHandshake size={16} className="text-emerald-500" />
+              <h3 className="text-base font-bold text-digidromen-dark">Donaties</h3>
+            </div>
+            <div className="space-y-2">
+              {spotlightDonations.length === 0 ? (
+                <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen actieve donatiebatches.</p>
+              ) : (
+                spotlightDonations.map((donation) => (
+                  <Link key={donation.id} to={`/donations/${donation.id}`} className="block rounded-xl bg-digidromen-cream/50 p-3 transition-colors hover:bg-digidromen-cream">
+                    <p className="text-sm font-semibold text-digidromen-dark font-mono">{donation.id}</p>
+                    <StatusBadge status={donation.status} />
+                  </Link>
+                ))
+              )}
+            </div>
           </div>
-          <div className="space-y-2">
-            {spotlightDonations.length === 0 ? (
-              <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen actieve donatiebatches.</p>
-            ) : (
-              spotlightDonations.map((donation) => (
-                <Link key={donation.id} to={`/donations/${donation.id}`} className="block rounded-xl bg-digidromen-cream/50 p-3 transition-colors hover:bg-digidromen-cream">
-                  <p className="text-sm font-semibold text-digidromen-dark font-mono">{donation.id}</p>
-                  <StatusBadge status={donation.status} />
-                </Link>
-              ))
-            )}
-          </div>
-        </div>
+        ) : null}
 
         {role !== "help_org" ? (
           <div className="rounded-2xl border border-digidromen-cream bg-white p-6">

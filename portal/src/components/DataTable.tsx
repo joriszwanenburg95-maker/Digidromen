@@ -19,7 +19,7 @@ export interface DataTableProps<T> {
 
 const PAGE_SIZE = 20;
 
-function DataTable<T extends Record<string, unknown>>({
+function DataTable<T extends object>({
   columns,
   data,
   isLoading = false,
@@ -44,8 +44,8 @@ function DataTable<T extends Record<string, unknown>>({
   const sorted = useMemo(() => {
     if (!sortKey) return data;
     return [...data].sort((a, b) => {
-      const aVal = a[sortKey];
-      const bVal = b[sortKey];
+      const aVal = (a as Record<string, unknown>)[sortKey];
+      const bVal = (b as Record<string, unknown>)[sortKey];
       if (aVal == null && bVal == null) return 0;
       if (aVal == null) return 1;
       if (bVal == null) return -1;
@@ -135,9 +135,9 @@ function DataTable<T extends Record<string, unknown>>({
           </tr>
         </thead>
         <tbody className="divide-y divide-digidromen-cream">
-          {paginated.map((row) => (
+          {paginated.map((row, rowIndex) => (
             <tr
-              key={String(row[keyField] ?? Math.random())}
+              key={String((row as Record<string, unknown>)[keyField] ?? `row-${page}-${rowIndex}`)}
               className={`transition-colors ${
                 onRowClick
                   ? "cursor-pointer hover:bg-slate-50"
@@ -147,7 +147,9 @@ function DataTable<T extends Record<string, unknown>>({
             >
               {columns.map((col) => (
                 <td key={col.key} className="px-4 py-3 text-digidromen-dark">
-                  {col.render ? col.render(row) : (row[col.key] as React.ReactNode) ?? "—"}
+                  {col.render
+                    ? col.render(row)
+                    : ((row as Record<string, unknown>)[col.key] as React.ReactNode) ?? "—"}
                 </td>
               ))}
             </tr>
