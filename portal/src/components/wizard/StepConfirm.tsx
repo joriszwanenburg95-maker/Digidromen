@@ -1,6 +1,7 @@
 import React from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
+import { useAuth } from "../../context/AuthContext";
 import { useOrderingWindow } from "../../hooks/useOrderingWindow";
 import type { DeliveryValues } from "./StepDelivery";
 import type { ProductFieldValues } from "./StepProductFields";
@@ -43,8 +44,14 @@ export const StepConfirm: React.FC<Props> = ({
   submitError,
   onSubmit,
 }) => {
+  const { user } = useAuth();
   const { data: window } = useOrderingWindow();
-  const canSubmit = !window || window.isOpen || window.bypassActive;
+  /** Zelfde regel als Orders.tsx: alleen help_org zit achter het bestelvenster; staff/admin mogen altijd indienen. */
+  const canSubmit =
+    user?.role !== "help_org" ||
+    !window ||
+    window.isOpen ||
+    window.bypassActive;
 
   return (
     <div className="space-y-5">

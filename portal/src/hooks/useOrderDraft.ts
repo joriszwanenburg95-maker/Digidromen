@@ -158,15 +158,21 @@ export function useOrderDraft() {
       if (lineError) throw lineError;
 
       // Status naar ingediend
-      const { error } = await supabase
+      const { data: updatedRows, error } = await supabase
         .from('orders')
         .update({
           status: 'ingediend',
           requested_at: new Date().toISOString(),
         })
         .eq('id', effectiveDraftId)
-        .eq('status', 'concept');
+        .eq('status', 'concept')
+        .select('id');
       if (error) throw error;
+      if (!updatedRows?.length) {
+        throw new Error(
+          'Kon de bestelling niet indienen: geen open concept meer met dit id. Vernieuw de pagina en start zo nodig een nieuwe bestelling.'
+        );
+      }
 
       localStorage.removeItem(DRAFT_KEY);
       setDraftId(null);

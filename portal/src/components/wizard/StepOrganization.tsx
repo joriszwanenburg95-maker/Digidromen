@@ -49,23 +49,32 @@ export const StepOrganization: React.FC<Props> = ({
         </div>
       ) : mode === "select" ? (
         <div>
-          <label htmlFor="order-organization" className="sr-only">
-            Organisatie
-          </label>
-          <select
-            id="order-organization"
-            value={selectedId}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/25"
-          >
-            <option value="">— Kies een organisatie —</option>
-            {options.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-                {o.city ? ` (${o.city})` : ""}
-              </option>
-            ))}
-          </select>
+          {options.length === 0 ? (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Er zijn geen actieve hulporganisaties om voor te bestellen. Voeg eerst een organisatie toe of controleer of
+              je account rechten heeft om organisaties te laden.
+            </p>
+          ) : (
+            <>
+              <label htmlFor="order-organization" className="sr-only">
+                Organisatie
+              </label>
+              <select
+                id="order-organization"
+                value={selectedId}
+                onChange={(e) => onChange(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/25"
+              >
+                <option value="">— Kies een organisatie —</option>
+                {options.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                    {o.city ? ` (${o.city})` : ""}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
       ) : (
         <p className="text-sm text-amber-700">
