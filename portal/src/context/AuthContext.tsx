@@ -1,5 +1,6 @@
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -21,6 +22,8 @@ interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null;
   setRole: (role: Role) => void;
+  /** Herlaadt naam/e-mail/rol uit `user_profiles` (bijv. na profielwijziging in Instellingen). */
+  refreshUserProfile: () => Promise<void>;
   sendMagicLink: (email: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -45,6 +48,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   /** Na eerste ingelogde sessie: token-refresh zonder `loading` → voorkomt unmount van o.a. bestelwizard bij tab-switch. */
   const hasAuthenticatedSessionRef = useRef(false);
+
+  const refreshUserProfile = useCallback(async () => {
+    if (!portalEnv.isSupabaseConfigured || !supabase) {
+      return;
+    }
+    const sb = getSupabaseClient();
+    const {
+      data: { user: authUser },
+      error: authErr,
+    } = await sb.auth.getUser();
+    if (authErr || !authUser) {
+      return;
+    }
+    const { data: profile } = await sb
+      .from("user_profiles")
+      .select("id, organization_id, role, name, email")
+      .eq("auth_user_id", authUser.id)
+      .maybeSingle();
+    if (!profile) {
+      return;
+    }
+    hasAuthenticatedSessionRef.current = true;
+    setUser({
+      id: profile.id,
+      name: profile.name,
+      role: profile.role,
+      organizationId: profile.organization_id,
+      email: profile.email,
+    });
+  }, []);
 
   useEffect(() => {
     if (!portalEnv.isSupabaseConfigured || !supabase) {
@@ -205,6 +238,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         user,
         setRole,
+        refreshUserProfile,
         sendMagicLink,
         signInWithPassword,
         logout,

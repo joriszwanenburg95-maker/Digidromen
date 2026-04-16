@@ -10,4 +10,5 @@ portal/dist-ssr/
 
 supabase/.temp/
 .vercel
-Context/
+# Alleen map "Context" in projectroot (niet portal/src/context)
+/Context/

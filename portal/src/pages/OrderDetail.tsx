@@ -17,6 +17,10 @@ import Timeline from "../components/Timeline";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateTime } from "../lib/format";
 import { formatCrmReference } from "../lib/crm-preparation";
+import {
+  formatOrderLineDetailLabel,
+  formatOrderLinesSummary,
+} from "../lib/orderSummary";
 import { queryKeys } from "../lib/queryKeys";
 import { getSupabaseClient } from "../lib/supabase";
 import type { Database } from "../types/database";
@@ -481,18 +485,26 @@ const OrderDetail: React.FC = () => {
           Terug naar overzicht
         </button>
 
-        <div className="flex flex-wrap justify-end gap-2">
-          {nextStatuses.map((status) => (
-            <button
-              key={status}
-              disabled={transitionMutation.isPending}
-              onClick={() => transitionMutation.mutate(status)}
-              className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${statusButtonStyle(status)}`}
-            >
-              {status === "afgewezen" ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
-              {statusActionLabel(status)}
-            </button>
-          ))}
+        <div className="flex max-w-xl flex-col items-end gap-2">
+          {nextStatuses.length > 0 ? (
+            <p className="text-right text-xs text-slate-500">
+              Bij status <strong>Ingediend</strong>: kies eerst <strong>Ter accordering</strong>. Daarna bij{" "}
+              <strong>Te accorderen</strong>: <strong>Accorderen</strong> of <strong>Afwijzen</strong>.
+            </p>
+          ) : null}
+          <div className="flex flex-wrap justify-end gap-2">
+            {nextStatuses.map((status) => (
+              <button
+                key={status}
+                disabled={transitionMutation.isPending}
+                onClick={() => transitionMutation.mutate(status)}
+                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${statusButtonStyle(status)}`}
+              >
+                {status === "afgewezen" ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
+                {statusActionLabel(status)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -509,6 +521,15 @@ const OrderDetail: React.FC = () => {
                 {STATUS_LABELS[order.status] ?? order.status}
               </span>
             </div>
+
+            {order.order_lines?.length ? (
+              <div className="mt-6 rounded-xl border-2 border-digidromen-primary/25 bg-gradient-to-br from-sky-50 to-white p-5 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Wat is er besteld</p>
+                <p className="mt-2 text-lg font-bold leading-snug text-slate-900">
+                  {formatOrderLinesSummary(order.order_lines)}
+                </p>
+              </div>
+            ) : null}
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div>
@@ -539,20 +560,15 @@ const OrderDetail: React.FC = () => {
 
             {order.order_lines?.length > 0 ? (
               <div className="mt-6">
-                <h3 className="mb-3 font-bold text-slate-900">Orderregels</h3>
+                <h3 className="mb-3 font-bold text-slate-900">Orderregels (detail)</h3>
                 <div className="space-y-2">
                   {order.order_lines.map((line, index) => {
-                    const productName =
-                      line.products?.name?.trim() || line.product_id || "Product";
-                    const lineMeta: string[] = [];
-                    if (line.line_type && line.line_type !== "regular") {
-                      lineMeta.push(line.line_type);
-                    }
-                    if (line.rma_category) {
-                      lineMeta.push(`RMA: ${line.rma_category}`);
-                    }
-                    const metaSuffix =
-                      lineMeta.length > 0 ? ` · ${lineMeta.join(" · ")}` : "";
+                    const { title, subtitle } = formatOrderLineDetailLabel({
+                      quantity: line.quantity,
+                      line_type: line.line_type,
+                      rma_category: line.rma_category,
+                      products: line.products,
+                    });
 
                     return (
                       <div key={line.id ?? index} className="flex items-center rounded-xl bg-slate-50 p-3">
@@ -560,10 +576,10 @@ const OrderDetail: React.FC = () => {
                           <Package size={16} className="text-slate-400" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-slate-900">{productName}</p>
-                          <p className="text-xs text-slate-500">
-                            {line.quantity} exemplaren{metaSuffix}
-                          </p>
+                          <p className="text-sm font-semibold text-slate-900">{title}</p>
+                          {subtitle ? (
+                            <p className="text-xs text-slate-500">{subtitle}</p>
+                          ) : null}
                         </div>
                       </div>
                     );

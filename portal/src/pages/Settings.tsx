@@ -123,7 +123,7 @@ type ProductQueryRow = Pick<
 >;
 
 const Settings: React.FC = () => {
-  const { user: authUser, authMode } = useAuth();
+  const { user: authUser, authMode, refreshUserProfile } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = authUser?.role === "digidromen_admin";
   const isHelpOrgUser = authUser?.role === "help_org";
@@ -202,34 +202,91 @@ const Settings: React.FC = () => {
     [organizationsRaw],
   );
 
-  const [targetGroupDescription, setTargetGroupDescription] = useState("");
-  const [targetGroupSaving, setTargetGroupSaving] = useState(false);
-  const [targetGroupNotice, setTargetGroupNotice] = useState<string | null>(null);
-  const [targetGroupError, setTargetGroupError] = useState<string | null>(null);
+  interface HelpOrgSelfFormState {
+    name: string;
+    address: string;
+    postal_code: string;
+    city: string;
+    contact_name: string;
+    contact_email: string;
+    target_group_description: string;
+  }
 
-  const { data: helpOrgTargetRow } = useQuery({
+  const emptyHelpOrgSelfForm: HelpOrgSelfFormState = {
+    name: "",
+    address: "",
+    postal_code: "",
+    city: "",
+    contact_name: "",
+    contact_email: "",
+    target_group_description: "",
+  };
+
+  const [helpOrgSelfForm, setHelpOrgSelfForm] = useState<HelpOrgSelfFormState>(
+    emptyHelpOrgSelfForm,
+  );
+  const [helpOrgSelfSaving, setHelpOrgSelfSaving] = useState(false);
+  const [helpOrgSelfNotice, setHelpOrgSelfNotice] = useState<string | null>(null);
+  const [helpOrgSelfError, setHelpOrgSelfError] = useState<string | null>(null);
+
+  const [userSelfName, setUserSelfName] = useState("");
+  const [userSelfPhone, setUserSelfPhone] = useState("");
+  const [userSelfSaving, setUserSelfSaving] = useState(false);
+  const [userSelfNotice, setUserSelfNotice] = useState<string | null>(null);
+  const [userSelfError, setUserSelfError] = useState<string | null>(null);
+
+  const { data: helpOrgSelfRow } = useQuery({
     queryKey: [
       ...queryKeys.organizations.detail(authUser?.organizationId ?? ""),
-      "settings-target-group",
+      "help-org-self-service",
     ],
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("organizations")
-        .select("target_group_description")
+        .select(
+          "id, name, address, postal_code, city, contact_name, contact_email, target_group_description",
+        )
         .eq("id", authUser!.organizationId!)
         .single();
       if (error) throw error;
-      return data as { target_group_description: string | null };
+      return data as HelpOrgSelfFormState & { id: string };
     },
     enabled:
       isSupabase && isHelpOrgUser && Boolean(authUser?.organizationId),
   });
 
   useEffect(() => {
-    if (helpOrgTargetRow?.target_group_description !== undefined) {
-      setTargetGroupDescription(helpOrgTargetRow.target_group_description ?? "");
-    }
-  }, [helpOrgTargetRow?.target_group_description]);
+    if (!helpOrgSelfRow) return;
+    setHelpOrgSelfForm({
+      name: helpOrgSelfRow.name ?? "",
+      address: helpOrgSelfRow.address ?? "",
+      postal_code: helpOrgSelfRow.postal_code ?? "",
+      city: helpOrgSelfRow.city ?? "",
+      contact_name: helpOrgSelfRow.contact_name ?? "",
+      contact_email: helpOrgSelfRow.contact_email ?? "",
+      target_group_description: helpOrgSelfRow.target_group_description ?? "",
+    });
+  }, [helpOrgSelfRow]);
+
+  const { data: selfUserProfile } = useQuery({
+    queryKey: ["user-profiles", "self", authUser?.id],
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("user_profiles")
+        .select("name, phone, email")
+        .eq("id", authUser!.id!)
+        .single();
+      if (error) throw error;
+      return data as { name: string; phone: string | null; email: string };
+    },
+    enabled: isSupabase && isHelpOrgUser && Boolean(authUser?.id),
+  });
+
+  useEffect(() => {
+    if (!selfUserProfile) return;
+    setUserSelfName(selfUserProfile.name ?? "");
+    setUserSelfPhone(selfUserProfile.phone ?? "");
+  }, [selfUserProfile]);
 
   const { data: productsRaw = [] } = useQuery({
     queryKey: queryKeys.products.list(),
@@ -446,30 +503,86 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleSaveTargetGroup = async () => {
+  const handleSaveHelpOrgSelf = async () => {
     if (!authUser?.organizationId) return;
-    setTargetGroupError(null);
-    setTargetGroupNotice(null);
-    const trimmed = targetGroupDescription.trim();
-    if (!trimmed) {
-      setTargetGroupError("Beschrijf kort welke doelgroep jullie bedienen.");
+    setHelpOrgSelfError(null);
+    setHelpOrgSelfNotice(null);
+    const f = helpOrgSelfForm;
+    if (
+      !f.name.trim() ||
+      !f.city.trim() ||
+      !f.contact_name.trim() ||
+      !f.contact_email.trim()
+    ) {
+      setHelpOrgSelfError(
+        "Organisatienaam, stad, contactpersoon en contact-e-mail zijn verplicht.",
+      );
       return;
     }
-    setTargetGroupSaving(true);
+    if (!f.target_group_description.trim()) {
+      setHelpOrgSelfError(
+        "Vul de doelgroepomschrijving in (nodig voor laptoppakket-bestellingen).",
+      );
+      return;
+    }
+    setHelpOrgSelfSaving(true);
     try {
       const { error } = await getSupabaseClient()
         .from("organizations")
-        .update({ target_group_description: trimmed })
+        .update({
+          name: f.name.trim(),
+          city: f.city.trim(),
+          address: f.address.trim() || null,
+          postal_code: f.postal_code.trim() || null,
+          contact_name: f.contact_name.trim(),
+          contact_email: f.contact_email.trim(),
+          target_group_description: f.target_group_description.trim(),
+        })
         .eq("id", authUser.organizationId);
       if (error) throw error;
-      setTargetGroupNotice("Doelgroepomschrijving opgeslagen. Die wordt meegenomen bij laptoppakket-bestellingen.");
+      setHelpOrgSelfNotice(
+        "Organisatiegegevens opgeslagen. Wijzigingen zijn direct zichtbaar bij nieuwe bestellingen.",
+      );
       await queryClient.invalidateQueries({
         queryKey: queryKeys.organizations.detail(authUser.organizationId),
       });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.organizations.all,
+      });
     } catch (err: unknown) {
-      setTargetGroupError(getErrorMessage(err, "Opslaan mislukt."));
+      setHelpOrgSelfError(getErrorMessage(err, "Opslaan mislukt."));
     } finally {
-      setTargetGroupSaving(false);
+      setHelpOrgSelfSaving(false);
+    }
+  };
+
+  const handleSaveUserSelf = async () => {
+    if (!authUser?.id) return;
+    setUserSelfError(null);
+    setUserSelfNotice(null);
+    if (!userSelfName.trim()) {
+      setUserSelfError("Vul je naam in.");
+      return;
+    }
+    setUserSelfSaving(true);
+    try {
+      const { error } = await getSupabaseClient()
+        .from("user_profiles")
+        .update({
+          name: userSelfName.trim(),
+          phone: userSelfPhone.trim() || null,
+        })
+        .eq("id", authUser.id);
+      if (error) throw error;
+      setUserSelfNotice("Je naam en telefoon zijn opgeslagen.");
+      await queryClient.invalidateQueries({
+        queryKey: ["user-profiles", "self", authUser.id],
+      });
+      await refreshUserProfile();
+    } catch (err: unknown) {
+      setUserSelfError(getErrorMessage(err, "Profiel opslaan mislukt."));
+    } finally {
+      setUserSelfSaving(false);
     }
   };
 
@@ -670,70 +783,233 @@ const Settings: React.FC = () => {
 
       {activeTab === "profile" ? (
         <div className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-          <div className="p-6">
-            <h3 className="mb-4 font-bold text-gray-800">Mijn Profiel</h3>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-400">Volledige Naam</label>
-                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.name}</p>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-400">Email Adres</label>
-                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.email}</p>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-400">Organisatie</label>
-                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.organizationId ? orgLookup.get(authUser.organizationId) ?? "-" : "-"}</p>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-400">Rol</label>
-                <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">
-                  {roleOptions.find((item) => item.value === authUser?.role)?.label ?? authUser?.role}
-                </p>
-              </div>
-            </div>
-          </div>
-
           {isHelpOrgUser ? (
+            <>
+              <div className="p-6">
+                <h3 className="mb-2 font-bold text-gray-800">Mijn account</h3>
+                <p className="mb-4 text-sm text-gray-600">
+                  Pas je naam en telefoon aan. Je inlog-e-mail wijzigen kan alleen via Digidromen (die koppeling staat in Supabase Auth).
+                </p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label htmlFor="self-name" className="mb-1 block text-xs font-semibold text-gray-400">
+                      Volledige naam
+                    </label>
+                    <input
+                      id="self-name"
+                      value={userSelfName}
+                      onChange={(e) => {
+                        setUserSelfName(e.target.value);
+                        setUserSelfNotice(null);
+                        setUserSelfError(null);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="self-phone" className="mb-1 block text-xs font-semibold text-gray-400">
+                      Telefoon / mobiel
+                    </label>
+                    <input
+                      id="self-phone"
+                      type="tel"
+                      value={userSelfPhone}
+                      onChange={(e) => {
+                        setUserSelfPhone(e.target.value);
+                        setUserSelfNotice(null);
+                        setUserSelfError(null);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                      placeholder="Bijv. 06-12345678"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-400">E-mail (inlog)</label>
+                    <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">
+                      {authUser?.email ?? "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-400">Rol</label>
+                    <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">
+                      {roleOptions.find((item) => item.value === authUser?.role)?.label ?? authUser?.role}
+                    </p>
+                  </div>
+                </div>
+                {userSelfError ? <p className="mt-3 text-sm text-red-600">{userSelfError}</p> : null}
+                {userSelfNotice ? <p className="mt-3 text-sm text-green-700">{userSelfNotice}</p> : null}
+                <LoadingButton
+                  type="button"
+                  className="mt-4"
+                  onClick={() => {
+                    void handleSaveUserSelf();
+                  }}
+                  isLoading={userSelfSaving}
+                  loadingLabel="Opslaan..."
+                >
+                  Account opslaan
+                </LoadingButton>
+              </div>
+
+              <div className="p-6">
+                <h3 className="mb-2 font-bold text-gray-800">Organisatiegegevens</h3>
+                <p className="mb-4 text-sm text-gray-600">
+                  Wijzig hier de gegevens van jullie organisatie (contactpersoon, adres, doelgroep). Deze gegevens gebruiken we voor levering en{" "}
+                  <strong className="font-semibold text-gray-800">laptoppakket-bestellingen</strong> (doelgroep).
+                </p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label htmlFor="ho-name" className="mb-1 block text-xs font-semibold text-gray-400">
+                      Organisatienaam
+                    </label>
+                    <input
+                      id="ho-name"
+                      value={helpOrgSelfForm.name}
+                      onChange={(e) => {
+                        setHelpOrgSelfForm((p) => ({ ...p, name: e.target.value }));
+                        setHelpOrgSelfError(null);
+                        setHelpOrgSelfNotice(null);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="ho-contact" className="mb-1 block text-xs font-semibold text-gray-400">
+                      Contactpersoon
+                    </label>
+                    <input
+                      id="ho-contact"
+                      value={helpOrgSelfForm.contact_name}
+                      onChange={(e) => {
+                        setHelpOrgSelfForm((p) => ({ ...p, contact_name: e.target.value }));
+                        setHelpOrgSelfError(null);
+                        setHelpOrgSelfNotice(null);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="ho-email" className="mb-1 block text-xs font-semibold text-gray-400">
+                      Contact e-mail organisatie
+                    </label>
+                    <input
+                      id="ho-email"
+                      type="email"
+                      value={helpOrgSelfForm.contact_email}
+                      onChange={(e) => {
+                        setHelpOrgSelfForm((p) => ({ ...p, contact_email: e.target.value }));
+                        setHelpOrgSelfError(null);
+                        setHelpOrgSelfNotice(null);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label htmlFor="ho-address" className="mb-1 block text-xs font-semibold text-gray-400">
+                      Adres (straat + huisnummer)
+                    </label>
+                    <input
+                      id="ho-address"
+                      value={helpOrgSelfForm.address}
+                      onChange={(e) => {
+                        setHelpOrgSelfForm((p) => ({ ...p, address: e.target.value }));
+                        setHelpOrgSelfError(null);
+                        setHelpOrgSelfNotice(null);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="ho-postal" className="mb-1 block text-xs font-semibold text-gray-400">
+                      Postcode
+                    </label>
+                    <input
+                      id="ho-postal"
+                      value={helpOrgSelfForm.postal_code}
+                      onChange={(e) => {
+                        setHelpOrgSelfForm((p) => ({ ...p, postal_code: e.target.value }));
+                        setHelpOrgSelfError(null);
+                        setHelpOrgSelfNotice(null);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="ho-city" className="mb-1 block text-xs font-semibold text-gray-400">
+                      Plaats
+                    </label>
+                    <input
+                      id="ho-city"
+                      value={helpOrgSelfForm.city}
+                      onChange={(e) => {
+                        setHelpOrgSelfForm((p) => ({ ...p, city: e.target.value }));
+                        setHelpOrgSelfError(null);
+                        setHelpOrgSelfNotice(null);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label htmlFor="ho-target" className="mb-1 block text-xs font-semibold text-gray-400">
+                      Doelgroepomschrijving (samenwerking / laptoppakketten)
+                    </label>
+                    <textarea
+                      id="ho-target"
+                      rows={4}
+                      value={helpOrgSelfForm.target_group_description}
+                      onChange={(e) => {
+                        setHelpOrgSelfForm((p) => ({
+                          ...p,
+                          target_group_description: e.target.value,
+                        }));
+                        setHelpOrgSelfError(null);
+                        setHelpOrgSelfNotice(null);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                      placeholder="Bijvoorbeeld: gezinnen met een laag inkomen in regio X…"
+                    />
+                  </div>
+                </div>
+                {helpOrgSelfError ? <p className="mt-3 text-sm text-red-600">{helpOrgSelfError}</p> : null}
+                {helpOrgSelfNotice ? <p className="mt-3 text-sm text-green-700">{helpOrgSelfNotice}</p> : null}
+                <LoadingButton
+                  type="button"
+                  className="mt-4"
+                  onClick={() => {
+                    void handleSaveHelpOrgSelf();
+                  }}
+                  isLoading={helpOrgSelfSaving}
+                  loadingLabel="Opslaan..."
+                >
+                  Organisatie opslaan
+                </LoadingButton>
+              </div>
+            </>
+          ) : (
             <div className="p-6">
-              <h3 className="mb-2 font-bold text-gray-800">Doelgroep voor de samenwerking</h3>
-              <p className="mb-4 text-sm text-gray-600">
-                Beschrijf welke doelgroep jullie standaard bedienen. Deze tekst gebruiken we bij{" "}
-                <strong className="font-semibold text-gray-800">laptoppakket-bestellingen</strong> en hoeft niet per bestelling opnieuw ingevuld te worden.
-              </p>
-              <label htmlFor="target-group-desc" className="mb-1 block text-xs font-semibold text-gray-400">
-                Doelgroepomschrijving
-              </label>
-              <textarea
-                id="target-group-desc"
-                rows={4}
-                value={targetGroupDescription}
-                onChange={(e) => {
-                  setTargetGroupDescription(e.target.value);
-                  setTargetGroupNotice(null);
-                  setTargetGroupError(null);
-                }}
-                className="mb-4 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
-                placeholder="Bijvoorbeeld: gezinnen met een laag inkomen in regio X, statushouders, jongeren zonder startkwalificatie…"
-              />
-              {targetGroupError ? (
-                <p className="mb-3 text-sm text-red-600">{targetGroupError}</p>
-              ) : null}
-              {targetGroupNotice ? (
-                <p className="mb-3 text-sm text-green-700">{targetGroupNotice}</p>
-              ) : null}
-              <LoadingButton
-                type="button"
-                onClick={() => {
-                  void handleSaveTargetGroup();
-                }}
-                isLoading={targetGroupSaving}
-                loadingLabel="Opslaan..."
-              >
-                Doelgroep opslaan
-              </LoadingButton>
+              <h3 className="mb-4 font-bold text-gray-800">Mijn Profiel</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-400">Volledige Naam</label>
+                  <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.name}</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-400">Email Adres</label>
+                  <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.email}</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-400">Organisatie</label>
+                  <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.organizationId ? orgLookup.get(authUser.organizationId) ?? "-" : "-"}</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-400">Rol</label>
+                  <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">
+                    {roleOptions.find((item) => item.value === authUser?.role)?.label ?? authUser?.role}
+                  </p>
+                </div>
+              </div>
             </div>
-          ) : null}
+          )}
 
           <div className="p-6">
             <h3 className="mb-4 font-bold text-gray-800">Notificatie Voorkeuren</h3>

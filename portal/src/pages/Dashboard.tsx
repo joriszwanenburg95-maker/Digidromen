@@ -31,6 +31,21 @@ const Dashboard: React.FC = () => {
     },
   });
 
+  const isStaff = role === "digidromen_admin" || role === "digidromen_staff";
+
+  const { data: approvalQueueCount = 0 } = useQuery({
+    queryKey: ["orders", "te-accorderen-count"] as const,
+    queryFn: async () => {
+      const { count, error } = await getSupabaseClient()
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "te_accorderen");
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: isStaff,
+  });
+
   const { data: openOrders = [], isLoading: ordersLoading } = useQuery({
     queryKey: queryKeys.orders.list({
       status: "open",
@@ -194,6 +209,23 @@ const Dashboard: React.FC = () => {
       </div>
 
       <OrderingWindowBanner />
+
+      {isStaff && approvalQueueCount > 0 ? (
+        <Link
+          to="/orders?status=te_accorderen"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 shadow-sm transition-colors hover:bg-amber-100/90"
+        >
+          <div>
+            <p className="text-sm font-bold">Bestellingen goedkeuren</p>
+            <p className="mt-1 text-sm text-amber-900/85">
+              <strong>{approvalQueueCount}</strong>{" "}
+              {approvalQueueCount === 1 ? "bestelling wacht" : "bestellingen wachten"} op accordering. Open een order en kies onderaan{" "}
+              <strong>Accorderen</strong> (of <strong>Afwijzen</strong>).
+            </p>
+          </div>
+          <ArrowRight className="shrink-0 text-amber-700" size={22} />
+        </Link>
+      ) : null}
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
