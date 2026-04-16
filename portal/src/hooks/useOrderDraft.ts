@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { clearOrderWizardSession } from '../components/wizard/orderWizardSession';
 import { getSupabaseClient } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Role } from '../types';
@@ -15,11 +16,11 @@ export interface OrderDraftData {
     quantity: number;
     line_type: 'new_request' | 'rma_defect';
     rma_category?: string;
-    serial_number?: string;
-    defect_description?: string;
-    replacement_reason?: string;
-    connector_type?: string;
-    connector_wattage?: string;
+    serial_number?: string | null;
+    defect_description?: string | null;
+    replacement_reason?: string | null;
+    connector_type?: string | null;
+    connector_wattage?: string | null;
     defect_photo_urls?: string[];
   }>;
 }
@@ -113,13 +114,15 @@ export function useOrderDraft() {
 
   const discardDraft = useCallback(async () => {
     if (!draftId) return;
+    const id = draftId;
     await getSupabaseClient()
       .from('orders')
       .delete()
-      .eq('id', draftId)
+      .eq('id', id)
       .eq('status', 'concept');
     localStorage.removeItem(DRAFT_KEY);
     setDraftId(null);
+    clearOrderWizardSession(id);
     queryClient.invalidateQueries({ queryKey: ['orders'] });
   }, [draftId, queryClient]);
 

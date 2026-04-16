@@ -173,6 +173,7 @@ export const StepProductFields: React.FC<Props> = ({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
+            required
             label="Connector type"
             value={values.connector_type}
             error={errors.connector_type}
@@ -180,6 +181,7 @@ export const StepProductFields: React.FC<Props> = ({
           />
 
           <TextField
+            required
             label="Wattage"
             value={values.connector_wattage}
             error={errors.connector_wattage}

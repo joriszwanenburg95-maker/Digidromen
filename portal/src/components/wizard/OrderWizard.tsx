@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
@@ -22,6 +22,13 @@ import {
   StepProductType,
   type ProductScenario,
 } from "./StepProductType";
+import {
+  clearOrderWizardSession,
+  loadOrderWizardSession,
+  migratePendingWizardSessionToDraft,
+  saveOrderWizardSession,
+  type OrderWizardPersistedState,
+} from "./orderWizardSession";
 
 const STEP_LABELS = [
   "Organisatie",
@@ -32,6 +39,20 @@ const STEP_LABELS = [
 ];
 
 const STAFF_ORDER_ROLES = ["digidromen_staff", "digidromen_admin"] as const;
+
+function formatOrderSubmitError(message: string): string {
+  const m = message.trim();
+  if (m.includes("Voedingskabel defect vereist")) {
+    return (
+      "Voedingskabel: het serienummer (SRN) van de laptop ontbreekt, of connectortype en wattage zijn niet beide ingevuld. " +
+      "Vul alle drie in en dien opnieuw in."
+    );
+  }
+  if (m.includes("Laptop defect vereist")) {
+    return "Laptopvervanging: serienummer en klachtomschrijving zijn verplicht.";
+  }
+  return m;
+}
 
 const EMPTY_PRODUCT_FIELDS: ProductFieldValues = {
   motivation: "",
@@ -184,6 +205,80 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const sessionRestoredRef = useRef(false);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const persistWizardSession = useCallback(() => {
+    const snapshot: OrderWizardPersistedState = {
+      v: 1,
+      step,
+      orderOrganizationId,
+      scenario,
+      productFields,
+      delivery,
+    };
+    saveOrderWizardSession(draftId, snapshot);
+  }, [
+    draftId,
+    delivery,
+    orderOrganizationId,
+    productFields,
+    scenario,
+    step,
+  ]);
+
+  useEffect(() => {
+    if (sessionRestoredRef.current || !user) return;
+    const saved = loadOrderWizardSession(draftId);
+    sessionRestoredRef.current = true;
+    if (saved) {
+      let stepToApply = saved.step;
+      if (stepToApply >= 2 && !saved.scenario) {
+        stepToApply = 1;
+      }
+      if (
+        stepToApply >= 0 &&
+        stepToApply <= 4 &&
+        (stepToApply > 0 || saved.scenario)
+      ) {
+        setStep(stepToApply);
+        if (saved.orderOrganizationId) {
+          setOrderOrganizationId(saved.orderOrganizationId);
+        }
+        setScenario(saved.scenario);
+        setProductFields({
+          ...EMPTY_PRODUCT_FIELDS,
+          ...saved.productFields,
+          quantity: Math.max(1, Number(saved.productFields.quantity) || 1),
+        });
+        setDelivery({ ...EMPTY_DELIVERY, ...saved.delivery });
+      }
+    }
+  }, [user, draftId]);
+
+  useEffect(() => {
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(persistWizardSession, 200);
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
+  }, [persistWizardSession]);
+
+  useEffect(() => {
+    const flush = () => {
+      persistWizardSession();
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [persistWizardSession]);
 
   useEffect(() => {
     if (scenario == null) return;
@@ -374,13 +469,14 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
         setOrderOrganizationId(user.organizationId);
       }
 
-      await saveDraft({
+      const newDraftId = await saveDraft({
         organization_id: effectiveOrgId,
         motivation: "",
         delivery_address: "",
         preferred_delivery_date: null,
         lines: [],
       });
+      migratePendingWizardSessionToDraft(newDraftId);
       setErrors({});
       setStep(1);
       return;
@@ -515,24 +611,32 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
           rma_category:
             scenario === "new_request" ? null : rmaCategory,
           serial_number:
-            scenario === "new_request" ? undefined : serialTrim || undefined,
+            scenario === "new_request"
+              ? null
+              : serialTrim
+                ? serialTrim
+                : null,
           defect_description:
-            scenario === "new_request" ? undefined : defectTrim || undefined,
+            scenario === "new_request"
+              ? null
+              : defectTrim
+                ? defectTrim
+                : null,
           replacement_reason:
             scenario === "laptop_replacement"
-              ? undefined
+              ? null
               : replacementReasonTrim.length > 0
                 ? replacementReasonTrim
-                : undefined,
+                : null,
           connector_type:
             scenario === "cable_replacement"
-              ? connectorTypeTrim
-              : undefined,
+              ? connectorTypeTrim || null
+              : null,
           connector_wattage:
             scenario === "cable_replacement"
-              ? connectorWattageTrim
-              : undefined,
-          defect_photo_urls: productFields.defect_photo_urls,
+              ? connectorWattageTrim || null
+              : null,
+          defect_photo_urls: [...(productFields.defect_photo_urls ?? [])],
         },
       ];
 
@@ -548,6 +652,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
       });
 
       const orderId = await submitDraft(lines, savedId);
+      clearOrderWizardSession(savedId);
       navigate(`/orders/${orderId}`);
       onClose();
     } catch (error) {
@@ -557,7 +662,11 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
           : typeof error === "object" && error !== null && "message" in error
             ? String((error as { message: unknown }).message)
             : JSON.stringify(error);
-      setSubmitError(msg || "Er is een fout opgetreden bij het indienen.");
+      setSubmitError(
+        formatOrderSubmitError(
+          msg || "Er is een fout opgetreden bij het indienen.",
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }
