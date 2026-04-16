@@ -155,7 +155,22 @@ export function useOrderDraft() {
       const { error: lineError } = await supabase
         .from('order_lines')
         .insert(lineRows);
-      if (lineError) throw lineError;
+      if (lineError) {
+        const detail =
+          'details' in lineError && typeof lineError.details === 'string'
+            ? lineError.details
+            : '';
+        const hint =
+          'hint' in lineError && typeof lineError.hint === 'string'
+            ? lineError.hint
+            : '';
+        const extra = [detail, hint].filter(Boolean).join(' ');
+        throw new Error(
+          extra
+            ? `${lineError.message}${extra ? ` — ${extra}` : ''}`
+            : lineError.message,
+        );
+      }
 
       // Status naar ingediend
       const { data: updatedRows, error } = await supabase

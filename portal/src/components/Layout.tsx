@@ -103,7 +103,7 @@ const sidebarLinks = [
     name: "Instellingen",
     path: "/settings",
     icon: Settings,
-    roles: ["digidromen_admin"],
+    roles: ["help_org", "digidromen_staff", "digidromen_admin", "service_partner"],
   },
 ];
 

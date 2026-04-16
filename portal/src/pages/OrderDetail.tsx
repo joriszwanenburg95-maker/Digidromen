@@ -88,8 +88,12 @@ function statusButtonStyle(status: string) {
 type OrderLineRow = Database["public"]["Tables"]["order_lines"]["Row"];
 type OrderStatus = Database["public"]["Tables"]["orders"]["Row"]["status"];
 
+type OrderLineWithProduct = OrderLineRow & {
+  products: { id: string; name: string } | null;
+};
+
 type OrderDetailRow = Database["public"]["Tables"]["orders"]["Row"] & {
-  order_lines: OrderLineRow[];
+  order_lines: OrderLineWithProduct[];
   organizations: { name: string } | null;
   service_partner: { name: string } | null;
 };
@@ -296,7 +300,9 @@ const OrderDetail: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("orders")
-        .select("*, organizations!orders_organization_id_fkey(name), service_partner:organizations!orders_assigned_service_partner_id_fkey(name), order_lines(*)")
+        .select(
+          "*, organizations!orders_organization_id_fkey(name), service_partner:organizations!orders_assigned_service_partner_id_fkey(name), order_lines(*, products(id, name))",
+        )
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -523,28 +529,45 @@ const OrderDetail: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-6 rounded-xl bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Motivatie</p>
-              <p className="mt-2 text-sm text-slate-700">{order.motivation}</p>
-            </div>
+            {(!order.order_lines?.length ||
+              order.order_lines.some((line) => line.line_type === "new_request")) ? (
+              <div className="mt-6 rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Motivatie</p>
+                <p className="mt-2 text-sm text-slate-700">{order.motivation}</p>
+              </div>
+            ) : null}
 
             {order.order_lines?.length > 0 ? (
               <div className="mt-6">
                 <h3 className="mb-3 font-bold text-slate-900">Orderregels</h3>
                 <div className="space-y-2">
-                  {order.order_lines.map((line, index) => (
-                    <div key={line.id ?? index} className="flex items-center rounded-xl bg-slate-50 p-3">
-                      <div className="mr-3 rounded-lg border border-slate-200 bg-white p-2">
-                        <Package size={16} className="text-slate-400" />
+                  {order.order_lines.map((line, index) => {
+                    const productName =
+                      line.products?.name?.trim() || line.product_id || "Product";
+                    const lineMeta: string[] = [];
+                    if (line.line_type && line.line_type !== "regular") {
+                      lineMeta.push(line.line_type);
+                    }
+                    if (line.rma_category) {
+                      lineMeta.push(`RMA: ${line.rma_category}`);
+                    }
+                    const metaSuffix =
+                      lineMeta.length > 0 ? ` · ${lineMeta.join(" · ")}` : "";
+
+                    return (
+                      <div key={line.id ?? index} className="flex items-center rounded-xl bg-slate-50 p-3">
+                        <div className="mr-3 rounded-lg border border-slate-200 bg-white p-2">
+                          <Package size={16} className="text-slate-400" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-slate-900">{productName}</p>
+                          <p className="text-xs text-slate-500">
+                            {line.quantity} exemplaren{metaSuffix}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-900">Laptop</p>
-                        <p className="text-xs text-slate-500">
-                          {line.quantity} exemplaren{line.line_type && line.line_type !== "regular" ? ` · ${line.line_type}` : ""}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ) : null}

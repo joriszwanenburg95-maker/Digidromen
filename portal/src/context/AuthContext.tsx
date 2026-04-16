@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import type { Role } from "../types";
 import { portalEnv } from "../lib/env";
@@ -37,6 +43,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const authMode = "supabase" as const;
 
+  /** Na eerste ingelogde sessie: token-refresh zonder `loading` → voorkomt unmount van o.a. bestelwizard bij tab-switch. */
+  const hasAuthenticatedSessionRef = useRef(false);
+
   useEffect(() => {
     if (!portalEnv.isSupabaseConfigured || !supabase) {
       setLoading(false);
@@ -46,58 +55,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     let cancelled = false;
 
     const syncAuth = async () => {
-      setLoading(true);
-      const sb = getSupabaseClient();
-      const { data: { user: authUser }, error: authErr } = await sb.auth.getUser();
-
-      if (cancelled) return;
-
-      if (authErr) throw authErr;
-      if (!authUser) {
-        setUser(null);
-        setLoading(false);
-        return;
+      const quietRefresh = hasAuthenticatedSessionRef.current;
+      if (!quietRefresh) {
+        setLoading(true);
       }
 
-      const { data: profile } = await sb
-        .from("user_profiles")
-        .select("id, organization_id, role, name, email")
-        .eq("auth_user_id", authUser.id)
-        .maybeSingle();
+      try {
+        const sb = getSupabaseClient();
+        const {
+          data: { user: authUser },
+          error: authErr,
+        } = await sb.auth.getUser();
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (!profile) {
-        setUser(null);
-        setLoading(false);
-        return;
+        if (authErr) throw authErr;
+        if (!authUser) {
+          hasAuthenticatedSessionRef.current = false;
+          setUser(null);
+          setError(null);
+          return;
+        }
+
+        const { data: profile } = await sb
+          .from("user_profiles")
+          .select("id, organization_id, role, name, email")
+          .eq("auth_user_id", authUser.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (!profile) {
+          hasAuthenticatedSessionRef.current = false;
+          setUser(null);
+          setError(null);
+          return;
+        }
+
+        hasAuthenticatedSessionRef.current = true;
+        setUser({
+          id: profile.id,
+          name: profile.name,
+          role: profile.role,
+          organizationId: profile.organization_id,
+          email: profile.email,
+        });
+        setError(null);
+      } finally {
+        if (!quietRefresh && !cancelled) {
+          setLoading(false);
+        }
       }
-
-      setUser({
-        id: profile.id,
-        name: profile.name,
-        role: profile.role,
-        organizationId: profile.organization_id,
-        email: profile.email,
-      });
-      setLoading(false);
-      setError(null);
     };
 
     syncAuth().catch((authError) => {
       if (cancelled) return;
+      hasAuthenticatedSessionRef.current = false;
       setUser(null);
       setLoading(false);
-      setError(authError instanceof Error ? authError.message : "Onbekende authfout");
+      setError(
+        authError instanceof Error ? authError.message : "Onbekende authfout",
+      );
     });
 
     const {
       data: { subscription },
     } = getSupabaseClient().auth.onAuthStateChange(() => {
       syncAuth().catch((authError) => {
+        hasAuthenticatedSessionRef.current = false;
         setUser(null);
         setLoading(false);
-        setError(authError instanceof Error ? authError.message : "Onbekende authfout");
+        setError(
+          authError instanceof Error ? authError.message : "Onbekende authfout",
+        );
       });
     });
 
@@ -165,6 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const logout = async () => {
+    hasAuthenticatedSessionRef.current = false;
     await getSupabaseClient().auth.signOut();
     setUser(null);
   };

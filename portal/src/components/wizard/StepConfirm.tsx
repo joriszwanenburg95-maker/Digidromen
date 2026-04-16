@@ -15,12 +15,15 @@ const SCENARIO_LABELS: Record<ProductScenario, string> = {
   powerbank_replacement: "Vervanging powerbank",
   mouse_replacement: "Vervanging muis",
   backpack_replacement: "Vervanging rugzak",
+  headset_replacement: "Vervanging headset",
 };
 
 interface Props {
   organizationLabel: string;
   scenario: ProductScenario;
   productFields: ProductFieldValues;
+  /** Voor nieuwe aanvraag: doelgroep uit organisatieprofiel (orders.motivation). */
+  targetGroupFromOrg?: string | null;
   delivery: DeliveryValues;
   isSubmitting: boolean;
   submitError?: string | null;
@@ -40,6 +43,7 @@ export const StepConfirm: React.FC<Props> = ({
   organizationLabel,
   scenario,
   productFields,
+  targetGroupFromOrg,
   delivery,
   isSubmitting,
   submitError,
@@ -56,11 +60,16 @@ export const StepConfirm: React.FC<Props> = ({
       <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
         <Row label="Organisatie" value={organizationLabel} />
         <Row label="Type" value={SCENARIO_LABELS[scenario]} />
-        {productFields.quantity > 1 ? (
+        {scenario === "new_request" ? (
+          <Row label="Aantal pakketten" value={String(productFields.quantity)} />
+        ) : productFields.quantity > 1 ? (
           <Row label="Aantal" value={String(productFields.quantity)} />
         ) : null}
-        {productFields.motivation ? (
-          <Row label="Motivatie" value={productFields.motivation} />
+        {scenario === "new_request" && targetGroupFromOrg ? (
+          <Row
+            label="Doelgroep (organisatieprofiel)"
+            value={targetGroupFromOrg}
+          />
         ) : null}
         {productFields.serial_number ? (
           <Row label="Serienummer" value={productFields.serial_number} />

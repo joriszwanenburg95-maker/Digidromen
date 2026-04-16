@@ -99,16 +99,17 @@ export const StepProductFields: React.FC<Props> = ({
     return (
       <div className="space-y-4">
         <h2 className="text-base font-semibold text-slate-800">
-          Beschrijf de aanvraag
+          Laptoppakket
         </h2>
-
-        <TextAreaField
-          required
-          label="Doelgroepomschrijving"
-          value={values.motivation}
-          error={errors.motivation}
-          onChange={(value) => onChange("motivation", value)}
-        />
+        <p className="text-sm text-slate-500">
+          De doelgroepomschrijving van jullie organisatie staat onder{" "}
+          <strong className="text-slate-700">Instellingen</strong> en wordt automatisch meegenomen bij deze bestelling.
+        </p>
+        {errors.motivation ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {errors.motivation}
+          </p>
+        ) : null}
 
         <TextField
           required
@@ -146,13 +147,6 @@ export const StepProductFields: React.FC<Props> = ({
           error={errors.defect_description}
           onChange={(value) => onChange("defect_description", value)}
         />
-
-        <TextAreaField
-          label="Reden voor vervanging"
-          value={values.replacement_reason}
-          error={errors.replacement_reason}
-          onChange={(value) => onChange("replacement_reason", value)}
-        />
       </div>
     );
   }
@@ -166,7 +160,7 @@ export const StepProductFields: React.FC<Props> = ({
 
         <TextField
           required
-          label="Serienummer / ordernummer"
+          label="Serienummer (SRN) van laptop"
           value={values.serial_number}
           error={errors.serial_number}
           onChange={(value) => onChange("serial_number", value)}
@@ -206,21 +200,9 @@ export const StepProductFields: React.FC<Props> = ({
         <h2 className="text-base font-semibold text-slate-800">
           Vervanging muis
         </h2>
-
-        <TextField
-          label="Serienummer / ordernummer (optioneel)"
-          value={values.serial_number}
-          error={errors.serial_number}
-          onChange={(value) => onChange("serial_number", value)}
-        />
-
-        <TextAreaField
-          required
-          label="Reden voor vervanging"
-          value={values.defect_description}
-          error={errors.defect_description}
-          onChange={(value) => onChange("defect_description", value)}
-        />
+        <p className="text-sm text-slate-500">
+          Voor deze bestelling hoeven geen serienummer of reden voor vervanging te worden ingevuld. Ga verder naar levering.
+        </p>
       </div>
     );
   }
@@ -230,6 +212,19 @@ export const StepProductFields: React.FC<Props> = ({
       <div className="space-y-4">
         <h2 className="text-base font-semibold text-slate-800">
           Vervanging rugzak
+        </h2>
+        <p className="text-sm text-slate-500">
+          Voor deze bestelling hoeven geen serienummer of reden voor vervanging te worden ingevuld. Ga verder naar levering.
+        </p>
+      </div>
+    );
+  }
+
+  if (scenario === "headset_replacement") {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold text-slate-800">
+          Vervanging headset
         </h2>
 
         <TextField
@@ -250,29 +245,21 @@ export const StepProductFields: React.FC<Props> = ({
     );
   }
 
-  return (
-    <div className="space-y-4">
-      <h2 className="text-base font-semibold text-slate-800">
-        Gegevens defecte powerbank
-      </h2>
+  if (scenario === "powerbank_replacement") {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-base font-semibold text-slate-800">
+          Vervanging powerbank
+        </h2>
+        <p className="text-sm text-slate-500">
+          Voor deze bestelling hoeven geen serienummer of klachtomschrijving te worden ingevuld. Ga verder naar levering.
+        </p>
+      </div>
+    );
+  }
 
-      <TextField
-        required
-        label="Serienummer"
-        value={values.serial_number}
-        error={errors.serial_number}
-        onChange={(value) => onChange("serial_number", value)}
-      />
-
-      <TextAreaField
-        required
-        label="Klachtomschrijving"
-        value={values.defect_description}
-        error={errors.defect_description}
-        onChange={(value) => onChange("defect_description", value)}
-      />
-    </div>
-  );
+  const _exhaustive: never = scenario;
+  return _exhaustive;
 };
 
 export function validateProductFields(
@@ -282,9 +269,6 @@ export function validateProductFields(
   const errors: Partial<Record<keyof ProductFieldValues, string>> = {};
 
   if (scenario === "new_request") {
-    if (!values.motivation.trim()) {
-      errors.motivation = "Verplicht veld";
-    }
     if (!values.quantity || values.quantity < 1) {
       errors.quantity = "Minimaal 1";
     }
@@ -312,16 +296,7 @@ export function validateProductFields(
     }
   }
 
-  if (scenario === "powerbank_replacement") {
-    if (!values.serial_number.trim()) {
-      errors.serial_number = "Serienummer is verplicht";
-    }
-    if (!values.defect_description.trim()) {
-      errors.defect_description = "Klachtomschrijving is verplicht";
-    }
-  }
-
-  if (scenario === "mouse_replacement" || scenario === "backpack_replacement") {
+  if (scenario === "headset_replacement") {
     if (!values.defect_description.trim()) {
       errors.defect_description = "Reden voor vervanging is verplicht";
     }

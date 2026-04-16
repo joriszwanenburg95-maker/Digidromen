@@ -126,6 +126,7 @@ const Settings: React.FC = () => {
   const { user: authUser, authMode } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = authUser?.role === "digidromen_admin";
+  const isHelpOrgUser = authUser?.role === "help_org";
   const isSupabase = authMode === "supabase";
 
   const [activeTab, setActiveTab] = useState<"profile" | "users" | "organizations" | "products" | "bestelvenster">("profile");
@@ -155,6 +156,7 @@ const Settings: React.FC = () => {
   const [orderingWindowOpen, setOrderingWindowOpen] = useState<number>(1);
   const [orderingWindowClose, setOrderingWindowClose] = useState<number>(7);
   const [orderingWindowForceOpen, setOrderingWindowForceOpen] = useState(false);
+  const [orderingWindowDirty, setOrderingWindowDirty] = useState(false);
   const [orderingWindowSaving, setOrderingWindowSaving] = useState(false);
   const [orderingWindowError, setOrderingWindowError] = useState<string | null>(null);
   const [orderingWindowNotice, setOrderingWindowNotice] = useState<string | null>(null);
@@ -200,6 +202,35 @@ const Settings: React.FC = () => {
     [organizationsRaw],
   );
 
+  const [targetGroupDescription, setTargetGroupDescription] = useState("");
+  const [targetGroupSaving, setTargetGroupSaving] = useState(false);
+  const [targetGroupNotice, setTargetGroupNotice] = useState<string | null>(null);
+  const [targetGroupError, setTargetGroupError] = useState<string | null>(null);
+
+  const { data: helpOrgTargetRow } = useQuery({
+    queryKey: [
+      ...queryKeys.organizations.detail(authUser?.organizationId ?? ""),
+      "settings-target-group",
+    ],
+    queryFn: async () => {
+      const { data, error } = await getSupabaseClient()
+        .from("organizations")
+        .select("target_group_description")
+        .eq("id", authUser!.organizationId!)
+        .single();
+      if (error) throw error;
+      return data as { target_group_description: string | null };
+    },
+    enabled:
+      isSupabase && isHelpOrgUser && Boolean(authUser?.organizationId),
+  });
+
+  useEffect(() => {
+    if (helpOrgTargetRow?.target_group_description !== undefined) {
+      setTargetGroupDescription(helpOrgTargetRow.target_group_description ?? "");
+    }
+  }, [helpOrgTargetRow?.target_group_description]);
+
   const { data: productsRaw = [] } = useQuery({
     queryKey: queryKeys.products.list(),
     queryFn: async () => {
@@ -231,29 +262,33 @@ const Settings: React.FC = () => {
     [productsRaw],
   );
 
-  useQuery({
+  const { data: orderingWindowsRow } = useQuery({
     queryKey: queryKeys.portalConfig.key("ordering_windows"),
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("portal_config")
-        .select("value")
+        .select("value, updated_at")
         .eq("key", "ordering_windows")
         .single();
       if (error) throw error;
-      const value = data?.value as {
-        open_day?: number;
-        close_day?: number;
-        force_open_help_org?: boolean;
-      } | null;
-      if (value) {
-        setOrderingWindowOpen(value.open_day ?? 1);
-        setOrderingWindowClose(value.close_day ?? 7);
-        setOrderingWindowForceOpen(value.force_open_help_org ?? false);
-      }
-      return value;
+      return data;
     },
     enabled: isAdmin,
   });
+
+  useEffect(() => {
+    if (!orderingWindowsRow?.value || orderingWindowDirty) {
+      return;
+    }
+    const value = orderingWindowsRow.value as {
+      open_day?: number;
+      close_day?: number;
+      force_open_help_org?: boolean;
+    };
+    setOrderingWindowOpen(value.open_day ?? 1);
+    setOrderingWindowClose(value.close_day ?? 7);
+    setOrderingWindowForceOpen(value.force_open_help_org ?? false);
+  }, [orderingWindowsRow, orderingWindowDirty]);
 
   const loadUsers = useCallback(async () => {
     if (!isSupabase || !isAdmin) {
@@ -408,6 +443,33 @@ const Settings: React.FC = () => {
       // silently fail
     } finally {
       setUserActionId(null);
+    }
+  };
+
+  const handleSaveTargetGroup = async () => {
+    if (!authUser?.organizationId) return;
+    setTargetGroupError(null);
+    setTargetGroupNotice(null);
+    const trimmed = targetGroupDescription.trim();
+    if (!trimmed) {
+      setTargetGroupError("Beschrijf kort welke doelgroep jullie bedienen.");
+      return;
+    }
+    setTargetGroupSaving(true);
+    try {
+      const { error } = await getSupabaseClient()
+        .from("organizations")
+        .update({ target_group_description: trimmed })
+        .eq("id", authUser.organizationId);
+      if (error) throw error;
+      setTargetGroupNotice("Doelgroepomschrijving opgeslagen. Die wordt meegenomen bij laptoppakket-bestellingen.");
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.organizations.detail(authUser.organizationId),
+      });
+    } catch (err: unknown) {
+      setTargetGroupError(getErrorMessage(err, "Opslaan mislukt."));
+    } finally {
+      setTargetGroupSaving(false);
     }
   };
 
@@ -631,6 +693,47 @@ const Settings: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {isHelpOrgUser ? (
+            <div className="p-6">
+              <h3 className="mb-2 font-bold text-gray-800">Doelgroep voor de samenwerking</h3>
+              <p className="mb-4 text-sm text-gray-600">
+                Beschrijf welke doelgroep jullie standaard bedienen. Deze tekst gebruiken we bij{" "}
+                <strong className="font-semibold text-gray-800">laptoppakket-bestellingen</strong> en hoeft niet per bestelling opnieuw ingevuld te worden.
+              </p>
+              <label htmlFor="target-group-desc" className="mb-1 block text-xs font-semibold text-gray-400">
+                Doelgroepomschrijving
+              </label>
+              <textarea
+                id="target-group-desc"
+                rows={4}
+                value={targetGroupDescription}
+                onChange={(e) => {
+                  setTargetGroupDescription(e.target.value);
+                  setTargetGroupNotice(null);
+                  setTargetGroupError(null);
+                }}
+                className="mb-4 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                placeholder="Bijvoorbeeld: gezinnen met een laag inkomen in regio X, statushouders, jongeren zonder startkwalificatie…"
+              />
+              {targetGroupError ? (
+                <p className="mb-3 text-sm text-red-600">{targetGroupError}</p>
+              ) : null}
+              {targetGroupNotice ? (
+                <p className="mb-3 text-sm text-green-700">{targetGroupNotice}</p>
+              ) : null}
+              <LoadingButton
+                type="button"
+                onClick={() => {
+                  void handleSaveTargetGroup();
+                }}
+                isLoading={targetGroupSaving}
+                loadingLabel="Opslaan..."
+              >
+                Doelgroep opslaan
+              </LoadingButton>
+            </div>
+          ) : null}
 
           <div className="p-6">
             <h3 className="mb-4 font-bold text-gray-800">Notificatie Voorkeuren</h3>
@@ -1162,7 +1265,10 @@ const Settings: React.FC = () => {
               <input
                 type="checkbox"
                 checked={orderingWindowForceOpen}
-                onChange={(e) => setOrderingWindowForceOpen(e.target.checked)}
+                onChange={(e) => {
+                  setOrderingWindowDirty(true);
+                  setOrderingWindowForceOpen(e.target.checked);
+                }}
                 className="mt-1 h-4 w-4 rounded border-slate-300 text-digidromen-primary focus:ring-digidromen-primary"
               />
               <span className="text-sm text-slate-700">
@@ -1188,7 +1294,10 @@ const Settings: React.FC = () => {
                   min={1}
                   max={28}
                   value={orderingWindowOpen}
-                  onChange={(e) => setOrderingWindowOpen(parseInt(e.target.value, 10) || 1)}
+                  onChange={(e) => {
+                    setOrderingWindowDirty(true);
+                    setOrderingWindowOpen(parseInt(e.target.value, 10) || 1);
+                  }}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
               </div>
@@ -1201,7 +1310,10 @@ const Settings: React.FC = () => {
                   min={1}
                   max={28}
                   value={orderingWindowClose}
-                  onChange={(e) => setOrderingWindowClose(parseInt(e.target.value, 10) || 7)}
+                  onChange={(e) => {
+                    setOrderingWindowDirty(true);
+                    setOrderingWindowClose(parseInt(e.target.value, 10) || 7);
+                  }}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
                 />
               </div>
@@ -1212,22 +1324,53 @@ const Settings: React.FC = () => {
                 setOrderingWindowError(null);
                 setOrderingWindowNotice(null);
                 try {
-                  const { error } = await getSupabaseClient()
+                  const { data: currentRow, error: readErr } = await getSupabaseClient()
+                    .from("portal_config")
+                    .select("value")
+                    .eq("key", "ordering_windows")
+                    .single();
+                  if (readErr) throw readErr;
+
+                  const prev = (currentRow?.value ?? {}) as Record<string, unknown>;
+                  const nextValue = {
+                    ...prev,
+                    open_day: orderingWindowOpen,
+                    close_day: orderingWindowClose,
+                    timezone:
+                      typeof prev.timezone === "string"
+                        ? prev.timezone
+                        : "Europe/Amsterdam",
+                    admin_bypass:
+                      typeof prev.admin_bypass === "boolean"
+                        ? prev.admin_bypass
+                        : true,
+                    force_open_help_org: orderingWindowForceOpen,
+                  };
+
+                  const { data: updated, error } = await getSupabaseClient()
                     .from("portal_config")
                     .update({
-                      value: {
-                        open_day: orderingWindowOpen,
-                        close_day: orderingWindowClose,
-                        timezone: "Europe/Amsterdam",
-                        admin_bypass: true,
-                        force_open_help_org: orderingWindowForceOpen,
-                      },
+                      value: nextValue,
                       updated_at: new Date().toISOString(),
                     })
-                    .eq("key", "ordering_windows");
+                    .eq("key", "ordering_windows")
+                    .select("value, updated_at")
+                    .single();
                   if (error) throw error;
-                  void queryClient.invalidateQueries({ queryKey: queryKeys.portalConfig.key("ordering_windows") });
-                  void queryClient.invalidateQueries({ queryKey: queryKeys.orderingWindow.status() });
+                  if (!updated) {
+                    throw new Error(
+                      "Opslaan mislukt: geen rij bijgewerkt (rechten of configuratie).",
+                    );
+                  }
+
+                  queryClient.setQueryData(
+                    queryKeys.portalConfig.key("ordering_windows"),
+                    updated,
+                  );
+                  setOrderingWindowDirty(false);
+                  void queryClient.invalidateQueries({
+                    queryKey: queryKeys.orderingWindow.status(),
+                  });
                   setOrderingWindowNotice("Bestelvenster opgeslagen.");
                 } catch (err) {
                   setOrderingWindowError(err instanceof Error ? err.message : "Fout bij opslaan.");

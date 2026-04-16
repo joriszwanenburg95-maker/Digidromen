@@ -61,7 +61,7 @@ export function useOrderingWindow(): {
         nextOpenDate,
       };
     },
-    staleTime: 5 * 60 * 1000, // 5 min cache
+    staleTime: 60 * 1000,
   });
 
   return { data, isLoading };

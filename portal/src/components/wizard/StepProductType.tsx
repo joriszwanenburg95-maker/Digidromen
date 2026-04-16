@@ -3,6 +3,7 @@ import {
   Backpack,
   Battery,
   Cable,
+  Headphones,
   Laptop,
   Mouse,
   Package,
@@ -15,7 +16,8 @@ export type ProductScenario =
   | "cable_replacement"
   | "powerbank_replacement"
   | "mouse_replacement"
-  | "backpack_replacement";
+  | "backpack_replacement"
+  | "headset_replacement";
 
 interface Props {
   error?: string;
@@ -50,20 +52,26 @@ const OPTIONS: Array<{
   {
     scenario: "powerbank_replacement",
     label: "Vervanging powerbank",
-    description: "Defecte powerbank vervangen. SRN en klacht zijn verplicht.",
+    description: "Defecte powerbank vervangen. Geen extra productgegevens nodig.",
     icon: Battery,
   },
   {
     scenario: "mouse_replacement",
     label: "Vervanging muis",
-    description: "Defecte of ontbrekende muis vervangen.",
+    description: "Defecte of ontbrekende muis vervangen. Geen extra productgegevens nodig.",
     icon: Mouse,
   },
   {
     scenario: "backpack_replacement",
     label: "Vervanging rugzak",
-    description: "Defecte of ontbrekende rugzak vervangen.",
+    description: "Defecte of ontbrekende rugzak vervangen. Geen extra productgegevens nodig.",
     icon: Backpack,
+  },
+  {
+    scenario: "headset_replacement",
+    label: "Vervanging headset",
+    description: "Defecte of ontbrekende headset vervangen.",
+    icon: Headphones,
   },
 ];
 

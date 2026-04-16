@@ -138,6 +138,20 @@ function resolveProductId(
     );
   }
 
+  if (scenario === "headset_replacement") {
+    return (
+      products.find((product) => product.id === "prod-headset")?.id ??
+      products.find(
+        (product) =>
+          product.active &&
+          product.is_orderable &&
+          (product.name.toLowerCase().includes("headset") ||
+            product.name.toLowerCase().includes("koptelefoon")),
+      )?.id ??
+      null
+    );
+  }
+
   return (
     products.find((product) => product.id === "prod-powerbank")?.id ??
     products.find(
@@ -170,6 +184,12 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (scenario == null) return;
+    setProductFields(EMPTY_PRODUCT_FIELDS);
+    setErrors({});
+  }, [scenario]);
 
   const ORG_SELECT = "id, name, city, address, postal_code, target_group_description" as const;
 
@@ -274,13 +294,6 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
       }));
     }
 
-    // Pre-fill doelgroepomschrijving from organization
-    if (org.target_group_description) {
-      setProductFields((prev) => ({
-        ...prev,
-        motivation: prev.motivation || org.target_group_description || "",
-      }));
-    }
   }, [orderOrganizationId, organizationOptions]);
 
   const { data: products } = useQuery({
@@ -299,6 +312,12 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     },
   });
 
+  const orgTargetGroupForOrder = () =>
+    (
+      organizationOptions.find((o) => o.id === orderOrganizationId)
+        ?.target_group_description ?? ""
+    ).trim();
+
   const updateProductField = (
     field: keyof ProductFieldValues,
     value: string | number | string[],
@@ -309,7 +328,10 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
 
     scheduleSave({
       organization_id: orderOrganizationId,
-      motivation: nextValues.motivation,
+      motivation:
+        scenario === "new_request"
+          ? orgTargetGroupForOrder()
+          : nextValues.motivation,
       delivery_address: delivery.delivery_address,
       preferred_delivery_date: delivery.preferred_delivery_date || null,
     });
@@ -322,6 +344,10 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
 
     scheduleSave({
       organization_id: orderOrganizationId,
+      motivation:
+        scenario === "new_request"
+          ? orgTargetGroupForOrder()
+          : productFields.motivation,
       delivery_address: `${nextValues.delivery_address}, ${nextValues.postal_code} ${nextValues.city}`.trim(),
       preferred_delivery_date: nextValues.preferred_delivery_date || null,
     });
@@ -382,6 +408,13 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     }
 
     if (step === 2 && scenario) {
+      if (scenario === "new_request" && !orgTargetGroupForOrder()) {
+        setErrors({
+          motivation:
+            "Vul de doelgroepomschrijving in onder Instellingen · Profiel. Die gebruiken we standaard bij laptoppakketten.",
+        });
+        return;
+      }
       const nextErrors = validateProductFields(scenario, productFields);
       if (Object.keys(nextErrors).length > 0) {
         setErrors(nextErrors as Record<string, string>);
@@ -416,6 +449,47 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
       return;
     }
 
+    const orgMotivation = orgTargetGroupForOrder();
+    if (scenario === "new_request" && !orgMotivation) {
+      setSubmitError(
+        "Vul de doelgroepomschrijving in onder Instellingen · Profiel voordat je indient.",
+      );
+      return;
+    }
+
+    const serialTrim = productFields.serial_number.trim();
+    const defectTrim = productFields.defect_description.trim();
+    const connectorTypeTrim = productFields.connector_type.trim();
+    const connectorWattageTrim = productFields.connector_wattage.trim();
+    const replacementReasonTrim = productFields.replacement_reason.trim();
+
+    if (scenario === "laptop_replacement" && (!serialTrim || !defectTrim)) {
+      setSubmitError("Serienummer en klachtomschrijving zijn verplicht.");
+      return;
+    }
+
+    if (scenario === "cable_replacement") {
+      if (!serialTrim) {
+        setSubmitError("Serienummer (SRN) van de laptop is verplicht.");
+        return;
+      }
+      if (!connectorTypeTrim || !connectorWattageTrim) {
+        setSubmitError(
+          "Connectortype en wattage zijn verplicht voor een voedingskabel.",
+        );
+        return;
+      }
+    }
+
+    const effectiveOrgId =
+      role === "help_org"
+        ? (user?.organizationId ?? orderOrganizationId)
+        : orderOrganizationId;
+    if (!effectiveOrgId?.trim()) {
+      setSubmitError("Geen organisatie geselecteerd.");
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -426,6 +500,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
         powerbank_replacement: "powerbank",
         mouse_replacement: "muis",
         backpack_replacement: "rugzak",
+        headset_replacement: "headset",
       };
       const rmaCategory = rmaCategoryMap[scenario];
 
@@ -437,28 +512,36 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
             scenario === "new_request"
               ? ("new_request" as const)
               : ("rma_defect" as const),
-          rma_category: rmaCategory,
-          serial_number: productFields.serial_number || undefined,
-          defect_description: productFields.defect_description || undefined,
-          replacement_reason: productFields.replacement_reason || undefined,
-          connector_type: productFields.connector_type || undefined,
-          connector_wattage: productFields.connector_wattage || undefined,
+          rma_category:
+            scenario === "new_request" ? null : rmaCategory,
+          serial_number:
+            scenario === "new_request" ? undefined : serialTrim || undefined,
+          defect_description:
+            scenario === "new_request" ? undefined : defectTrim || undefined,
+          replacement_reason:
+            scenario === "laptop_replacement"
+              ? undefined
+              : replacementReasonTrim.length > 0
+                ? replacementReasonTrim
+                : undefined,
+          connector_type:
+            scenario === "cable_replacement"
+              ? connectorTypeTrim
+              : undefined,
+          connector_wattage:
+            scenario === "cable_replacement"
+              ? connectorWattageTrim
+              : undefined,
           defect_photo_urls: productFields.defect_photo_urls,
         },
       ];
 
-      const effectiveOrgId =
-        role === "help_org"
-          ? (user?.organizationId ?? orderOrganizationId)
-          : orderOrganizationId;
-      if (!effectiveOrgId?.trim()) {
-        setSubmitError("Geen organisatie geselecteerd.");
-        return;
-      }
-
       const savedId = await saveDraft({
         organization_id: effectiveOrgId,
-        motivation: productFields.motivation,
+        motivation:
+          scenario === "new_request"
+            ? orgMotivation
+            : productFields.motivation.trim(),
         delivery_address: `${delivery.delivery_address}, ${delivery.postal_code} ${delivery.city}`,
         preferred_delivery_date: delivery.preferred_delivery_date || null,
         lines,
@@ -577,6 +660,11 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
               organizationLabel={confirmOrganizationLabel}
               scenario={scenario}
               productFields={productFields}
+              targetGroupFromOrg={
+                scenario === "new_request"
+                  ? orgTargetGroupForOrder() || null
+                  : null
+              }
               delivery={delivery}
               isSubmitting={isSubmitting}
               submitError={submitError}
