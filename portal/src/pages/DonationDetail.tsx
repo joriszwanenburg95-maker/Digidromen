@@ -107,69 +107,100 @@ const DonationDetail: React.FC = () => {
   const [pickupPlanWindow, setPickupPlanWindow] = useState("");
   const [assignModalOpen, setAssignModalOpen] = useState(false);
 
-  const { data: donation, isLoading } = useQuery({
-    queryKey: queryKeys.donations.detail(id!),
-    queryFn: async () => {
-      const { data, error } = await getSupabaseClient()
+  const donationId = id?.trim() ?? "";
+
+  const { data: donation, isLoading, isError, error: donationError } = useQuery({
+    queryKey: queryKeys.donations.detail(donationId),
+    queryFn: async (): Promise<DonationDetailRow | null> => {
+      const supabase = getSupabaseClient();
+      const { data: batch, error: batchError } = await supabase
         .from("donation_batches")
-        .select("*, organizations!donation_batches_sponsor_organization_id_fkey(name), service_partner:organizations!donation_batches_assigned_service_partner_id_fkey(name), assigned_location:stock_locations!donation_batches_assigned_stock_location_id_fkey(name, city)")
-        .eq("id", id!)
-        .single();
-      if (error) throw error;
-      const { organizations, service_partner, assigned_location, ...batch } = data;
+        .select("*")
+        .eq("id", donationId)
+        .maybeSingle();
+      if (batchError) throw batchError;
+      if (!batch) return null;
+
+      const [{ data: sponsorRow, error: sponsorErr }, partnerResult, locationResult] =
+        await Promise.all([
+          supabase
+            .from("organizations")
+            .select("name")
+            .eq("id", batch.sponsor_organization_id)
+            .maybeSingle(),
+          batch.assigned_service_partner_id
+            ? supabase
+                .from("organizations")
+                .select("name")
+                .eq("id", batch.assigned_service_partner_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+          batch.assigned_stock_location_id
+            ? supabase
+                .from("stock_locations")
+                .select("name, city")
+                .eq("id", batch.assigned_stock_location_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+        ]);
+
+      if (sponsorErr) throw sponsorErr;
+      if (partnerResult.error) throw partnerResult.error;
+      if (locationResult.error) throw locationResult.error;
+
       return {
         ...batch,
-        organizations: normalizeNamedRelation(organizations),
-        service_partner: normalizeNamedRelation(service_partner),
-        assigned_location: normalizeAssignedLocation(assigned_location),
+        organizations: normalizeNamedRelation(sponsorRow),
+        service_partner: normalizeNamedRelation(partnerResult.data),
+        assigned_location: normalizeAssignedLocation(locationResult.data),
       };
     },
-    enabled: !!id,
+    enabled: donationId.length > 0,
   });
 
   const { data: workflowEvents = [] } = useQuery({
-    queryKey: ["workflow-events", "donation", id],
+    queryKey: ["workflow-events", "donation", donationId],
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("workflow_events")
         .select("*")
-        .eq("case_id", id!)
+        .eq("case_id", donationId)
         .eq("case_type", "donation")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as WorkflowEventRow[];
     },
-    enabled: !!id,
+    enabled: donationId.length > 0,
   });
 
   const { data: messages = [] } = useQuery({
-    queryKey: queryKeys.messages.byCase(id!),
+    queryKey: queryKeys.messages.byCase(donationId),
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("messages")
         .select("*")
-        .eq("case_id", id!)
+        .eq("case_id", donationId)
         .eq("case_type", "donation")
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as MessageRow[];
     },
-    enabled: !!id,
+    enabled: donationId.length > 0,
   });
 
   const { data: documents = [] } = useQuery({
-    queryKey: queryKeys.documents.byCase(id!),
+    queryKey: queryKeys.documents.byCase(donationId),
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("documents")
         .select("*")
-        .eq("case_id", id!)
+        .eq("case_id", donationId)
         .eq("case_type", "donation")
         .order("uploaded_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as DocumentRow[];
     },
-    enabled: !!id,
+    enabled: donationId.length > 0,
   });
 
   type TransitionPayload = {
@@ -198,12 +229,12 @@ const DonationDetail: React.FC = () => {
       const { error } = await getSupabaseClient()
         .from("donation_batches")
         .update(patch)
-        .eq("id", id!);
+        .eq("id", donationId);
       if (error) throw error;
 
       const { error: eventError } = await getSupabaseClient().from("workflow_events").insert({
         id: crypto.randomUUID(),
-        case_id: id!,
+        case_id: donationId,
         case_type: "donation",
         status: nextStatus,
         title: `Status gewijzigd naar ${nextStatus}`,
@@ -219,9 +250,9 @@ const DonationDetail: React.FC = () => {
       setPickupModalOpen(false);
       setPickupPlanDate("");
       setPickupPlanWindow("");
-      void queryClient.invalidateQueries({ queryKey: queryKeys.donations.detail(id!) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.donations.detail(donationId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.donations.all });
-      void queryClient.invalidateQueries({ queryKey: ["workflow-events", "donation", id] });
+      void queryClient.invalidateQueries({ queryKey: ["workflow-events", "donation", donationId] });
       void queryClient.invalidateQueries({ queryKey: ["workflow-events"] });
     },
   });
@@ -230,7 +261,7 @@ const DonationDetail: React.FC = () => {
     mutationFn: async (body: string) => {
       const { error } = await getSupabaseClient().from("messages").insert({
         id: crypto.randomUUID(),
-        case_id: id!,
+        case_id: donationId,
         case_type: "donation",
         body,
         author_name: user?.name ?? "Gebruiker",
@@ -243,7 +274,7 @@ const DonationDetail: React.FC = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.byCase(id!) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.messages.byCase(donationId) });
       setMessage("");
     },
   });
@@ -252,7 +283,7 @@ const DonationDetail: React.FC = () => {
     mutationFn: async (fileName: string) => {
       const { error } = await getSupabaseClient().from("documents").insert({
         id: crypto.randomUUID(),
-        case_id: id!,
+        case_id: donationId,
         case_type: "donation",
         file_name: fileName,
         file_size_label: "Metadata only",
@@ -266,7 +297,7 @@ const DonationDetail: React.FC = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.documents.byCase(id!) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.documents.byCase(donationId) });
       setDocumentName("");
     },
   });
@@ -280,6 +311,22 @@ const DonationDetail: React.FC = () => {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <button onClick={() => navigate("/donations")} className="flex items-center text-slate-500 hover:text-slate-700">
+          <ArrowLeft size={18} className="mr-2" /> Terug naar donaties
+        </button>
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-8 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-900">Donatie kon niet worden geladen</h2>
+          <p className="mt-2 text-sm text-slate-700">
+            {donationError instanceof Error ? donationError.message : String(donationError)}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!donation) {
     return (
       <div className="space-y-4">
@@ -288,6 +335,9 @@ const DonationDetail: React.FC = () => {
         </button>
         <div className="rounded-2xl border border-slate-100 bg-white p-8 shadow-sm">
           <h2 className="text-xl font-bold text-slate-900">Donatiebatch niet gevonden</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            Geen batch met dit id (of je hebt geen toegang). Controleer de URL of open de batch vanuit het overzicht.
+          </p>
         </div>
       </div>
     );
