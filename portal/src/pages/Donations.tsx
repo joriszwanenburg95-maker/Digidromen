@@ -7,6 +7,7 @@ import { LoadingButton } from "../components/LoadingButton";
 import { SkeletonTableRow } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import { getSupabaseClient } from "../lib/supabase";
+import { DEFAULT_SERVICE_PARTNER_ORG_ID } from "../lib/defaultServicePartner";
 import { queryKeys } from "../lib/queryKeys";
 import StatusBadge from "../components/StatusBadge";
 import type { Database } from "../types/database";
@@ -124,6 +125,7 @@ const Donations: React.FC = () => {
         notes: notes.trim() || null,
         status: "aangemeld",
         registered_at: new Date().toISOString(),
+        assigned_service_partner_id: DEFAULT_SERVICE_PARTNER_ORG_ID,
       });
     if (error) {
       setSubmitError(error.message);

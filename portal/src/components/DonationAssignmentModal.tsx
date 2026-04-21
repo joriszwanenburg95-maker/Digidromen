@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, MapPin } from "lucide-react";
 
+import { DEFAULT_SERVICE_PARTNER_ORG_ID } from "../lib/defaultServicePartner";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
 import type { Database } from "../types/database";
@@ -11,9 +12,6 @@ type StockLocation = Pick<
   Database["public"]["Tables"]["stock_locations"]["Row"],
   "id" | "name" | "address" | "city"
 >;
-
-// Aces Direct fallback ID — used when there is only one service partner
-const ACES_DIRECT_ORG_ID = "org-aces-direct";
 
 interface Props {
   donationId: string;
@@ -74,7 +72,7 @@ export default function DonationAssignmentModal({
       setSelectedPartnerId(partners[0].id);
     } else if (partners.length > 0 && !selectedPartnerId) {
       // Failsafe: default to Aces Direct if available
-      const aces = partners.find((p) => p.id === ACES_DIRECT_ORG_ID);
+      const aces = partners.find((p) => p.id === DEFAULT_SERVICE_PARTNER_ORG_ID);
       if (aces) setSelectedPartnerId(aces.id);
     }
   }, [partners, selectedPartnerId]);

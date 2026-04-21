@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { clearOrderWizardSession } from '../components/wizard/orderWizardSession';
+import { DEFAULT_SERVICE_PARTNER_ORG_ID } from '../lib/defaultServicePartner';
 import { getSupabaseClient } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Role } from '../types';
@@ -73,6 +74,7 @@ export function useOrderDraft() {
           stock_badge: '',
           ordering_window_ref: null,
           target_month: null,
+          assigned_service_partner_id: DEFAULT_SERVICE_PARTNER_ORG_ID,
         };
 
         if (draftId) {

@@ -115,6 +115,8 @@ Types regenereren:
 supabase gen types typescript --project-id oyxcwfozoxlgdclchden > portal/src/types/database.ts
 ```
 
+Servicepartner-default migraties (CLI of SQL Editor handmatig): zie `docs/SUPABASE_MIGRATIES_SERVICEPARTNER.md`.
+
 ## Werkaccount context
 
 GitHub en het gebruikte lokale werkaccount lopen via `joriszwanenburg95-maker`.
