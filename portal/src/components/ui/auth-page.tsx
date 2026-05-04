@@ -3,29 +3,45 @@ import { ArrowRightIcon, AtSignIcon, LockKeyholeIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TextRotate } from "@/components/ui/text-rotate";
 
 interface AuthPageProps {
   email: string;
   password: string;
+  loginMode: "magic" | "password";
+  magicLinkSent: boolean;
   error: string | null;
   loading: boolean;
   supabaseConfigured: boolean;
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
+  onLoginModeChange: (value: "magic" | "password") => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }
+
+const loginQuotes = [
+  "Ieder kind groot laten dromen",
+  "Een laptop opent een wereld",
+  "Leren, ontdekken en ontwikkelen",
+  "Gelijke kansen voor ieder kind",
+  "Maak Digidromen waar",
+];
 
 export function AuthPage({
   email,
   password,
+  loginMode,
+  magicLinkSent,
   error,
   loading,
   supabaseConfigured,
   onEmailChange,
   onPasswordChange,
+  onLoginModeChange,
   onSubmit,
 }: AuthPageProps) {
-  const canSubmit = supabaseConfigured && email.trim() && password;
+  const canSubmit =
+    supabaseConfigured && email.trim() && (loginMode === "magic" || password);
 
   return (
     <main className="min-h-screen bg-digidromen-beige lg:grid lg:grid-cols-[1.05fr_0.95fr]">
@@ -43,6 +59,23 @@ export function AuthPage({
         </div>
 
         <div className="relative z-10 motion-safe:animate-auth-rise-delayed">
+          <div className="mb-6 min-h-[4.5rem] rounded-[24px] border border-white/12 bg-white/10 px-5 py-4 text-white shadow-sm backdrop-blur">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-digidromen-yellow">
+              Digitale kansen
+            </p>
+            <TextRotate
+              texts={loginQuotes}
+              splitBy="words"
+              staggerFrom="first"
+              staggerDuration={0.035}
+              rotationInterval={3000}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -14 }}
+              transition={{ type: "spring", damping: 30, stiffness: 420 }}
+              mainClassName="font-heading text-2xl font-semibold leading-tight"
+            />
+          </div>
           <div className="overflow-hidden rounded-[28px] border border-white/12 bg-white shadow-2xl transition-transform duration-500 hover:-translate-y-1 hover:rotate-[0.4deg]">
             <img
               src="/Digidromen kleuren.png"
@@ -81,11 +114,46 @@ export function AuthPage({
                 Welkom terug
               </h2>
               <p className="text-base leading-relaxed text-digidromen-dark/62">
-                Log in met je e-mailadres en wachtwoord om verder te werken in de Digidromen portal.
+                Log in met je e-mailadres. Kies een wachtwoord of ontvang een magic link.
               </p>
             </div>
 
-            <form onSubmit={onSubmit} className="mt-8 space-y-4">
+            <div className="mt-6 grid grid-cols-2 gap-2 rounded-[22px] bg-digidromen-cream p-1">
+              <button
+                type="button"
+                onClick={() => onLoginModeChange("password")}
+                className={`min-h-10 rounded-[18px] px-3 text-sm font-semibold transition-all ${
+                  loginMode === "password"
+                    ? "bg-white text-digidromen-dark shadow-sm"
+                    : "text-digidromen-dark/58 hover:text-digidromen-dark"
+                }`}
+              >
+                Wachtwoord
+              </button>
+              <button
+                type="button"
+                onClick={() => onLoginModeChange("magic")}
+                className={`min-h-10 rounded-[18px] px-3 text-sm font-semibold transition-all ${
+                  loginMode === "magic"
+                    ? "bg-white text-digidromen-dark shadow-sm"
+                    : "text-digidromen-dark/58 hover:text-digidromen-dark"
+                }`}
+              >
+                Magic link
+              </button>
+            </div>
+
+            {magicLinkSent && loginMode === "magic" ? (
+              <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm leading-relaxed text-emerald-800">
+                <p className="font-semibold">Magic link verstuurd</p>
+                <p className="mt-1">
+                  Check je inbox op <span className="font-medium">{email}</span> en klik op de link
+                  om in te loggen.
+                </p>
+              </div>
+            ) : null}
+
+            <form onSubmit={onSubmit} className="mt-6 space-y-4">
               <div>
                 <label
                   htmlFor="email"
@@ -108,34 +176,42 @@ export function AuthPage({
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="password"
-                  className="mb-2 block text-xs font-semibold uppercase tracking-wide text-digidromen-dark/50"
-                >
-                  Wachtwoord
-                </label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(event) => onPasswordChange(event.target.value)}
-                    placeholder="Wachtwoord"
-                    disabled={!supabaseConfigured || loading}
-                    autoComplete="current-password"
-                    className="h-12 rounded-[20px] border-digidromen-cream bg-white ps-11 text-base text-digidromen-dark focus-visible:border-digidromen-orange"
-                  />
-                  <LockKeyholeIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-digidromen-dark/36" />
+              {loginMode === "password" ? (
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="mb-2 block text-xs font-semibold uppercase tracking-wide text-digidromen-dark/50"
+                  >
+                    Wachtwoord
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(event) => onPasswordChange(event.target.value)}
+                      placeholder="Wachtwoord"
+                      disabled={!supabaseConfigured || loading}
+                      autoComplete="current-password"
+                      className="h-12 rounded-[20px] border-digidromen-cream bg-white ps-11 text-base text-digidromen-dark focus-visible:border-digidromen-orange"
+                    />
+                    <LockKeyholeIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-digidromen-dark/36" />
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <Button
                 type="submit"
                 disabled={loading || !canSubmit}
                 className="min-h-12 w-full rounded-[20px] bg-digidromen-orange text-base font-semibold text-white hover:bg-digidromen-orange-hover disabled:bg-digidromen-cream disabled:text-digidromen-dark/35"
               >
-                {loading ? "Inloggen..." : "Inloggen"}
+                {loading
+                  ? loginMode === "magic"
+                    ? "Versturen..."
+                    : "Inloggen..."
+                  : loginMode === "magic"
+                    ? "Stuur magic link"
+                    : "Inloggen"}
                 {!loading ? <ArrowRightIcon className="size-4" /> : null}
               </Button>
             </form>

@@ -4,12 +4,24 @@ import { AuthPage } from "@/components/ui/auth-page";
 import { useAuth } from "../context/AuthContext";
 
 const Login: React.FC = () => {
-  const { error, loading, signInWithPassword, supabaseConfigured } = useAuth();
+  const {
+    error,
+    loading,
+    magicLinkSent,
+    sendMagicLink,
+    signInWithPassword,
+    supabaseConfigured,
+  } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loginMode, setLoginMode] = useState<"magic" | "password">("password");
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (loginMode === "magic") {
+      await sendMagicLink(email);
+      return;
+    }
     await signInWithPassword(email, password);
   };
 
@@ -17,11 +29,14 @@ const Login: React.FC = () => {
     <AuthPage
       email={email}
       password={password}
+      loginMode={loginMode}
+      magicLinkSent={magicLinkSent}
       error={error}
       loading={loading}
       supabaseConfigured={supabaseConfigured}
       onEmailChange={setEmail}
       onPasswordChange={setPassword}
+      onLoginModeChange={setLoginMode}
       onSubmit={handleSubmit}
     />
   );
