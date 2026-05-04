@@ -18,11 +18,15 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (loginMode === "magic") {
-      await sendMagicLink(email);
-      return;
+    try {
+      if (loginMode === "magic") {
+        await sendMagicLink(email);
+        return;
+      }
+      await signInWithPassword(email, password);
+    } catch {
+      // AuthContext vertaalt en toont de fout; voorkom een losse promise rejection.
     }
-    await signInWithPassword(email, password);
   };
 
   return (

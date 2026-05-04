@@ -1,5 +1,7 @@
 import React from "react";
 
+import { translateError } from "@/lib/errors";
+
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
@@ -48,7 +50,7 @@ export class ErrorBoundary extends React.Component<
               Er is iets misgegaan
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              {this.state.error?.message ?? "Onbekende fout"}
+              {translateError(this.state.error)}
             </p>
             <button
               onClick={() => window.location.reload()}

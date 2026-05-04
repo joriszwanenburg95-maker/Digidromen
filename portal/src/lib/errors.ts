@@ -74,6 +74,9 @@ function fromPostgresCode(code: string | undefined, msg: string): string | null 
 const RLS_PATTERN = /row-level security|RLS/i;
 const JWT_PATTERN = /jwt|token (is )?expired/i;
 const NETWORK_PATTERN = /network|fetch|failed to fetch/i;
+const AUTH_SESSION_PATTERN = /auth session missing|session.*missing|no current user/i;
+const AUTH_LINK_PATTERN = /otp.*expired|email link.*invalid|magic link.*invalid|invalid.*flow|flow state|pkce|code verifier|refresh token/i;
+const MIME_PATTERN = /valid JavaScript MIME type|Failed to fetch dynamically imported module/i;
 
 /**
  * Translate any error into Dutch user-facing text.
@@ -99,8 +102,17 @@ export function translateError(
   if (RLS_PATTERN.test(msg)) {
     return "Je hebt geen rechten voor deze actie. Neem contact op met een beheerder.";
   }
+  if (AUTH_LINK_PATTERN.test(msg)) {
+    return "Deze login-link is verlopen of al gebruikt. Vraag een nieuwe magic link aan.";
+  }
+  if (AUTH_SESSION_PATTERN.test(msg)) {
+    return "Je sessie kon niet worden gevonden. Log opnieuw in.";
+  }
   if (JWT_PATTERN.test(msg)) {
     return "Je sessie is verlopen. Log opnieuw in.";
+  }
+  if (MIME_PATTERN.test(msg)) {
+    return "De portal is net bijgewerkt. Laad de pagina opnieuw om de nieuwste versie te openen.";
   }
   if (NETWORK_PATTERN.test(msg)) {
     return "Geen verbinding. Controleer je internet en probeer opnieuw.";

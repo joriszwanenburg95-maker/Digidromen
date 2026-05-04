@@ -37,6 +37,29 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getAuthCallbackError(): string | null {
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const rawError =
+    search.get("error_description") ||
+    search.get("error") ||
+    hash.get("error_description") ||
+    hash.get("error");
+  return rawError ? translateError(rawError) : null;
+}
+
+function hasAuthCallbackParams(): boolean {
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  return (
+    search.has("code") ||
+    search.has("error") ||
+    hash.has("access_token") ||
+    hash.has("refresh_token") ||
+    hash.has("error")
+  );
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -49,23 +72,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   /** Na eerste ingelogde sessie: token-refresh zonder `loading` → voorkomt unmount van o.a. bestelwizard bij tab-switch. */
   const hasAuthenticatedSessionRef = useRef(false);
+  const syncRunRef = useRef(0);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAuthErrorRef = useRef<string | null>(null);
 
-  const loadCurrentUserProfile = useCallback(async (): Promise<AuthUser | null> => {
+  const setFriendlyAuthError = useCallback((err: unknown, fallback: string) => {
+    const message = translateError(err, fallback);
+    if (lastAuthErrorRef.current !== message) {
+      lastAuthErrorRef.current = message;
+      setError(message);
+    }
+  }, []);
+
+  const loadUserProfile = useCallback(async (authUserId: string): Promise<AuthUser | null> => {
     if (!portalEnv.isSupabaseConfigured || !supabase) {
       return null;
     }
-    const sb = getSupabaseClient();
-    const {
-      data: { user: authUser },
-      error: authErr,
-    } = await sb.auth.getUser();
-    if (authErr || !authUser) {
-      return null;
-    }
-    const { data: profile, error: profileError } = await sb
+    const { data: profile, error: profileError } = await getSupabaseClient()
       .from("user_profiles")
       .select("id, organization_id, role, name, email")
-      .eq("auth_user_id", authUser.id)
+      .eq("auth_user_id", authUserId)
       .maybeSingle();
     if (profileError) {
       throw profileError;
@@ -82,6 +108,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
+  const loadCurrentUserProfile = useCallback(async (): Promise<AuthUser | null> => {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await getSupabaseClient().auth.getSession();
+    if (sessionError) {
+      throw sessionError;
+    }
+    if (!session?.user?.id) {
+      return null;
+    }
+    return loadUserProfile(session.user.id);
+  }, [loadUserProfile]);
+
   const refreshUserProfile = useCallback(async () => {
     const profile = await loadCurrentUserProfile();
     if (!profile) return;
@@ -96,8 +136,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     let cancelled = false;
+    const callbackError = getAuthCallbackError();
+    if (callbackError) {
+      setError(callbackError);
+    }
 
     const syncAuth = async () => {
+      const runId = ++syncRunRef.current;
       const quietRefresh = hasAuthenticatedSessionRef.current;
       if (!quietRefresh) {
         setLoading(true);
@@ -105,49 +150,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       try {
         const profile = await loadCurrentUserProfile();
-        if (cancelled) return;
+        if (cancelled || runId !== syncRunRef.current) return;
 
         if (!profile) {
-          hasAuthenticatedSessionRef.current = false;
-          setUser(null);
-          setError(null);
+          if (!hasAuthCallbackParams()) {
+            hasAuthenticatedSessionRef.current = false;
+            setUser(null);
+            if (!callbackError) {
+              setError(null);
+              lastAuthErrorRef.current = null;
+            }
+          }
           return;
         }
 
         hasAuthenticatedSessionRef.current = true;
         setUser(profile);
         setError(null);
+        lastAuthErrorRef.current = null;
       } finally {
-        if (!quietRefresh && !cancelled) {
+        if (!quietRefresh && !cancelled && runId === syncRunRef.current) {
           setLoading(false);
         }
       }
     };
 
-    syncAuth().catch((authError) => {
-      if (cancelled) return;
-      hasAuthenticatedSessionRef.current = false;
-      setUser(null);
-      setLoading(false);
-      setError(translateError(authError, "Onbekende authfout"));
-    });
+    const scheduleSyncAuth = (delay = 80) => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
+      syncTimerRef.current = setTimeout(() => {
+        syncAuth().catch((authError) => {
+          if (cancelled) return;
+          hasAuthenticatedSessionRef.current = false;
+          setUser(null);
+          setLoading(false);
+          setFriendlyAuthError(
+            authError,
+            "Inloggen is niet gelukt. Vraag eventueel een nieuwe magic link aan.",
+          );
+        });
+      }, delay);
+    };
+
+    scheduleSyncAuth(hasAuthCallbackParams() ? 250 : 0);
 
     const {
       data: { subscription },
-    } = getSupabaseClient().auth.onAuthStateChange(() => {
-      syncAuth().catch((authError) => {
+    } = getSupabaseClient().auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
         hasAuthenticatedSessionRef.current = false;
         setUser(null);
+        setError(null);
+        lastAuthErrorRef.current = null;
         setLoading(false);
-        setError(translateError(authError, "Onbekende authfout"));
-      });
+        return;
+      }
+      scheduleSyncAuth(event === "SIGNED_IN" ? 40 : 120);
     });
 
     return () => {
       cancelled = true;
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
       subscription.unsubscribe();
     };
-  }, [loadCurrentUserProfile]);
+  }, [loadCurrentUserProfile, setFriendlyAuthError]);
 
   const setRole = (_role: Role) => {};
 
@@ -159,6 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     setLoading(true);
+    lastAuthErrorRef.current = null;
     setError(null);
 
     try {
@@ -168,20 +238,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       if (signInError) {
-        setError(translateError(signInError, "Inloggen mislukt. Controleer je gegevens en probeer opnieuw."));
+        setFriendlyAuthError(signInError, "Inloggen mislukt. Controleer je gegevens en probeer opnieuw.");
         throw signInError;
       }
 
       const profile = await loadCurrentUserProfile();
       if (!profile) {
         const profileError = new Error("Je bent ingelogd, maar je portalprofiel kon niet worden geladen.");
-        setError(translateError(profileError));
+        setFriendlyAuthError(profileError, "Je portalprofiel kon niet worden geladen. Neem contact op met Digidromen.");
         throw profileError;
       }
 
       hasAuthenticatedSessionRef.current = true;
       setUser(profile);
       setError(null);
+      lastAuthErrorRef.current = null;
     } finally {
       setLoading(false);
     }
@@ -199,30 +270,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     setLoading(true);
+    lastAuthErrorRef.current = null;
     setError(null);
     setMagicLinkSent(false);
 
-    const { error: otpError } = await getSupabaseClient().auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin + "/dashboard",
-      },
-    });
+    try {
+      const { error: otpError } = await getSupabaseClient().auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin + "/dashboard",
+        },
+      });
 
-    setLoading(false);
+      if (otpError) {
+        setFriendlyAuthError(otpError, "Magic link versturen mislukt. Probeer het opnieuw.");
+        throw otpError;
+      }
 
-    if (otpError) {
-      setError(translateError(otpError, "Magic link versturen mislukt. Probeer het opnieuw."));
-      throw otpError;
+      setMagicLinkSent(true);
+    } finally {
+      setLoading(false);
     }
-
-    setMagicLinkSent(true);
   };
 
   const logout = async () => {
     hasAuthenticatedSessionRef.current = false;
     await getSupabaseClient().auth.signOut();
     setUser(null);
+    setError(null);
+    lastAuthErrorRef.current = null;
   };
 
   return (
