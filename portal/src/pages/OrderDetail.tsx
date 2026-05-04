@@ -104,7 +104,7 @@ const PreferredDeliverySection: React.FC<{
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-digidromen-primary/40"
           />
           <button type="button" onClick={() => { void handleSave(); }} disabled={isSaving}
-            className="rounded-lg bg-digidromen-primary px-3 py-1.5 text-xs font-semibold text-digidromen-dark disabled:opacity-50">
+            className="rounded-lg bg-digidromen-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
             {isSaving ? "Opslaan..." : "Opslaan"}
           </button>
           <button type="button" onClick={() => setEditing(false)} className="text-xs text-slate-500 hover:text-slate-700">Annuleren</button>
@@ -188,7 +188,7 @@ const DeliveryDateSection: React.FC<{
               void handleSave();
             }}
             disabled={isSaving}
-            className="rounded-lg bg-digidromen-primary px-3 py-1.5 text-xs font-semibold text-digidromen-dark disabled:opacity-50"
+            className="rounded-lg bg-digidromen-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
           >
             {isSaving ? "Opslaan..." : "Opslaan"}
           </button>

@@ -29,12 +29,12 @@ body {
   --color-surface-soft: #FFF9EA;
 
   /* Legacy aliases kept for existing usage */
-  --color-digidromen-primary: #FFD500;
-  --color-digidromen-warm: #FBF4EB;
+  --color-digidromen-primary: #005FB8;
+  --color-digidromen-warm: #FAF8F5;
   --color-digidromen-cream: #F5F0EB;
-  --color-digidromen-orange-light: #FFF5E0;
-  --color-digidromen-orange-medium: #FFE4A0;
-  --color-digidromen-secondary: #87CEDC;
+  --color-digidromen-orange-light: #FFF7ED;
+  --color-digidromen-orange-medium: #FED7AA;
+  --color-digidromen-secondary: #F2A900;
 
   --font-heading: 'Sora', 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-body: 'Roboto', 'DM Sans', system-ui, sans-serif;

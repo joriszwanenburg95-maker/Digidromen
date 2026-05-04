@@ -79,7 +79,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
               isDanger
                 ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-digidromen-primary text-digidromen-dark hover:bg-digidromen-primary/80"
+                : "bg-digidromen-primary text-white hover:bg-digidromen-primary/80"
             }`}
           >
             {confirmLabel}

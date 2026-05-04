@@ -15,7 +15,7 @@ const VARIANT_CLASSES: Record<
   string
 > = {
   danger: "bg-red-500 text-white hover:bg-red-600",
-  primary: "bg-digidromen-primary text-digidromen-dark hover:opacity-90",
+  primary: "bg-digidromen-primary text-white hover:opacity-90",
   secondary:
     "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
   success: "bg-emerald-500 text-white hover:bg-emerald-600",

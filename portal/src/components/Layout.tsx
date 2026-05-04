@@ -84,7 +84,7 @@ const Layout: React.FC = () => {
         </div>
 
         <div className="mx-4 mb-4 rounded-xl bg-white/8 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-digidromen-primary">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-digidromen-blue">
             {roleLabels[role]}
           </p>
           <p className="mt-0.5 text-sm font-semibold text-white">{user?.name}</p>
@@ -105,7 +105,7 @@ const Layout: React.FC = () => {
                 onClick={() => setSidebarOpen(false)}
                 className={`flex min-h-[44px] items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all ${
                   isActive
-                    ? "bg-digidromen-primary text-digidromen-dark"
+                    ? "bg-white text-digidromen-dark shadow-sm"
                     : "text-white/60 hover:bg-white/8 hover:text-white"
                 }`}
               >
@@ -135,7 +135,7 @@ const Layout: React.FC = () => {
                     onClick={() => setSidebarOpen(false)}
                     className={`flex min-h-[44px] items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all ${
                       isActive
-                        ? "bg-digidromen-primary text-digidromen-dark"
+                        ? "bg-white text-digidromen-dark shadow-sm"
                         : "text-white/60 hover:bg-white/8 hover:text-white"
                     }`}
                   >
@@ -183,7 +183,7 @@ const Layout: React.FC = () => {
               >
                 <Bell size={17} />
                 {unreadCount > 0 ? (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-digidromen-primary text-[9px] font-bold text-digidromen-dark">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-digidromen-orange text-[9px] font-bold text-white">
                     {unreadCount}
                   </span>
                 ) : null}

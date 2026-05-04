@@ -879,7 +879,7 @@ const Settings: React.FC = () => {
                 {userSelfNotice ? <p className="mt-3 text-sm text-green-700">{userSelfNotice}</p> : null}
                 <LoadingButton
                   type="button"
-                  className="mt-4 rounded-[20px] bg-digidromen-yellow text-digidromen-dark"
+                  className="mt-4 rounded-[20px] bg-digidromen-primary text-white"
                   onClick={() => {
                     void handleSaveUserSelf();
                   }}
@@ -1020,7 +1020,7 @@ const Settings: React.FC = () => {
                 {helpOrgSelfNotice ? <p className="mt-3 text-sm text-green-700">{helpOrgSelfNotice}</p> : null}
                 <LoadingButton
                   type="button"
-                  className="mt-4 rounded-[20px] bg-digidromen-yellow text-digidromen-dark"
+                  className="mt-4 rounded-[20px] bg-digidromen-primary text-white"
                   onClick={() => {
                     void handleSaveHelpOrgSelf();
                   }}
@@ -1069,7 +1069,7 @@ const Settings: React.FC = () => {
                   <input
                     type="checkbox"
                     id={`pref-${index}`}
-                    className="h-4 w-4 rounded border-digidromen-cream text-digidromen-yellow focus:ring-digidromen-orange"
+                    className="h-4 w-4 rounded border-digidromen-cream text-digidromen-primary focus:ring-digidromen-primary"
                     defaultChecked
                   />
                   <label htmlFor={`pref-${index}`} className="ml-3 text-sm text-digidromen-dark/80">
@@ -1091,7 +1091,7 @@ const Settings: React.FC = () => {
             <h3 className="text-lg font-bold text-digidromen-dark">Gebruikers</h3>
             <button
               onClick={() => setShowAddUser(true)}
-              className="flex items-center rounded-[20px] bg-digidromen-yellow px-4 py-2 text-sm font-semibold text-digidromen-dark"
+              className="flex items-center rounded-[20px] bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
             >
               <UserPlus size={16} className="mr-2" />
               Gebruiker toevoegen
@@ -1153,7 +1153,7 @@ const Settings: React.FC = () => {
                   isLoading={addUserLoading}
                   loadingLabel="Aanmaken..."
                   disabled={addUserLoading}
-                  className="rounded-[20px] bg-digidromen-yellow text-digidromen-dark"
+                  className="rounded-[20px] bg-digidromen-primary text-white"
                 >
                   Aanmaken
                 </LoadingButton>
@@ -1250,7 +1250,7 @@ const Settings: React.FC = () => {
             {isSupabase ? (
               <button
                 onClick={openAddOrgForm}
-                className="flex items-center rounded-[20px] bg-digidromen-yellow px-4 py-2 text-sm font-semibold text-digidromen-dark"
+                className="flex items-center rounded-[20px] bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
               >
                 <Building2 size={16} className="mr-2" />
                 Organisatie toevoegen
@@ -1306,7 +1306,7 @@ const Settings: React.FC = () => {
                     type="checkbox"
                     checked={orgForm.active}
                     onChange={(event) => setOrgForm((prev) => ({ ...prev, active: event.target.checked }))}
-                    className="h-4 w-4 rounded border-digidromen-cream text-digidromen-yellow focus:ring-digidromen-orange"
+                    className="h-4 w-4 rounded border-digidromen-cream text-digidromen-primary focus:ring-digidromen-primary"
                   />
                   Actief
                 </label>
@@ -1317,7 +1317,7 @@ const Settings: React.FC = () => {
                   isLoading={orgSaving}
                   loadingLabel="Opslaan..."
                   disabled={orgSaving}
-                  className="rounded-[20px] bg-digidromen-yellow text-digidromen-dark"
+                  className="rounded-[20px] bg-digidromen-primary text-white"
                 >
                   {editingOrgId ? "Opslaan" : "Aanmaken"}
                 </LoadingButton>
@@ -1413,7 +1413,7 @@ const Settings: React.FC = () => {
             {isSupabase ? (
               <button
                 onClick={openAddProductForm}
-                className="flex items-center rounded-[20px] bg-digidromen-yellow px-4 py-2 text-sm font-semibold text-digidromen-dark"
+                className="flex items-center rounded-[20px] bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
               >
                 <Package size={16} className="mr-2" />
                 Product toevoegen
@@ -1488,7 +1488,7 @@ const Settings: React.FC = () => {
                     type="checkbox"
                     checked={productForm.active}
                     onChange={(event) => setProductForm((prev) => ({ ...prev, active: event.target.checked }))}
-                    className="h-4 w-4 rounded border-digidromen-cream text-digidromen-yellow focus:ring-digidromen-orange"
+                    className="h-4 w-4 rounded border-digidromen-cream text-digidromen-primary focus:ring-digidromen-primary"
                   />
                   Actief
                 </label>
@@ -1506,7 +1506,7 @@ const Settings: React.FC = () => {
                   isLoading={productSaving}
                   loadingLabel="Opslaan..."
                   disabled={productSaving}
-                  className="rounded-[20px] bg-digidromen-yellow text-digidromen-dark"
+                  className="rounded-[20px] bg-digidromen-primary text-white"
                 >
                   {editingProductId ? "Opslaan" : "Aanmaken"}
                 </LoadingButton>
@@ -1606,7 +1606,7 @@ const Settings: React.FC = () => {
                   setOrderingWindowDirty(true);
                   setOrderingWindowForceOpen(e.target.checked);
                 }}
-                className="mt-1 h-4 w-4 rounded border-digidromen-cream text-digidromen-yellow focus:ring-digidromen-orange"
+                className="mt-1 h-4 w-4 rounded border-digidromen-cream text-digidromen-primary focus:ring-digidromen-primary"
               />
               <span className="text-sm text-digidromen-dark/80">
                 <strong className="text-digidromen-dark">Bestelvenster handmatig open voor hulporganisaties</strong>
@@ -1716,7 +1716,7 @@ const Settings: React.FC = () => {
                 }
               }}
               disabled={orderingWindowSaving}
-              className="mt-4 rounded-[20px] bg-digidromen-yellow px-5 py-2.5 text-sm font-semibold text-digidromen-dark disabled:opacity-60"
+              className="mt-4 rounded-[20px] bg-digidromen-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
             >
               {orderingWindowSaving ? "Opslaan..." : "Opslaan"}
             </button>

@@ -22,7 +22,9 @@ const Login: React.FC = () => {
       {/* Left branding panel */}
       <div className="hidden w-[45%] bg-digidromen-dark p-12 lg:flex lg:flex-col lg:justify-between">
         <div>
-          <img src="/Digidromen logo.png" alt="Digidromen" className="h-10 brightness-0 invert" />
+          <div className="inline-flex rounded-xl bg-white px-3 py-2">
+            <img src="/Digidromen logo.png" alt="Digidromen" className="h-10 object-contain" />
+          </div>
         </div>
         <div>
           <img
@@ -30,12 +32,12 @@ const Login: React.FC = () => {
             alt="Ieder kind verdient grote dromen"
             className="mb-8 w-full rounded-2xl object-contain"
           />
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-digidromen-primary">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-digidromen-blue">
             Live Portal
           </p>
           <h1 className="mt-4 max-w-md text-4xl font-extrabold leading-[1.1] text-white">
             Ieder kind verdient
-            <span className="text-digidromen-primary"> grote dromen</span>
+            <span className="text-digidromen-blue"> grote dromen</span>
           </h1>
           <p className="mt-6 max-w-lg text-sm leading-relaxed text-white/50">
             Supply & Service Portal voor het beheren van bestellingen, donaties en leveringen.
@@ -113,7 +115,7 @@ const Login: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading || !email || !supabaseConfigured || (loginMode === "password" && !password)}
-                className="w-full rounded-xl bg-digidromen-primary px-4 py-3.5 text-sm font-bold text-digidromen-dark shadow-sm transition-all hover:shadow-md disabled:cursor-not-allowed disabled:bg-digidromen-cream disabled:text-digidromen-dark/30 disabled:shadow-none"
+                className="w-full rounded-xl bg-digidromen-primary px-4 py-3.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-digidromen-primary/90 hover:shadow-md disabled:cursor-not-allowed disabled:bg-digidromen-cream disabled:text-digidromen-dark/30 disabled:shadow-none"
               >
                 {loading
                   ? "Bezig..."

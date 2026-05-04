@@ -679,7 +679,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
               onClick={() => {
                 void handleNext();
               }}
-              className="rounded-xl bg-digidromen-primary px-5 py-2 text-sm font-semibold text-digidromen-dark hover:opacity-90"
+              className="rounded-xl bg-digidromen-primary px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
             >
               Volgende
             </button>

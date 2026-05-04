@@ -1,54 +1,82 @@
-# Flow: donatie → voorraad → levering (portal)
+# Digidromen Portal — Flow van Donatie tot Levering
 
-**Laatste update:** 2026-04-14  
+Laatste update: 2026-05-04
 
-Dit document beschrijft welke stappen het systeem ondersteunt en **waar** je ze in de UI en logs ziet.
+Dit document beschrijft de operationele keten in de actuele portal.
 
-## 1. Digidromen kan altijd bestellen
+## Rollen in de flow
 
-- Logica staat in `portal/src/lib/canPlaceOrder.ts`: **`digidromen_staff`** en **`digidromen_admin`** slagen altijd voor het bestelvenster.
-- `Orders.tsx` en wizard stap **Bevestigen** (`StepConfirm.tsx`) gebruiken dezelfde functie.
+| Rol | Functie in flow |
+|---|---|
+| `help_org` | Vraagt laptops/vervangingen aan en volgt eigen aanvragen. |
+| `digidromen_staff` | Coördineert, accordeert, plant en beheert operationele data. |
+| `digidromen_admin` | Alles van staff plus gebruikers, audit en technische beheerfuncties. |
+| `service_partner` | Verwerkt donaties, voorraad, locaties en uitleveringen. |
 
-## 2. Donatiebatch (donor → warehouse)
+## 1. Donatiebatch: donor naar warehouse
 
-| Fase | Status (`donation_batches`) | Wie | Waar in UI |
-|------|-----------------------------|-----|------------|
-| Registratie | `aangemeld` | Staff/admin | Donaties → nieuwe batch; detailpagina |
-| Ophaal plannen | `pickup_gepland` (+ `pickup_date`) | Staff / toegewezen servicepartner | Donatie-detail, statusknoppen |
-| Ontvangen | `ontvangen` | Idem | Idem |
-| Verwerken | `in_verwerking` | Idem | Idem |
-| Klaar | `verwerkt` | Idem | Vereist o.a. certificaat (DB-trigger) |
+Donaties zijn operationeel zichtbaar voor Digidromen en servicepartner, niet voor hulporganisaties.
 
-**Log / tijdlijn:** Bij elke statusknop schrijft `DonationDetail` een rij in **`workflow_events`** (`case_type: donation`). Die verschijnen op:
+| Fase | Status | Wie handelt af | UI |
+|---|---|---|---|
+| Registratie | `aangemeld` | staff/admin | Donaties |
+| Pickup plannen | `pickup_gepland` | staff/admin of toegewezen servicepartner | Donatie-detail |
+| Ontvangst | `ontvangen` | toegewezen servicepartner/staff | Donatie-detail |
+| Verwerking | `in_verwerking` | toegewezen servicepartner/staff | Donatie-detail |
+| Klaar | `verwerkt` | toegewezen servicepartner/staff | Donatie-detail |
 
-- **Donatie-detail** → tab Status / tijdlijn
-- **Dashboard** → *Recente activiteit* (laatste 6 events, gemengd met orders)
+Bij statuswijzigingen schrijft de app een `workflow_events` rij met `case_type = donation`.
 
-Na registratie van een **nieuwe** batch schrijft `Donations.tsx` ook een initiële `workflow_events`-rij (*Donatie aangemeld*).
+## 2. Voorraad
 
-## 3. Bestelling (hulporganisatie / namens org)
+Donaties vullen operationeel de voorraad aan. De portal heeft geen harde 1-op-1 FK tussen donatiebatch en order.
 
-| Fase | Status (`orders`) | Wie | Waar |
-|------|-------------------|-----|------|
-| Concept | `concept` | Wizard | Lokaal concept-id; DB bij autosave |
-| Ingediend | `ingediend` | Klant of Digidromen | Na wizard: `useOrderDraft.submitDraft` + **workflow event** *Bestelling ingediend* |
-| Accordering | `te_accorderen` → `geaccordeerd` / `afgewezen` | Staff/admin | `OrderDetail` |
-| Uitvoering | `in_voorbereiding` | Staff/admin | Idem |
-| Levering | `geleverd` | Servicepartner / staff | Idem; optioneel voorraadmutatie `inventory_movements` |
-| Afsluiten | `afgesloten` | Staff/admin | Idem |
+Belangrijke tabellen:
+- `inventory_items`
+- `inventory_movements`
+- `stock_locations`
+- `products`
 
-**Log:** Orderstatuswijzigingen in `OrderDetail` → `workflow_events` (`case_type: order`). Dashboard toont de titelregel van het event (bijv. *Status gewijzigd naar …*).
+Servicepartner ziet voorraad als werkvoorraad. Staff/admin ziet totaaloverzicht.
 
-## 4. Dashboard vs audit
+## 3. Bestelling / aanvraag
 
-- **Dashboard › Recente activiteit:** `workflow_events`, laatste 6, alle `case_type`-waarden. Wordt ververst na mutaties (invalidate + optioneel Realtime).
-- **Audit Log:** aparte tabel **`audit_log`** (DB-triggers op mutaties) — technischer spoor, niet hetzelfde als de zakelijke tijdlijn per zaak.
+Voor hulporganisaties heet dit in de UI bij voorkeur **Aanvraag**. Intern heet de tabel `orders`.
 
-## 5. Realtime
+| Fase | Status | Wie |
+|---|---|---|
+| Concept | `concept` | wizard/autosave |
+| Ingediend | `ingediend` | hulporganisatie of Digidromen namens organisatie |
+| Ter accordering | `te_accorderen` | staff/admin |
+| Geaccordeerd | `geaccordeerd` | staff/admin |
+| Voorbereiding | `in_voorbereiding` | staff/admin/servicepartner |
+| Geleverd | `geleverd` | servicepartner/staff |
+| Afgesloten | `afgesloten` | staff/admin |
+| Afgewezen | `afgewezen` | staff/admin |
 
-`portal/src/lib/realtime.ts` invalideert bij wijzigingen op **`workflow_events`**, zodat het dashboard kan bijwerken zonder handmatige refresh.
-- Op Supabase moet **`workflow_events`** in de Realtime-publicatie staan (projectinstellingen of migratie), anders blijven alleen **invalidate na acties** actief.
+Product- en RMA-regels staan in:
 
-## 6. Koppeling donatie ↔ order
+`portal/src/lib/productRules.ts`
 
-In deze codebase is er **geen** strikte 1-op-1 FK tussen een donatiebatch en een order. Operationeel: donaties vullen **voorraad** (`inventory_items` / mutatieregels in UI); orders **trekken** voorraad bij levering. De **Inventory**-pagina toont mutatieregels uit openstaande orders en donaties ter indicatie.
+Workflowregels staan in:
+
+`portal/src/lib/workflow.ts`
+
+## 4. Realtime
+
+Realtime invalideert TanStack Query keys.
+
+Belangrijk:
+- `help_org` hoort alleen eigen orderwijzigingen te volgen.
+- Operationele streams zoals donaties, voorraad, notificaties en workflow-events zijn voor servicepartner/staff/admin.
+
+## 5. Dashboard
+
+Dashboard is rolafhankelijk:
+- `help_org`: klantstartpagina met eigen aanvragen en CTA naar nieuwe aanvraag.
+- `service_partner`: werkvoorraad/warehouse taken.
+- `digidromen_staff/admin`: regie-dashboard met accordering, signalen en open operationele dossiers.
+
+Zie ook:
+
+`docs/2026-05-04-ui-ux-role-spec.md`

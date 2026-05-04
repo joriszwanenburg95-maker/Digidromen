@@ -120,7 +120,7 @@ export const StepConfirm: React.FC<Props> = ({
         type="button"
         disabled={!canSubmit || isSubmitting}
         onClick={onSubmit}
-        className="w-full rounded-xl bg-digidromen-primary px-6 py-3 text-sm font-semibold text-digidromen-dark transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        className="w-full rounded-xl bg-digidromen-primary px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {isSubmitting ? "Bezig met indienen..." : "Bestelling indienen"}
       </button>

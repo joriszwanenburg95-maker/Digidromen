@@ -7,8 +7,11 @@ import {
   CheckCircle,
   HeartHandshake,
   HelpCircle,
+  Laptop,
+  ListChecks,
   Package,
   Plus,
+  Sparkles,
   ShoppingCart,
   TriangleAlert,
   Truck,
@@ -37,35 +40,73 @@ const FRIENDLY_STATUS: Record<string, string> = {
 
 /* ─── help_org: Mission Hero Panel ─── */
 
-const MissionHeroPanel: React.FC<{ firstName: string }> = ({ firstName }) => (
-  <div className="rounded-2xl bg-surface-soft p-8">
-    <p className="text-sm font-medium text-digidromen-dark/60">
-      Welkom terug, {firstName}
-    </p>
-    <h2 className="mt-1 font-heading text-2xl font-bold text-digidromen-dark">
-      Samen maken we digidromen waar
-    </h2>
-    <p className="mt-2 max-w-lg text-sm leading-relaxed text-digidromen-dark/60">
-      Via dit portaal vraag je laptops aan voor de kinderen en gezinnen die jij
-      ondersteunt. We helpen je graag op weg.
-    </p>
-    <div className="mt-6 flex flex-wrap items-center gap-3">
-      <Link
-        to="/orders"
-        className="inline-flex min-h-[44px] items-center gap-2 rounded-[20px] bg-digidromen-yellow px-6 py-2.5 text-sm font-semibold text-digidromen-dark transition-colors hover:bg-digidromen-yellow/80"
-      >
-        <Plus size={16} />
-        Laptop aanvragen
-      </Link>
-      <Link
-        to="/orders"
-        className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold text-digidromen-orange transition-colors hover:text-digidromen-orange/80"
-      >
-        Bekijk mijn aanvragen
-        <ArrowRight size={15} />
-      </Link>
+const MissionHeroPanel: React.FC<{ firstName: string; requestCount: number }> = ({
+  firstName,
+  requestCount,
+}) => (
+  <section className="overflow-hidden rounded-3xl border border-digidromen-cream bg-white shadow-sm">
+    <div className="grid gap-0 lg:grid-cols-[1.25fr_0.75fr]">
+      <div className="bg-surface-soft p-7 sm:p-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-digidromen-orange/15 bg-white px-3 py-1 text-xs font-semibold text-digidromen-orange">
+          <Sparkles size={14} />
+          Samen maken we digidromen waar
+        </div>
+        <p className="mt-5 text-sm font-medium text-digidromen-dark/60">
+          Welkom terug, {firstName}
+        </p>
+        <h2 className="mt-1 max-w-2xl font-heading text-3xl font-semibold leading-tight text-digidromen-dark">
+          Laptop aanvragen voor kinderen die digitaal mee moeten kunnen doen.
+        </h2>
+        <p className="mt-3 max-w-xl text-base leading-relaxed text-digidromen-dark/62">
+          Kies wat nodig is, vul de leverinformatie aan en volg daarna elke
+          aanvraag in gewone taal.
+        </p>
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <Link
+            to="/orders"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-[20px] bg-digidromen-yellow px-6 py-2.5 text-sm font-semibold text-digidromen-dark shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-digidromen-yellow/85"
+          >
+            <Plus size={16} />
+            Nieuwe aanvraag
+          </Link>
+          <Link
+            to="/orders"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-[20px] border border-digidromen-cream bg-white px-5 py-2.5 text-sm font-semibold text-digidromen-primary transition-colors hover:border-digidromen-primary/25 hover:bg-digidromen-primary/5"
+          >
+            Mijn aanvragen
+            <ArrowRight size={15} />
+          </Link>
+        </div>
+      </div>
+      <div className="flex flex-col justify-between gap-5 bg-white p-7 sm:p-8">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-digidromen-blue/25 text-digidromen-primary">
+            <Laptop size={24} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-digidromen-dark">
+              Aanvraagportaal
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-digidromen-dark/55">
+              Geen backoffice-overzicht, maar een korte klantflow voor jullie
+              eigen aanvragen.
+            </p>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-digidromen-cream bg-digidromen-warm p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-digidromen-dark/45">
+            Open bij jullie
+          </p>
+          <p className="mt-1 font-heading text-3xl font-semibold text-digidromen-dark">
+            {requestCount}
+          </p>
+          <p className="text-sm text-digidromen-dark/55">
+            {requestCount === 1 ? "aanvraag in behandeling" : "aanvragen in behandeling"}
+          </p>
+        </div>
+      </div>
     </div>
-  </div>
+  </section>
 );
 
 /* ─── help_org: My Request Timeline ─── */
@@ -153,7 +194,7 @@ const NeedHelpPanel: React.FC = () => (
 
 const WarehouseHeader: React.FC<{ firstName: string }> = ({ firstName }) => (
   <div className="rounded-2xl bg-digidromen-dark p-6">
-    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-digidromen-yellow">
+    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-digidromen-blue">
       Werkvoorraad
     </p>
     <h2 className="mt-1 font-heading text-xl font-bold text-white">
@@ -330,7 +371,7 @@ const StockSignalStrip: React.FC<{ items: StockItem[] }> = ({ items }) => (
 
 const OperationsHeader: React.FC<{ firstName: string }> = ({ firstName }) => (
   <div className="rounded-2xl bg-digidromen-dark p-6">
-    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-digidromen-yellow">
+    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-digidromen-blue">
       Regie
     </p>
     <h2 className="mt-1 font-heading text-xl font-bold text-white">
@@ -354,17 +395,17 @@ const ApprovalCommandCard: React.FC<{ count: number }> = ({ count }) => {
   return (
     <Link
       to="/orders?status=te_accorderen"
-      className="flex min-h-[44px] items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 shadow-sm transition-colors hover:bg-amber-100/90"
+      className="flex min-h-[44px] items-center justify-between gap-4 rounded-2xl border border-digidromen-orange/20 bg-digidromen-orange-light px-5 py-4 text-digidromen-dark shadow-sm transition-colors hover:bg-digidromen-orange-light/70"
     >
       <div>
         <p className="text-sm font-bold">Bestellingen goedkeuren</p>
-        <p className="mt-1 text-sm text-amber-900/85">
+        <p className="mt-1 text-sm text-digidromen-dark/70">
           <strong>{count}</strong>{" "}
           {count === 1 ? "bestelling wacht" : "bestellingen wachten"} op
           accordering.
         </p>
       </div>
-      <ArrowRight className="shrink-0 text-amber-700" size={22} />
+      <ArrowRight className="shrink-0 text-digidromen-orange" size={22} />
     </Link>
   );
 };
@@ -532,6 +573,12 @@ const QuickLinks: React.FC<QuickLinksProps> = ({
       description: `${lowStockCount} signalen`,
       icon: TriangleAlert,
     },
+    {
+      label: "Planning",
+      route: "/planning",
+      description: "leveringen",
+      icon: ListChecks,
+    },
   ];
 
   return (
@@ -549,8 +596,8 @@ const QuickLinks: React.FC<QuickLinksProps> = ({
               className="flex min-h-[44px] items-center justify-between rounded-xl border border-digidromen-cream/60 p-3 transition-all hover:border-digidromen-primary/30 hover:bg-surface-soft"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-digidromen-cream">
-                  <Icon size={15} className="text-digidromen-dark/50" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-digidromen-blue/20">
+                  <Icon size={15} className="text-digidromen-primary" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-digidromen-dark">
@@ -754,7 +801,7 @@ const Dashboard: React.FC = () => {
   if (role === "help_org") {
     return (
       <div className="space-y-6">
-        <MissionHeroPanel firstName={firstName} />
+        <MissionHeroPanel firstName={firstName} requestCount={openOrderCount} />
         <OrderingWindowBanner />
         <MyRequestTimeline orders={openOrders} />
         <NeedHelpPanel />

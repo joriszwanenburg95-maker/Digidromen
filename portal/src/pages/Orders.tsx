@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { ArrowRight, CalendarCheck, Laptop, Plus } from "lucide-react";
 
 import { OrderWizard } from "../components/wizard/OrderWizard";
 import { OrderingWindowBanner } from "../components/OrderingWindowBanner";
@@ -80,6 +80,88 @@ const ORDER_CREATOR_ROLES: string[] = [
   "digidromen_staff",
   "digidromen_admin",
 ];
+
+const HelpOrgRequestCards: React.FC<{
+  orders: OrderListRow[];
+  isLoading: boolean;
+  emptyLabel: string;
+  statusFilter: string;
+  onOpen: (id: string) => void;
+}> = ({ orders, isLoading, emptyLabel, statusFilter, onOpen }) => {
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-52 animate-pulse rounded-3xl border border-digidromen-cream bg-white"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="rounded-3xl border border-digidromen-cream bg-white px-6 py-12 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-digidromen-blue/20 text-digidromen-primary">
+          <Laptop size={26} />
+        </div>
+        <h3 className="mt-4 font-heading text-lg font-semibold text-digidromen-dark">
+          {statusFilter === "all" ? emptyLabel : "Geen aanvragen met deze status"}
+        </h3>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-digidromen-dark/55">
+          Start een nieuwe aanvraag zodra jullie een laptop of vervangend onderdeel
+          nodig hebben. Je ziet hier alleen aanvragen van je eigen organisatie.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {orders.map((order) => {
+        const summary = formatOrderLinesSummary(order.order_lines);
+        return (
+          <button
+            key={order.id}
+            type="button"
+            onClick={() => onOpen(order.id)}
+            className="group flex min-h-[220px] flex-col justify-between rounded-3xl border border-digidromen-cream bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-digidromen-primary/25 hover:shadow-md"
+          >
+            <div>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-digidromen-blue/20 text-digidromen-primary">
+                  <Laptop size={21} />
+                </div>
+                <StatusBadge status={order.status} />
+              </div>
+              <p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-digidromen-dark/40">
+                Aanvraag
+              </p>
+              <p className="mt-1 font-mono text-sm font-semibold text-digidromen-primary">
+                {order.id.slice(0, 8)}
+              </p>
+              <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-digidromen-dark/70">
+                {summary}
+              </p>
+            </div>
+            <div className="mt-6 flex items-center justify-between gap-4 border-t border-digidromen-cream pt-4">
+              <p className="flex items-center gap-1.5 text-xs text-digidromen-dark/55">
+                <CalendarCheck size={14} />
+                {order.preferred_delivery_date ?? "Leverdatum volgt"}
+              </p>
+              <span className="inline-flex items-center gap-1 text-sm font-semibold text-digidromen-orange group-hover:text-digidromen-orange-hover">
+                Bekijk
+                <ArrowRight size={14} />
+              </span>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 const Orders: React.FC = () => {
   const navigate = useNavigate();
@@ -229,76 +311,86 @@ const Orders: React.FC = () => {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-digidromen-cream bg-surface shadow-sm">
-        <table className="min-w-full divide-y divide-digidromen-cream">
-          <thead className="bg-digidromen-cream/40">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Order</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">
-                Bestelde producten
-              </th>
-              {showKlant ? (
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Klant</th>
-              ) : null}
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Status</th>
-              {showPrioriteit ? (
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Prioriteit</th>
-              ) : null}
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Gewenste leverdatum</th>
-              <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Acties</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-digidromen-cream bg-surface">
-            {isLoading ? (
-              Array.from({ length: 6 }).map((_, index) => (
-                <SkeletonTableRow key={index} cols={tableCols} />
-              ))
-            ) : filteredOrders.length === 0 ? (
+      {isHelpOrg ? (
+        <HelpOrgRequestCards
+          orders={filteredOrders}
+          isLoading={isLoading}
+          emptyLabel={emptyAllLabel}
+          statusFilter={statusFilter}
+          onOpen={(id) => navigate(`/orders/${id}`)}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-digidromen-cream bg-surface shadow-sm">
+          <table className="min-w-full divide-y divide-digidromen-cream">
+            <thead className="bg-digidromen-cream/40">
               <tr>
-                <td colSpan={tableCols} className="px-6 py-12 text-center text-sm text-digidromen-dark/40">
-                  {statusFilter === "all"
-                    ? emptyAllLabel
-                    : "Geen bestellingen met deze status. Kies 'Alle' om het volledige overzicht te zien."}
-                </td>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Order</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">
+                  Bestelde producten
+                </th>
+                {showKlant ? (
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Klant</th>
+                ) : null}
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Status</th>
+                {showPrioriteit ? (
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Prioriteit</th>
+                ) : null}
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Gewenste leverdatum</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Acties</th>
               </tr>
-            ) : (
-              filteredOrders.map((order) => {
-                const orgName = order.organizations?.name ?? "Onbekend";
-                const displayPriority = order.priority;
-                const displayDate = order.preferred_delivery_date ?? "-";
-                const summary = formatOrderLinesSummary(order.order_lines);
+            </thead>
+            <tbody className="divide-y divide-digidromen-cream bg-surface">
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, index) => (
+                  <SkeletonTableRow key={index} cols={tableCols} />
+                ))
+              ) : filteredOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={tableCols} className="px-6 py-12 text-center text-sm text-digidromen-dark/40">
+                    {statusFilter === "all"
+                      ? emptyAllLabel
+                      : "Geen bestellingen met deze status. Kies 'Alle' om het volledige overzicht te zien."}
+                  </td>
+                </tr>
+              ) : (
+                filteredOrders.map((order) => {
+                  const orgName = order.organizations?.name ?? "Onbekend";
+                  const displayPriority = order.priority;
+                  const displayDate = order.preferred_delivery_date ?? "-";
+                  const summary = formatOrderLinesSummary(order.order_lines);
 
-                return (
-                  <tr key={order.id} className="hover:bg-digidromen-cream/30">
-                    <td className="max-w-[140px] px-6 py-4 text-sm font-mono font-semibold text-sky-700">
-                      <span className="break-all">{order.id}</span>
-                    </td>
-                    <td className="max-w-md px-6 py-4 text-sm text-digidromen-dark/80">{summary}</td>
-                    {showKlant ? (
-                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">{orgName}</td>
-                    ) : null}
-                    <td className="px-6 py-4">
-                      <StatusBadge status={order.status} />
-                    </td>
-                    {showPrioriteit ? (
-                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">{displayPriority}</td>
-                    ) : null}
-                    <td className="px-6 py-4 text-sm text-digidromen-dark/60">{displayDate}</td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => navigate(`/orders/${order.id}`)}
-                        className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-orange hover:text-digidromen-orange-hover"
-                      >
-                        Bekijken
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                  return (
+                    <tr key={order.id} className="hover:bg-digidromen-cream/30">
+                      <td className="max-w-[140px] px-6 py-4 text-sm font-mono font-semibold text-sky-700">
+                        <span className="break-all">{order.id}</span>
+                      </td>
+                      <td className="max-w-md px-6 py-4 text-sm text-digidromen-dark/80">{summary}</td>
+                      {showKlant ? (
+                        <td className="px-6 py-4 text-sm text-digidromen-dark/60">{orgName}</td>
+                      ) : null}
+                      <td className="px-6 py-4">
+                        <StatusBadge status={order.status} />
+                      </td>
+                      {showPrioriteit ? (
+                        <td className="px-6 py-4 text-sm text-digidromen-dark/60">{displayPriority}</td>
+                      ) : null}
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">{displayDate}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => navigate(`/orders/${order.id}`)}
+                          className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-orange hover:text-digidromen-orange-hover"
+                        >
+                          Bekijken
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {showWizard ? <OrderWizard onClose={() => setShowWizard(false)} /> : null}
     </div>

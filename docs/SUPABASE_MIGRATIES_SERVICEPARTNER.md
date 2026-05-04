@@ -1,71 +1,80 @@
-# Servicepartner-default migraties (handmatig uitvoeren)
+# Supabase Migraties en Live Project
 
-Deze migraties zorgen dat **alle orders en donaties** (en **repair cases**) een `assigned_service_partner_id` krijgen — standaard **Aces Direct** (`org-aces-direct`), configureerbaar via `portal_config.default_service_partner_organization_id`.
+Laatste update: 2026-05-04
 
-**Supabase project-ref (Digidromen):** `oyxcwfozoxlgdclchden`
+Supabase project-ref: `oyxcwfozoxlgdclchden`
 
-## Optie A — Aanbevolen: Supabase CLI
+## CLI
 
-Vanaf de root van deze repo, met een account dat toegang heeft tot het project:
+Vanaf de repo-root:
 
 ```bash
-# Eenmalig: CLI login
-supabase login
-
-# Koppel aan het remote project
-supabase link --project-ref oyxcwfozoxlgdclchden
-
-# Draai alle nog niet toegepaste migraties uit supabase/migrations/
-supabase db push
+npx supabase link --project-ref oyxcwfozoxlgdclchden
+npx supabase db push
 ```
 
-Als `link` om een **database password** vraagt: vind je die in Supabase Dashboard → Project Settings → Database (connection string / reset password).
+Als de CLI geen toegang heeft:
+- controleer Supabase-accountrechten op project `oyxcwfozoxlgdclchden`
+- of zet tijdelijk `SUPABASE_DB_PASSWORD` voor de remote database
+- print nooit tokens/passwords in logs of docs
 
-## Optie B — Zonder CLI: SQL Editor in het dashboard
+## Huidige aandachtspunten
 
-1. Open [Supabase Dashboard](https://supabase.com/dashboard) → project **Digidromen** → **SQL Editor**.
-2. Voer de inhoud van de migratiebestanden **in volgorde van bestandsnaam** uit, minstens:
-   - `supabase/migrations/20260421115000_fix_donation_triggers_legacy_enum.sql` — **eerst** (lost `invalid input value for enum donation_status: "OP_VOORRAAD"` op bij updates op `donation_batches`)
-   - `supabase/migrations/20260421120000_default_service_partner.sql`
-   - `supabase/migrations/20260421200000_default_service_partner_repair_fk_safe_backfill.sql`
-3. Voer elk bestand in één keer uit (of plak ze achter elkaar in één run).
+### RLS en login
 
-**Let op:** `apply_default_assigned_service_partner` wordt in `20260421120000` aangemaakt; `20260421200000` veronderstelt dat die functie bestaat.
+`user_profiles` wordt gelezen tijdens auth bootstrap. Maak de SELECT-policy op `user_profiles` niet afhankelijk van `current_app_role()`, `current_organization_id()` of `is_staff_or_admin()`, omdat die helperfuncties zelf `user_profiles` lezen.
 
-### Fout: `OP_VOORRAAD` / enum `donation_status`
-
-Oorzaak: oude triggerfuncties vergeleken nog met pre-redesign statusnamen. Voer **`20260421115000_fix_donation_triggers_legacy_enum.sql`** uit (via `db push` of handmatig), daarna opnieuw de servicepartner-migraties.
-
-## Controleren na uitvoer
-
-In SQL Editor:
+Veilige hotfix/baseline:
 
 ```sql
--- Moet 0 zijn (geen orders zonder servicepartner)
+DROP POLICY IF EXISTS "users read profiles" ON public.user_profiles;
+
+CREATE POLICY "users read profiles"
+ON public.user_profiles
+FOR SELECT
+TO authenticated
+USING (true);
+```
+
+Als de portal blijft hangen op `Portal laden...` direct na RLS-wijzigingen, controleer deze policy als eerste.
+
+### Servicepartner default
+
+Orders, donaties en repair cases gebruiken een default servicepartner via:
+
+`portal_config.default_service_partner_organization_id`
+
+Belangrijke migraties:
+- `20260421115000_fix_donation_triggers_legacy_enum.sql`
+- `20260421120000_default_service_partner.sql`
+- `20260421200000_default_service_partner_repair_fk_safe_backfill.sql`
+
+Controle na uitvoer:
+
+```sql
 SELECT count(*) AS orders_zonder_sp
 FROM public.orders
 WHERE assigned_service_partner_id IS NULL;
 
--- Moet 0 zijn
 SELECT count(*) AS donaties_zonder_sp
 FROM public.donation_batches
 WHERE assigned_service_partner_id IS NULL;
 
--- Moet 0 zijn
 SELECT count(*) AS repairs_zonder_sp
 FROM public.repair_cases
 WHERE assigned_service_partner_id IS NULL;
 
--- Standaard in config
 SELECT key, value
 FROM public.portal_config
 WHERE key = 'default_service_partner_organization_id';
 ```
 
-## Aces-org ontbreekt in de database
+## Types regenereren
 
-Als de backfill **0 rijen** bijwerkt en `org-aces-direct` bestaat niet in `organizations`, voer dan de seed/migratie uit die Aces aanmaakt (bijv. `20260409100000_test_users_and_model_improvements.sql` — alleen het relevante deel of de volledige migratiehistorie via `db push`).
+Na schemawijziging:
 
-## Standaard later wijzigen
+```bash
+npx supabase gen types typescript --project-id oyxcwfozoxlgdclchden > portal/src/types/database.ts
+```
 
-Update de JSON-waarde in `portal_config` (als `digidromen_admin` via app/SQL). Nieuwe rijen met `NULL` krijgen dan automatisch die org via de triggers.
+`portal/src/types/database.ts` is gegenereerd en wordt niet handmatig aangepast.

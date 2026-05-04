@@ -525,7 +525,7 @@ const Inventory: React.FC = () => {
             </div>
             <Link
               to="/orders"
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2.5 text-sm font-semibold text-digidromen-dark shadow-sm hover:opacity-90"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90"
             >
               Naar bestellingen
               <ArrowRight size={16} />
