@@ -1,5 +1,6 @@
 import React from "react";
 import { ArrowRightIcon, AtSignIcon, LockKeyholeIcon } from "lucide-react";
+import { motion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,49 @@ const loginQuotes = [
   "Gelijke kansen voor ieder kind",
   "Maak Digidromen waar",
 ];
+
+function LoginAmbientMotion() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 overflow-hidden rounded-[24px]"
+    >
+      <motion.div
+        className="absolute -left-10 -top-14 h-44 w-44 rounded-full bg-digidromen-yellow/38 blur-2xl"
+        animate={{
+          x: [0, 24, 10, 0],
+          y: [0, 10, 30, 0],
+          scale: [1, 1.16, 0.96, 1],
+          opacity: [0.62, 0.82, 0.56, 0.62],
+        }}
+        transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -right-12 top-2 h-40 w-40 rounded-full bg-digidromen-orange/34 blur-2xl"
+        animate={{
+          x: [0, -18, -8, 0],
+          y: [0, 22, -6, 0],
+          scale: [0.96, 1.08, 1.18, 0.96],
+          opacity: [0.46, 0.68, 0.52, 0.46],
+        }}
+        transition={{ duration: 10.5, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[conic-gradient(from_90deg,rgba(255,213,0,0.34),rgba(238,114,25,0.12),rgba(255,255,255,0),rgba(255,213,0,0.34))] blur-xl"
+        animate={{ rotate: 360, scale: [1, 1.05, 1] }}
+        transition={{
+          rotate: { duration: 18, repeat: Infinity, ease: "linear" },
+          scale: { duration: 6, repeat: Infinity, ease: "easeInOut" },
+        }}
+      />
+      <motion.div
+        className="absolute inset-x-8 top-1/2 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent"
+        animate={{ x: ["-60%", "60%"], opacity: [0, 0.9, 0] }}
+        transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
+      />
+    </div>
+  );
+}
 
 export function AuthPage({
   email,
@@ -59,7 +103,9 @@ export function AuthPage({
         </div>
 
         <div className="relative z-10 motion-safe:animate-auth-rise-delayed">
-          <div className="mb-6 min-h-[4.5rem] rounded-[24px] border border-white/12 bg-white/10 px-5 py-4 text-white shadow-sm backdrop-blur">
+          <div className="relative mb-6 min-h-[4.5rem] overflow-hidden rounded-[24px] border border-white/12 bg-white/10 px-5 py-4 text-white shadow-sm backdrop-blur">
+            <LoginAmbientMotion />
+            <div className="relative z-10">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-digidromen-yellow">
               Digitale kansen
             </p>
@@ -75,6 +121,7 @@ export function AuthPage({
               transition={{ type: "spring", damping: 30, stiffness: 420 }}
               mainClassName="font-heading text-2xl font-semibold leading-tight"
             />
+            </div>
           </div>
           <div className="overflow-hidden rounded-[28px] border border-white/12 bg-white shadow-2xl transition-transform duration-500 hover:-translate-y-1 hover:rotate-[0.4deg]">
             <img
