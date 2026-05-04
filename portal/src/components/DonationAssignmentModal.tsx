@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, MapPin } from "lucide-react";
 
 import { DEFAULT_SERVICE_PARTNER_ORG_ID } from "../lib/defaultServicePartner";
+import { translateError } from "../lib/errors";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
 import type { Database } from "../types/database";
@@ -195,9 +196,7 @@ export default function DonationAssignmentModal({
 
         {assignMutation.isError && (
           <p className="mt-3 text-sm text-red-600" role="alert">
-            {assignMutation.error instanceof Error
-              ? assignMutation.error.message
-              : "Toewijzing mislukt."}
+            {translateError(assignMutation.error, "Toewijzing mislukt.")}
           </p>
         )}
 

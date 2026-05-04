@@ -9,6 +9,7 @@ import React, {
 
 import type { Role } from "../types";
 import { portalEnv } from "../lib/env";
+import { translateError } from "../lib/errors";
 import { getSupabaseClient, supabase } from "../lib/supabase";
 
 interface AuthUser {
@@ -146,9 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       hasAuthenticatedSessionRef.current = false;
       setUser(null);
       setLoading(false);
-      setError(
-        authError instanceof Error ? authError.message : "Onbekende authfout",
-      );
+      setError(translateError(authError, "Onbekende authfout"));
     });
 
     const {
@@ -158,9 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         hasAuthenticatedSessionRef.current = false;
         setUser(null);
         setLoading(false);
-        setError(
-          authError instanceof Error ? authError.message : "Onbekende authfout",
-        );
+        setError(translateError(authError, "Onbekende authfout"));
       });
     });
 
@@ -175,7 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const signInWithPassword = async (email: string, password: string) => {
     if (!portalEnv.isSupabaseConfigured) {
       const envError = new Error("Supabase-configuratie ontbreekt.");
-      setError(envError.message);
+      setError(translateError(envError));
       throw envError;
     }
 
@@ -190,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(false);
 
     if (signInError) {
-      setError(signInError.message);
+      setError(translateError(signInError, "Inloggen mislukt. Controleer je gegevens en probeer opnieuw."));
       throw signInError;
     }
   };
@@ -198,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const sendMagicLink = async (email: string) => {
     if (!portalEnv.isSupabaseConfigured) {
       const envError = new Error("Supabase-configuratie ontbreekt.");
-      setError(envError.message);
+      setError(translateError(envError));
       throw envError;
     }
 
@@ -220,7 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(false);
 
     if (otpError) {
-      setError(otpError.message);
+      setError(translateError(otpError, "Magic link versturen mislukt. Probeer het opnieuw."));
       throw otpError;
     }
 

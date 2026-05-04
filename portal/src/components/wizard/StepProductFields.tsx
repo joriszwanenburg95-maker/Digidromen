@@ -1,17 +1,12 @@
 import React from "react";
 
-import type { ProductScenario } from "./StepProductType";
+import {
+  validateForScenario,
+  type ProductFieldValues,
+  type ProductScenario,
+} from "../../lib/productRules";
 
-export interface ProductFieldValues {
-  motivation: string;
-  serial_number: string;
-  defect_description: string;
-  replacement_reason: string;
-  connector_type: string;
-  connector_wattage: string;
-  defect_photo_urls: string[];
-  quantity: number;
-}
+export type { ProductFieldValues } from "../../lib/productRules";
 
 interface Props {
   scenario: ProductScenario;
@@ -268,41 +263,5 @@ export function validateProductFields(
   scenario: ProductScenario,
   values: ProductFieldValues,
 ): Partial<Record<keyof ProductFieldValues, string>> {
-  const errors: Partial<Record<keyof ProductFieldValues, string>> = {};
-
-  if (scenario === "new_request") {
-    if (!values.quantity || values.quantity < 1) {
-      errors.quantity = "Minimaal 1";
-    }
-  }
-
-  if (scenario === "laptop_replacement") {
-    if (!values.serial_number.trim()) {
-      errors.serial_number = "SRN is verplicht";
-    }
-    if (!values.defect_description.trim()) {
-      errors.defect_description = "Klachtomschrijving is verplicht";
-    }
-  }
-
-  if (scenario === "cable_replacement") {
-    if (!values.serial_number.trim()) {
-      errors.serial_number = "Serienummer is verplicht";
-    }
-    if (
-      !values.connector_type.trim() ||
-      !values.connector_wattage.trim()
-    ) {
-      errors.connector_type =
-        "Vul zowel connector type als wattage in";
-    }
-  }
-
-  if (scenario === "headset_replacement") {
-    if (!values.defect_description.trim()) {
-      errors.defect_description = "Reden voor vervanging is verplicht";
-    }
-  }
-
-  return errors;
+  return validateForScenario(scenario, values);
 }

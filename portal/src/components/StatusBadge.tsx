@@ -1,5 +1,7 @@
 import React from "react";
 
+import { labelFor } from "../lib/workflow";
+
 const STATUS_STYLES: Record<string, string> = {
   // Orders (lowercase)
   concept: "bg-slate-50 text-slate-600 ring-slate-500/20",
@@ -32,31 +34,12 @@ const STATUS_STYLES: Record<string, string> = {
   failed: "bg-rose-50 text-rose-700 ring-rose-600/20",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  // Orders (lowercase)
-  concept: "Concept",
-  ingediend: "Ingediend",
-  te_accorderen: "Te accorderen",
-  geaccordeerd: "Geaccordeerd",
-  in_voorbereiding: "In voorbereiding",
-  geleverd: "Geleverd",
-  afgesloten: "Afgesloten",
-  afgewezen: "Afgewezen",
-  // Repairs (UPPERCASE — unchanged in DB)
-  ONTVANGEN: "Ontvangen",
-  DIAGNOSE: "Diagnose",
-  IN_REPARATIE: "In reparatie",
-  TEST: "Test",
-  RETOUR: "Retour",
-  IRREPARABEL: "Irreparabel",
-  AFGESLOTEN: "Afgesloten",
-  // Donations (lowercase)
-  aangemeld: "Aangemeld",
-  pickup_gepland: "Ophaal gepland",
-  ontvangen: "Ontvangen",
-  in_verwerking: "In verwerking",
-  verwerkt: "Verwerkt",
-  geannuleerd: "Geannuleerd",
+// CRM sync states are not in the workflow module (different domain).
+const CRM_LABELS: Record<string, string> = {
+  synced: "Gesynchroniseerd",
+  queued: "In wachtrij",
+  retrying: "Opnieuw proberen",
+  failed: "Mislukt",
 };
 
 interface StatusBadgeProps {
@@ -66,7 +49,7 @@ interface StatusBadgeProps {
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = "sm" }) => {
   const styles = STATUS_STYLES[status] ?? "bg-slate-50 text-slate-600 ring-slate-500/20";
-  const label = STATUS_LABELS[status] ?? status;
+  const label = CRM_LABELS[status] ?? labelFor(status);
   const sizeClasses = size === "sm"
     ? "px-2.5 py-0.5 text-[11px]"
     : "px-3 py-1 text-xs";

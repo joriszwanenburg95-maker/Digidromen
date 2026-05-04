@@ -128,7 +128,7 @@ const Layout: React.FC = () => {
   );
 
   const { data: unreadCount = 0 } = useQuery<number>({
-    queryKey: queryKeys.notifications.unread(),
+    queryKey: [...queryKeys.notifications.unread(), role],
     queryFn: async () => {
       const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
       const { data, error } = await getSupabaseClient()
@@ -138,6 +138,7 @@ const Layout: React.FC = () => {
       if (error) throw error;
       return data?.length ?? 0;
     },
+    enabled: role !== "help_org",
   });
 
   const statusCopy = supabaseConfigured

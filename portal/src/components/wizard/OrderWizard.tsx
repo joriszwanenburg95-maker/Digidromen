@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../context/AuthContext";
+import { translateError } from "../../lib/errors";
 import { queryKeys } from "../../lib/queryKeys";
 import { getSupabaseClient } from "../../lib/supabase";
 import { useOrderDraft } from "../../hooks/useOrderDraft";
@@ -18,10 +19,13 @@ import {
   type ProductFieldValues,
   validateProductFields,
 } from "./StepProductFields";
+import { StepProductType } from "./StepProductType";
 import {
-  StepProductType,
+  getRule,
+  resolveProductId,
+  type ProductLookupRow,
   type ProductScenario,
-} from "./StepProductType";
+} from "../../lib/productRules";
 import {
   clearOrderWizardSession,
   loadOrderWizardSession,
@@ -39,20 +43,6 @@ const STEP_LABELS = [
 ];
 
 const STAFF_ORDER_ROLES = ["digidromen_staff", "digidromen_admin"] as const;
-
-function formatOrderSubmitError(message: string): string {
-  const m = message.trim();
-  if (m.includes("Voedingskabel defect vereist")) {
-    return (
-      "Voedingskabel: het serienummer (SRN) van de laptop ontbreekt, of connectortype en wattage zijn niet beide ingevuld. " +
-      "Vul alle drie in en dien opnieuw in."
-    );
-  }
-  if (m.includes("Laptop defect vereist")) {
-    return "Laptopvervanging: serienummer en klachtomschrijving zijn verplicht.";
-  }
-  return m;
-}
 
 const EMPTY_PRODUCT_FIELDS: ProductFieldValues = {
   motivation: "",
@@ -72,124 +62,28 @@ const EMPTY_DELIVERY: DeliveryValues = {
   preferred_delivery_date: "",
 };
 
-type ProductLookupRow = {
-  active: boolean;
-  category: string;
-  id: string;
-  is_orderable: boolean;
-  is_package: boolean;
-  is_replacement_product: boolean;
-  name: string;
-};
-
 interface Props {
   onClose: () => void;
-}
-
-function resolveProductId(
-  products: ProductLookupRow[] | undefined,
-  scenario: ProductScenario,
-): string | null {
-  if (!products?.length) {
-    return null;
-  }
-
-  if (scenario === "new_request") {
-    return (
-      products.find(
-        (product) =>
-          product.active &&
-          product.is_orderable &&
-          product.is_package &&
-          product.category === "laptop",
-      )?.id ?? null
-    );
-  }
-
-  if (scenario === "laptop_replacement") {
-    return (
-      products.find((product) => product.id === "prod-laptop")?.id ??
-      products.find(
-        (product) =>
-          product.active &&
-          product.is_orderable &&
-          product.category === "laptop" &&
-          !product.is_package,
-      )?.id ??
-      null
-    );
-  }
-
-  if (scenario === "cable_replacement") {
-    return (
-      products.find((product) => product.id === "prod-voedingskabel")?.id ??
-      products.find(
-        (product) =>
-          product.active &&
-          product.is_orderable &&
-          product.name.toLowerCase().includes("voedingskabel"),
-      )?.id ??
-      null
-    );
-  }
-
-  if (scenario === "mouse_replacement") {
-    return (
-      products.find((product) => product.id === "prod-muis")?.id ??
-      products.find(
-        (product) =>
-          product.active &&
-          product.is_orderable &&
-          product.name.toLowerCase().includes("muis"),
-      )?.id ??
-      null
-    );
-  }
-
-  if (scenario === "backpack_replacement") {
-    return (
-      products.find((product) => product.id === "prod-rugzak")?.id ??
-      products.find(
-        (product) =>
-          product.active &&
-          product.is_orderable &&
-          product.name.toLowerCase().includes("rugzak"),
-      )?.id ??
-      null
-    );
-  }
-
-  if (scenario === "headset_replacement") {
-    return (
-      products.find((product) => product.id === "prod-headset")?.id ??
-      products.find(
-        (product) =>
-          product.active &&
-          product.is_orderable &&
-          (product.name.toLowerCase().includes("headset") ||
-            product.name.toLowerCase().includes("koptelefoon")),
-      )?.id ??
-      null
-    );
-  }
-
-  return (
-    products.find((product) => product.id === "prod-powerbank")?.id ??
-    products.find(
-      (product) =>
-        product.active &&
-        product.is_orderable &&
-        product.name.toLowerCase().includes("powerbank"),
-    )?.id ??
-    null
-  );
 }
 
 export const OrderWizard: React.FC<Props> = ({ onClose }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { draftId, isSaving, saveDraft, scheduleSave, submitDraft } =
+  const { draftId, isSaving, saveDraft, scheduleSave, submitDraft, discardDraft } =
     useOrderDraft();
+
+  const wizardBootstrapped = useRef(false);
+
+  // Stale concept + sessionStorage (na mislukte indiening): synchroon wissen vóór session-restore.
+  useLayoutEffect(() => {
+    if (wizardBootstrapped.current) return;
+    wizardBootstrapped.current = true;
+    clearOrderWizardSession(null);
+    clearOrderWizardSession(draftId);
+    void discardDraft();
+    // draftId = eerste render (localStorage concept); één keer per wizard-mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const role = user?.role ?? "help_org";
   const isStaffOrderer = STAFF_ORDER_ROLES.includes(
@@ -590,26 +484,14 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     setSubmitError(null);
 
     try {
-      const rmaCategoryMap: Record<string, string> = {
-        laptop_replacement: "laptop",
-        cable_replacement: "voedingskabel",
-        powerbank_replacement: "powerbank",
-        mouse_replacement: "muis",
-        backpack_replacement: "rugzak",
-        headset_replacement: "headset",
-      };
-      const rmaCategory = rmaCategoryMap[scenario];
+      const rule = getRule(scenario);
 
       const lines = [
         {
           product_id: productId,
           quantity: productFields.quantity,
-          line_type:
-            scenario === "new_request"
-              ? ("new_request" as const)
-              : ("rma_defect" as const),
-          rma_category:
-            scenario === "new_request" ? null : rmaCategory,
+          line_type: rule.lineType,
+          rma_category: rule.rmaCategory,
           serial_number:
             scenario === "new_request"
               ? null
@@ -656,16 +538,8 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
       navigate(`/orders/${orderId}`);
       onClose();
     } catch (error) {
-      const msg =
-        error instanceof Error
-          ? error.message
-          : typeof error === "object" && error !== null && "message" in error
-            ? String((error as { message: unknown }).message)
-            : JSON.stringify(error);
       setSubmitError(
-        formatOrderSubmitError(
-          msg || "Er is een fout opgetreden bij het indienen.",
-        ),
+        translateError(error, "Er is een fout opgetreden bij het indienen."),
       );
     } finally {
       setIsSubmitting(false);

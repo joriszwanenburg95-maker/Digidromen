@@ -10,8 +10,10 @@ import Timeline from "../components/Timeline";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateTime } from "../lib/format";
 import { formatCrmReference } from "../lib/crm-preparation";
+import { translateError } from "../lib/errors";
 import { queryKeys } from "../lib/queryKeys";
 import { getSupabaseClient } from "../lib/supabase";
+import { donationWorkflow, type Role } from "../lib/workflow";
 import type { TimelineEvent } from "../types";
 import type { Database } from "../types/database";
 
@@ -49,50 +51,6 @@ function normalizeAssignedLocation(input: unknown): DonationDetailRow["assigned_
   };
 }
 
-function statusBadge(status: string) {
-  const map: Record<string, string> = {
-    aangemeld: "bg-blue-100 text-blue-800",
-    pickup_gepland: "bg-amber-100 text-amber-800",
-    ontvangen: "bg-sky-100 text-sky-800",
-    in_verwerking: "bg-purple-100 text-purple-800",
-    verwerkt: "bg-green-100 text-green-800",
-    geannuleerd: "bg-red-100 text-red-800",
-  };
-  return map[status] ?? "bg-slate-100 text-slate-700";
-}
-
-function statusButtonStyle(status: string) {
-  if (status === "verwerkt") return "bg-green-600 hover:bg-green-700 text-white";
-  if (status === "pickup_gepland" || status === "in_verwerking") return "bg-amber-500 hover:bg-amber-600 text-white";
-  return "bg-digidromen-primary hover:bg-blue-700 text-white";
-}
-
-function getNextStatuses(status: DonationStatus): DonationStatus[] {
-  const flow: Partial<Record<DonationStatus, DonationStatus[]>> = {
-    aangemeld: ["pickup_gepland"],
-    pickup_gepland: ["ontvangen"],
-    ontvangen: ["in_verwerking"],
-    in_verwerking: ["verwerkt"],
-  };
-  return flow[status] ?? [];
-}
-
-/** Staff/admin: altijd; service_partner: alleen als batch aan hun organisatie is toegewezen. */
-function canManageDonationWorkflow(
-  role: string,
-  userOrganizationId: string | undefined,
-  assignedServicePartnerId: string | null,
-): boolean {
-  if (role === "help_org") return false;
-  if (role === "digidromen_staff" || role === "digidromen_admin") return true;
-  if (role === "service_partner") {
-    return (
-      !!assignedServicePartnerId &&
-      assignedServicePartnerId === userOrganizationId
-    );
-  }
-  return false;
-}
 
 const DonationDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -343,13 +301,14 @@ const DonationDetail: React.FC = () => {
     );
   }
 
-  const role = user?.role ?? "help_org";
-  const canManage = canManageDonationWorkflow(
+  const role: Role = (user?.role as Role) ?? "help_org";
+  const manageContext = {
     role,
-    user?.organizationId,
-    donation.assigned_service_partner_id,
-  );
-  const nextStatuses = canManage ? getNextStatuses(donation.status) : [];
+    userOrganizationId: user?.organizationId,
+    assignedServicePartnerId: donation.assigned_service_partner_id,
+  };
+  const canManage = donationWorkflow.canManage(manageContext);
+  const nextStatuses = donationWorkflow.nextStates(manageContext, donation.status);
 
   const handleTransitionClick = (next: DonationStatus) => {
     transitionMutation.reset();
@@ -399,10 +358,10 @@ const DonationDetail: React.FC = () => {
                 type="button"
                 disabled={transitionMutation.isPending}
                 onClick={() => handleTransitionClick(next)}
-                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${statusButtonStyle(next)}`}
+                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${donationWorkflow.buttonClass(next)}`}
               >
                 <CheckCircle2 size={15} />
-                {next === "pickup_gepland" ? "Pickup plannen" : `→ ${next}`}
+                {donationWorkflow.actionLabel(next)}
               </button>
             ))}
           </div>
@@ -420,9 +379,10 @@ const DonationDetail: React.FC = () => {
           ) : null}
           {transitionMutation.isError ? (
             <p className="text-right text-sm text-red-600" role="alert">
-              {transitionMutation.error instanceof Error
-                ? transitionMutation.error.message
-                : "Actie mislukt. Mogelijk ontbreken rechten (bijv. toewijzing voor servicepartner)."}
+              {translateError(
+                transitionMutation.error,
+                "Actie mislukt. Mogelijk ontbreken rechten (bijv. toewijzing voor servicepartner).",
+              )}
             </p>
           ) : null}
         </div>
@@ -489,9 +449,7 @@ const DonationDetail: React.FC = () => {
             </div>
             {transitionMutation.isError ? (
               <p className="mt-3 text-sm text-red-600" role="alert">
-                {transitionMutation.error instanceof Error
-                  ? transitionMutation.error.message
-                  : "Opslaan mislukt."}
+                {translateError(transitionMutation.error, "Opslaan mislukt.")}
               </p>
             ) : null}
             <div className="mt-6 flex justify-end gap-2">
@@ -529,8 +487,8 @@ const DonationDetail: React.FC = () => {
                 <p className="mt-0.5 font-mono text-sm text-green-700">{donation.id}</p>
                 <p className="text-sm text-slate-500">Geregistreerd op {formatDate(donation.registered_at)}</p>
               </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusBadge(donation.status)}`}>
-                {donation.status}
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${donationWorkflow.badgeClass(donation.status)}`}>
+                {donationWorkflow.label(donation.status)}
               </span>
             </div>
 

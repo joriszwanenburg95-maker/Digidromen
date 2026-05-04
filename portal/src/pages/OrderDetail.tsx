@@ -21,73 +21,12 @@ import {
   formatOrderLineDetailLabel,
   formatOrderLinesSummary,
 } from "../lib/orderSummary";
+import { translateError } from "../lib/errors";
 import { queryKeys } from "../lib/queryKeys";
 import { getSupabaseClient } from "../lib/supabase";
+import { orderWorkflow, type Role } from "../lib/workflow";
 import type { Database } from "../types/database";
 import type { TimelineEvent } from "../types";
-
-function statusBadge(status: string) {
-  const map: Record<string, string> = {
-    concept: "bg-slate-100 text-slate-800",
-    ingediend: "bg-blue-100 text-blue-800",
-    te_accorderen: "bg-amber-100 text-amber-800",
-    geaccordeerd: "bg-amber-100 text-amber-800",
-    in_voorbereiding: "bg-purple-100 text-purple-800",
-    geleverd: "bg-green-100 text-green-800",
-    afgesloten: "bg-slate-100 text-slate-800",
-    afgewezen: "bg-red-100 text-red-800",
-  };
-  return map[status] ?? "bg-slate-100 text-slate-700";
-}
-
-function getNextStatuses(role: string, status: string): string[] {
-  if (role === "help_org") return [];
-  if (role === "service_partner") {
-    const flow: Record<string, string[]> = {
-      in_voorbereiding: ["geleverd"],
-    };
-    return flow[status] ?? [];
-  }
-
-  const flow: Record<string, string[]> = {
-    ingediend: ["te_accorderen", "afgewezen"],
-    te_accorderen: ["geaccordeerd", "afgewezen"],
-    geaccordeerd: ["in_voorbereiding", "afgewezen"],
-    in_voorbereiding: ["geleverd"],
-    geleverd: ["afgesloten"],
-  };
-  return flow[status] ?? [];
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  concept: "Concept",
-  ingediend: "Ingediend",
-  te_accorderen: "Ter accordering",
-  geaccordeerd: "Geaccordeerd",
-  in_voorbereiding: "In voorbereiding",
-  geleverd: "Geleverd",
-  afgesloten: "Afgesloten",
-  afgewezen: "Afgewezen",
-};
-
-function statusActionLabel(status: string): string {
-  const labels: Record<string, string> = {
-    afgewezen: "Afwijzen",
-    te_accorderen: "Ter accordering",
-    geaccordeerd: "Accorderen",
-    in_voorbereiding: "In voorbereiding zetten",
-    geleverd: "Markeren als geleverd",
-    afgesloten: "Afsluiten",
-  };
-  return labels[status] ?? `→ ${STATUS_LABELS[status] ?? status}`;
-}
-
-function statusButtonStyle(status: string) {
-  if (status === "afgewezen") return "bg-red-600 hover:bg-red-700 text-white";
-  if (status === "te_accorderen" || status === "geaccordeerd") return "bg-amber-500 hover:bg-amber-600 text-white";
-  if (status === "geleverd" || status === "afgesloten") return "bg-green-600 hover:bg-green-700 text-white";
-  return "bg-digidromen-primary hover:bg-blue-700 text-white";
-}
 
 type OrderLineRow = Database["public"]["Tables"]["order_lines"]["Row"];
 type OrderStatus = Database["public"]["Tables"]["orders"]["Row"]["status"];
@@ -148,7 +87,7 @@ const PreferredDeliverySection: React.FC<{
       .update({ preferred_delivery_date: date || null })
       .eq("id", orderId);
     setIsSaving(false);
-    if (updateError) { setError(updateError.message); return; }
+    if (updateError) { setError(translateError(updateError)); return; }
     setEditing(false);
     onSaved();
   };
@@ -221,7 +160,7 @@ const DeliveryDateSection: React.FC<{
     setIsSaving(false);
 
     if (updateError) {
-      setError(updateError.message);
+      setError(translateError(updateError));
       return;
     }
 
@@ -300,19 +239,31 @@ const OrderDetail: React.FC = () => {
   const [documentName, setDocumentName] = useState("");
 
   const { data: order, isLoading } = useQuery({
-    queryKey: queryKeys.orders.detail(id!),
+    queryKey: [
+      ...queryKeys.orders.detail(id!),
+      user?.role,
+      user?.organizationId,
+    ],
     queryFn: async () => {
-      const { data, error } = await getSupabaseClient()
+      const role: Role = (user?.role as Role) ?? "help_org";
+      if (role === "help_org" && !user?.organizationId) return null;
+
+      let query = getSupabaseClient()
         .from("orders")
         .select(
           "*, organizations!orders_organization_id_fkey(name), service_partner:organizations!orders_assigned_service_partner_id_fkey(name), order_lines(*, products(id, name))",
         )
-        .eq("id", id!)
-        .single();
+        .eq("id", id!);
+
+      if (role === "help_org") {
+        query = query.eq("organization_id", user!.organizationId);
+      }
+
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
-      return data as OrderDetailRow;
+      return data as OrderDetailRow | null;
     },
-    enabled: !!id,
+    enabled: !!id && !!user,
   });
 
   const { data: workflowEvents = [] } = useQuery({
@@ -327,7 +278,7 @@ const OrderDetail: React.FC = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!order?.id,
   });
 
   const { data: messages = [] } = useQuery({
@@ -342,7 +293,7 @@ const OrderDetail: React.FC = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!order?.id,
   });
 
   const { data: documents = [] } = useQuery({
@@ -357,7 +308,7 @@ const OrderDetail: React.FC = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!order?.id,
   });
 
   const transitionMutation = useMutation({
@@ -467,8 +418,8 @@ const OrderDetail: React.FC = () => {
     );
   }
 
-  const role = user?.role ?? "help_org";
-  const nextStatuses = getNextStatuses(role, order.status);
+  const role: Role = (user?.role as Role) ?? "help_org";
+  const nextStatuses = orderWorkflow.nextStates(role, order.status);
   const timelineEvents: TimelineEvent[] = workflowEvents.map((event) => ({
     id: event.id,
     status: event.status,
@@ -498,10 +449,10 @@ const OrderDetail: React.FC = () => {
                 key={status}
                 disabled={transitionMutation.isPending}
                 onClick={() => transitionMutation.mutate(status)}
-                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${statusButtonStyle(status)}`}
+                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${orderWorkflow.buttonClass(status)}`}
               >
                 {status === "afgewezen" ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
-                {statusActionLabel(status)}
+                {orderWorkflow.actionLabel(status)}
               </button>
             ))}
           </div>
@@ -517,8 +468,8 @@ const OrderDetail: React.FC = () => {
                 <p className="mt-0.5 font-mono text-sm text-sky-700">{order.id}</p>
                 <p className="text-sm text-slate-500">Geplaatst op {formatDate(order.created_at)}</p>
               </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusBadge(order.status)}`}>
-                {STATUS_LABELS[order.status] ?? order.status}
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${orderWorkflow.badgeClass(order.status)}`}>
+                {orderWorkflow.label(order.status)}
               </span>
             </div>
 

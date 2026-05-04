@@ -4,6 +4,7 @@ import { Trash2, UserPlus, X } from "lucide-react";
 import { LoadingButton } from "../components/LoadingButton";
 import { SkeletonTableRow } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
+import { translateError } from "../lib/errors";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
 import type { Database } from "../types/database";
@@ -81,7 +82,7 @@ const Users: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
       setTimeout(() => setInviteSuccess(false), 4000);
     } catch (err: unknown) {
-      setInviteError(err instanceof Error ? err.message : "Uitnodiging mislukt");
+      setInviteError(translateError(err, "Uitnodiging mislukt"));
     } finally {
       setInviteLoading(false);
     }
@@ -115,7 +116,7 @@ const Users: React.FC = () => {
       );
       await queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
     } catch (err: unknown) {
-      setInviteError(err instanceof Error ? err.message : "Gebruiker kon niet worden verwijderd.");
+      setInviteError(translateError(err, "Gebruiker kon niet worden verwijderd."));
     } finally {
       setDeleteLoadingId(null);
     }

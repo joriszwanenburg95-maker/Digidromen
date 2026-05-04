@@ -4,6 +4,7 @@ import { Building2, Package, Pencil, Trash2, UserPlus } from "lucide-react";
 import { LoadingButton } from "../components/LoadingButton";
 import { useAuth } from "../context/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { translateError } from "../lib/errors";
 import { queryKeys } from "../lib/queryKeys";
 import { getSupabaseClient } from "../lib/supabase";
 import type { Role } from "../types";
@@ -101,7 +102,7 @@ const emptyProductForm: ProductFormState = {
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
+  return translateError(error, fallback);
 }
 
 type OrganizationQueryRow = Pick<
@@ -1649,7 +1650,7 @@ const Settings: React.FC = () => {
                   });
                   setOrderingWindowNotice("Bestelvenster opgeslagen.");
                 } catch (err) {
-                  setOrderingWindowError(err instanceof Error ? err.message : "Fout bij opslaan.");
+                  setOrderingWindowError(translateError(err, "Fout bij opslaan."));
                 } finally {
                   setOrderingWindowSaving(false);
                 }

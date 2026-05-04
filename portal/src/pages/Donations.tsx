@@ -6,24 +6,17 @@ import { ArrowLeft, CheckCircle } from "lucide-react";
 import { LoadingButton } from "../components/LoadingButton";
 import { SkeletonTableRow } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
+import {
+  listDonations,
+  listDonorOrganizations,
+  type DonationListRow,
+} from "../lib/data/donations";
+import { translateError } from "../lib/errors";
 import { getSupabaseClient } from "../lib/supabase";
 import { DEFAULT_SERVICE_PARTNER_ORG_ID } from "../lib/defaultServicePartner";
 import { queryKeys } from "../lib/queryKeys";
+import type { Role } from "../lib/workflow";
 import StatusBadge from "../components/StatusBadge";
-import type { Database } from "../types/database";
-
-type DonationListRow = Pick<
-  Database["public"]["Tables"]["donation_batches"]["Row"],
-  "id" | "status" | "device_count_promised" | "pickup_date" | "created_at" | "assigned_service_partner_id"
-> & {
-  organizations: { name: string } | null;
-};
-
-function normalizeOrganization(input: unknown): { name: string } | null {
-  return input && typeof input === "object" && "name" in input && typeof input.name === "string"
-    ? { name: input.name }
-    : null;
-}
 
 const statusTabs = [
   { key: "all", label: "Alle" },
@@ -53,52 +46,23 @@ const Donations: React.FC = () => {
   const [donorOrgId, setDonorOrgId] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const { data: supabaseDonations = [], isLoading } = useQuery({
+  const role: Role = (user?.role as Role) ?? "help_org";
+
+  const { data: displayDonations = [], isLoading } = useQuery({
     queryKey: queryKeys.donations.list(),
-    queryFn: async () => {
-      const { data, error } = await getSupabaseClient()
-        .from("donation_batches")
-        .select(
-          "id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at, assigned_service_partner_id, organizations!donation_batches_sponsor_organization_id_fkey(name)",
-        )
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map((row) => ({
-        id: row.id,
-        status: row.status,
-        device_count_promised: row.device_count_promised,
-        pickup_date: row.pickup_date,
-        created_at: row.created_at,
-        assigned_service_partner_id: row.assigned_service_partner_id,
-        organizations: normalizeOrganization(row.organizations),
-      })) satisfies DonationListRow[];
-    },
-    enabled: true,
+    queryFn: () => listDonations({ role, organizationId: user?.organizationId }),
+    enabled: !!user,
   });
 
   const { data: donorOrgs = [] } = useQuery({
     queryKey: queryKeys.organizations.list({ type: "sponsor" }),
-    queryFn: async () => {
-      const { data, error } = await getSupabaseClient()
-        .from("organizations")
-        .select("id, name")
-        .eq("type", "sponsor")
-        .eq("active", true)
-        .order("name");
-      if (error) throw error;
-      return data;
-    },
+    queryFn: listDonorOrganizations,
     enabled: showNewDonation,
   });
-  const role = user?.role ?? "help_org";
 
-  // Service partners: toon alleen donaties die aan hen zijn toegewezen
-  const displayDonations = role === "service_partner"
-    ? supabaseDonations.filter((d) => (d as Record<string, unknown>).assigned_service_partner_id === user?.organizationId)
-    : supabaseDonations;
   const filteredDonations = statusFilter === "all"
     ? displayDonations
-    : displayDonations.filter((d) => d.status === statusFilter);
+    : displayDonations.filter((d: DonationListRow) => d.status === statusFilter);
 
   const submitDonation = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -128,7 +92,7 @@ const Donations: React.FC = () => {
         assigned_service_partner_id: DEFAULT_SERVICE_PARTNER_ORG_ID,
       });
     if (error) {
-      setSubmitError(error.message);
+      setSubmitError(translateError(error));
       return;
     }
     const { error: eventError } = await getSupabaseClient().from("workflow_events").insert({
@@ -145,7 +109,7 @@ const Donations: React.FC = () => {
     });
     if (eventError) {
       await getSupabaseClient().from("donation_batches").delete().eq("id", id);
-      setSubmitError(eventError.message);
+      setSubmitError(translateError(eventError));
       return;
     }
     await queryClient.invalidateQueries({ queryKey: queryKeys.donations.list() });

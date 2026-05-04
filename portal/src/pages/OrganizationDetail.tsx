@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Save, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { translateError } from "../lib/errors";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
 import StatusBadge from "../components/StatusBadge";
@@ -242,7 +243,7 @@ const OrganizationDetail: React.FC = () => {
         <div className="p-6">
           {saveMutation.isError && (
             <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">
-              {saveMutation.error instanceof Error ? saveMutation.error.message : "Opslaan mislukt."}
+              {translateError(saveMutation.error, "Opslaan mislukt.")}
             </p>
           )}
 

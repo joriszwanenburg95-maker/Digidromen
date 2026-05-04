@@ -3,6 +3,8 @@
  * Import from here instead of portal.ts.
  */
 
+import { labelFor } from "./workflow";
+
 export function formatDate(value?: string | null): string {
   if (!value) return "-";
   return new Date(value).toLocaleDateString("nl-NL", {
@@ -61,34 +63,6 @@ export function statusClasses(status: string): string {
   return "bg-sky-100 text-sky-700";
 }
 
-/** Human-readable status labels (NL). */
-const STATUS_LABELS: Record<string, string> = {
-  // order_status (lowercase)
-  concept: "Concept",
-  ingediend: "Ingediend",
-  te_accorderen: "Te accorderen",
-  geaccordeerd: "Geaccordeerd",
-  in_voorbereiding: "In voorbereiding",
-  geleverd: "Geleverd",
-  afgesloten: "Afgesloten",
-  afgewezen: "Afgewezen",
-  // donation_status (lowercase)
-  aangemeld: "Aangemeld",
-  pickup_gepland: "Ophaal gepland",
-  ontvangen: "Ontvangen",
-  in_verwerking: "In verwerking",
-  verwerkt: "Verwerkt",
-  geannuleerd: "Geannuleerd",
-  // repair_status (UPPERCASE — unchanged in DB)
-  ONTVANGEN: "Ontvangen",
-  DIAGNOSE: "Diagnose",
-  IN_REPARATIE: "In reparatie",
-  TEST: "Test",
-  RETOUR: "Retour",
-  IRREPARABEL: "Irreparabel",
-  AFGESLOTEN: "Afgesloten",
-};
-
 export function formatStatus(status: string): string {
-  return STATUS_LABELS[status] ?? status;
+  return labelFor(status);
 }

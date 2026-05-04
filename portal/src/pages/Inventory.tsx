@@ -7,6 +7,7 @@ import DataTable, { type Column } from "../components/DataTable";
 import { LoadingButton } from "../components/LoadingButton";
 import { useAuth } from "../context/AuthContext";
 import { useOrderingWindow } from "../hooks/useOrderingWindow";
+import { translateError } from "../lib/errors";
 import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
 import type { Database } from "../types/database";
@@ -385,7 +386,7 @@ const Inventory: React.FC = () => {
       setImportNotice(`${rows.length} regels geimporteerd.`);
       setImportText("");
     } catch (err: unknown) {
-      setImportError(err instanceof Error ? err.message : "Import mislukt.");
+      setImportError(translateError(err, "Import mislukt."));
     }
   };
 

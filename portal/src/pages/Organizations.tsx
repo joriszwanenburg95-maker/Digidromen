@@ -5,7 +5,12 @@ import { Plus, X } from "lucide-react";
 import { LoadingButton } from "../components/LoadingButton";
 import { SkeletonTableRow } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
-import { getSupabaseClient } from "../lib/supabase";
+import {
+  createOrganization,
+  listOrganizations,
+  type OrganizationType,
+} from "../lib/data/organizations";
+import { translateError } from "../lib/errors";
 import { queryKeys } from "../lib/queryKeys";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -32,14 +37,7 @@ const Organizations: React.FC = () => {
 
   const { data: orgs = [], isLoading } = useQuery({
     queryKey: queryKeys.organizations.list(),
-    queryFn: async () => {
-      const { data, error } = await getSupabaseClient()
-        .from("organizations")
-        .select("id, name, type, city, contact_email, contact_name, active")
-        .order("name");
-      if (error) throw error;
-      return data;
-    },
+    queryFn: listOrganizations,
     enabled: authMode === "supabase",
   });
 
@@ -47,23 +45,18 @@ const Organizations: React.FC = () => {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const { error } = await getSupabaseClient()
-        .from("organizations")
-        .insert({
-          id: `org-${crypto.randomUUID().slice(0, 8)}`,
-          name: createForm.name,
-          type: createForm.type as "help_org" | "service_partner" | "digidromen" | "sponsor",
-          city: createForm.city || "",
-          contact_name: createForm.contact_name || "",
-          contact_email: createForm.contact_email || "",
-          active: true,
-        });
-      if (error) throw error;
+      await createOrganization({
+        name: createForm.name,
+        type: createForm.type as OrganizationType,
+        city: createForm.city,
+        contact_name: createForm.contact_name,
+        contact_email: createForm.contact_email,
+      });
       setShowCreate(false);
       setCreateForm({ name: "", type: "help_org", city: "", contact_name: "", contact_email: "" });
       queryClient.invalidateQueries({ queryKey: queryKeys.organizations.all });
     } catch (err: unknown) {
-      setCreateError(err instanceof Error ? err.message : "Aanmaken mislukt");
+      setCreateError(translateError(err, "Aanmaken mislukt"));
     } finally {
       setCreateLoading(false);
     }

@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, BellRing, FileText, HeartHandshake, RefreshCw, ShoppingCart, TriangleAlert, Truck } from "lucide-react";
+import { ArrowRight, BellRing, FileText, HeartHandshake, Plus, RefreshCw, ShoppingCart, TriangleAlert, Truck } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
 import { OrderingWindowBanner } from "../components/OrderingWindowBanner";
@@ -29,6 +29,7 @@ const Dashboard: React.FC = () => {
       if (error) throw error;
       return data;
     },
+    enabled: role !== "help_org",
   });
 
   const isStaff = role === "digidromen_admin" || role === "digidromen_staff";
@@ -49,8 +50,16 @@ const Dashboard: React.FC = () => {
   const { data: openOrders = [], isLoading: ordersLoading } = useQuery({
     queryKey: queryKeys.orders.list({
       status: "open",
-      scope: role === "help_org" ? "own_org" : "all",
-      organizationId: role === "help_org" ? user?.organizationId ?? null : null,
+      scope:
+        role === "help_org"
+          ? "own_org"
+          : role === "service_partner"
+            ? "assigned_service_partner"
+            : "all",
+      organizationId:
+        role === "help_org" || role === "service_partner"
+          ? user?.organizationId ?? null
+          : null,
     }),
     queryFn: async () => {
       let q = getSupabaseClient()
@@ -61,12 +70,16 @@ const Dashboard: React.FC = () => {
         .limit(20);
       if (role === "help_org" && user?.organizationId) {
         q = q.eq("organization_id", user.organizationId);
+      } else if (role === "service_partner" && user?.organizationId) {
+        q = q.eq("assigned_service_partner_id", user.organizationId);
       }
       const { data, error } = await q;
       if (error) throw error;
       return data;
     },
-    enabled: role !== "help_org" || !!user?.organizationId,
+    enabled:
+      (role !== "help_org" && role !== "service_partner") ||
+      !!user?.organizationId,
   });
 
   const { data: openDonations = [], isLoading: donationsLoading } = useQuery({
@@ -95,7 +108,7 @@ const Dashboard: React.FC = () => {
       if (error) throw error;
       return data;
     },
-    enabled: true,
+    enabled: role !== "help_org",
   });
 
   const { data: lowStockProducts = [], isLoading: stockLoading } = useQuery({
@@ -116,9 +129,7 @@ const Dashboard: React.FC = () => {
   const openOrderCount = openOrders.length;
   const openDonationCount = openDonations.length;
 
-  const displayEvents = recentEvents
-    .filter((e) => role !== "help_org" || e.case_type === "order")
-    .map((e) => ({
+  const displayEvents = recentEvents.map((e) => ({
       id: e.id,
       summary: e.title,
       createdAt: e.created_at,
@@ -140,18 +151,18 @@ const Dashboard: React.FC = () => {
   const spotlightOrders = openOrders.slice(0, 3);
   const spotlightDonations = openDonations.slice(0, 3);
   const isLoading =
-    notificationsLoading ||
+    (role !== "help_org" && notificationsLoading) ||
     ordersLoading ||
     (role !== "help_org" && donationsLoading) ||
-    eventsLoading ||
+    (role !== "help_org" && eventsLoading) ||
     (role !== "help_org" && stockLoading);
 
   const cards = role === "help_org"
     ? [
-        { label: "Open bestellingen", value: String(openOrderCount), icon: ShoppingCart, accent: "bg-digidromen-primary" },
-        { label: "Geplande leveringen", value: String(scheduledDeliveries), icon: Truck, accent: "bg-emerald-500" },
-        { label: "Meldingen", value: String(unreadNotifications), icon: RefreshCw, accent: "bg-digidromen-secondary" },
-        { label: "Recente updates", value: String(displayEvents.length), icon: BellRing, accent: "bg-amber-500" },
+        { label: "Mijn bestellingen", value: String(openOrderCount), icon: ShoppingCart, accent: "bg-digidromen-primary" },
+        { label: "Levermomenten", value: String(scheduledDeliveries), icon: Truck, accent: "bg-emerald-500" },
+        { label: "In behandeling", value: String(openOrders.filter((o) => !["geleverd", "afgesloten", "afgewezen"].includes(o.status)).length), icon: RefreshCw, accent: "bg-digidromen-secondary" },
+        { label: "Geleverd", value: String(openOrders.filter((o) => o.status === "geleverd").length), icon: BellRing, accent: "bg-amber-500" },
       ]
     : role === "service_partner"
       ? [
@@ -210,6 +221,24 @@ const Dashboard: React.FC = () => {
 
       <OrderingWindowBanner />
 
+      {role === "help_org" ? (
+        <Link
+          to="/orders"
+          className="flex flex-col justify-between gap-4 rounded-2xl border border-digidromen-primary/30 bg-white px-5 py-4 shadow-sm transition-colors hover:border-digidromen-primary/60 hover:bg-digidromen-orange-light/30 sm:flex-row sm:items-center"
+        >
+          <div>
+            <p className="text-sm font-bold text-digidromen-dark">Laptop aanvragen</p>
+            <p className="mt-1 text-sm text-digidromen-dark/55">
+              Plaats een nieuwe bestelling of volg de status van bestaande aanvragen.
+            </p>
+          </div>
+          <span className="inline-flex w-fit items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-digidromen-dark">
+            <Plus size={16} />
+            Naar bestellen
+          </span>
+        </Link>
+      ) : null}
+
       {isStaff && approvalQueueCount > 0 ? (
         <Link
           to="/orders?status=te_accorderen"
@@ -238,9 +267,27 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
         {/* Recent activity */}
         <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
-          <h3 className="mb-4 text-base font-bold text-digidromen-dark">Recente activiteit</h3>
+          <h3 className="mb-4 text-base font-bold text-digidromen-dark">
+            {role === "help_org" ? "Mijn aanvragen" : "Recente activiteit"}
+          </h3>
           <div className="space-y-3">
-            {displayEvents.length === 0 ? (
+            {role === "help_org" ? (
+              spotlightOrders.length === 0 ? (
+                <p className="py-6 text-center text-sm text-digidromen-dark/30">Nog geen aanvragen.</p>
+              ) : (
+                spotlightOrders.map((order) => (
+                  <Link key={order.id} to={`/orders/${order.id}`} className="block rounded-xl border border-digidromen-cream/80 p-3.5 transition-colors hover:bg-digidromen-cream/40">
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="break-all font-mono text-sm font-semibold text-digidromen-dark">{order.id}</p>
+                      <StatusBadge status={order.status} />
+                    </div>
+                    <p className="mt-1 text-xs text-digidromen-dark/45">
+                      Gewenste leverdatum: {order.preferred_delivery_date ?? "nog niet gekozen"}
+                    </p>
+                  </Link>
+                ))
+              )
+            ) : displayEvents.length === 0 ? (
               <p className="py-6 text-center text-sm text-digidromen-dark/30">Nog geen activiteit.</p>
             ) : (
               displayEvents.map((event) => (

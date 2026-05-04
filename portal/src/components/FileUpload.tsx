@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { CheckCircle, FileUp, Loader2, XCircle } from "lucide-react";
+import { translateError } from "../lib/errors";
 import { getSupabaseClient } from "../lib/supabase";
 
 export interface FileUploadProps {
@@ -56,7 +57,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           .upload(filePath, file, { upsert: false });
 
         if (error) {
-          handleError(error.message);
+          handleError(translateError(error, "Upload mislukt. Probeer het opnieuw."));
           return;
         }
 
@@ -67,7 +68,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         setState("done");
         onUpload(publicUrl, file.name);
       } catch (err) {
-        handleError(err instanceof Error ? err.message : "Upload mislukt.");
+        handleError(translateError(err, "Upload mislukt."));
       }
     },
     [bucket, path, maxSizeMb, onUpload, handleError],

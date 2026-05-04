@@ -7,13 +7,17 @@ import { OrderWizard } from "../components/wizard/OrderWizard";
 import { OrderingWindowBanner } from "../components/OrderingWindowBanner";
 import { SkeletonTableRow } from "../components/Skeleton";
 import { useAuth } from "../context/AuthContext";
-import { getSupabaseClient } from "../lib/supabase";
 import { canPlaceOrder } from "../lib/canPlaceOrder";
+import {
+  countAwaitingApproval,
+  listOrders,
+  type OrderListRow,
+} from "../lib/data/orders";
 import { formatOrderLinesSummary } from "../lib/orderSummary";
 import { queryKeys } from "../lib/queryKeys";
+import type { Role } from "../lib/workflow";
 import { useOrderingWindow } from "../hooks/useOrderingWindow";
 import StatusBadge from "../components/StatusBadge";
-import type { Database } from "../types/database";
 
 const statusTabs = [
   { key: "all", label: "Alle" },
@@ -33,25 +37,6 @@ const ORDER_CREATOR_ROLES: string[] = [
   "digidromen_admin",
 ];
 
-type OrderListRow = Pick<
-  Database["public"]["Tables"]["orders"]["Row"],
-  | "id"
-  | "status"
-  | "organization_id"
-  | "priority"
-  | "preferred_delivery_date"
-  | "created_at"
-  | "assigned_service_partner_id"
-> & {
-  organizations: { name: string } | null;
-  order_lines: Array<{
-    quantity: number;
-    line_type: string | null;
-    rma_category: string | null;
-    products: { name: string | null } | null;
-  }>;
-};
-
 const Orders: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,78 +50,31 @@ const Orders: React.FC = () => {
     setStatusFilter(searchParams.get("status") ?? "all");
   }, [searchParams]);
 
-  const { data: supabaseOrders = [], isLoading } = useQuery({
+  const role: Role = (user?.role as Role) ?? "help_org";
+
+  const { data: displayOrders = [], isLoading } = useQuery({
     queryKey: queryKeys.orders.list(),
-    queryFn: async () => {
-      const { data, error } = await getSupabaseClient()
-        .from("orders")
-        .select(
-          "id, status, organization_id, priority, preferred_delivery_date, created_at, assigned_service_partner_id, organizations!orders_organization_id_fkey(name), order_lines(quantity, line_type, rma_category, products(name))",
-        )
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map((order) => {
-        const organizationRelation = order.organizations as
-          | { name?: string | null }
-          | null;
-        const organization = organizationRelation?.name
-          ? { name: organizationRelation.name }
-          : null;
-
-        const rawLines = order.order_lines as
-          | OrderListRow["order_lines"]
-          | null
-          | undefined;
-
-        return {
-          assigned_service_partner_id: order.assigned_service_partner_id,
-          created_at: order.created_at,
-          id: order.id,
-          organization_id: order.organization_id,
-          organizations: organization,
-          order_lines: rawLines ?? [],
-          preferred_delivery_date: order.preferred_delivery_date,
-          priority: order.priority,
-          status: order.status,
-        };
-      }) as OrderListRow[];
-    },
-    enabled: true,
+    queryFn: () => listOrders({ role, organizationId: user?.organizationId }),
+    enabled: !!user,
   });
 
-  const isStaff =
-    user?.role === "digidromen_admin" || user?.role === "digidromen_staff";
+  const isStaff = role === "digidromen_admin" || role === "digidromen_staff";
 
   const { data: pendingApprovalCount = 0 } = useQuery({
     queryKey: ["orders", "te-accorderen-count"] as const,
-    queryFn: async () => {
-      const { count, error } = await getSupabaseClient()
-        .from("orders")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "te_accorderen");
-      if (error) throw error;
-      return count ?? 0;
-    },
+    queryFn: countAwaitingApproval,
     enabled: isStaff,
   });
 
   const { data: window } = useOrderingWindow();
 
-  const role = user?.role ?? "help_org";
-
-  // Service partners: alleen orders die aan hen zijn toegewezen
-  // Help orgs: alleen orders van hun eigen organisatie
-  const displayOrders = role === "service_partner"
-    ? supabaseOrders.filter((o) => o.assigned_service_partner_id === user?.organizationId)
-    : role === "help_org"
-      ? supabaseOrders.filter((o) => o.organization_id === user?.organizationId)
-      : supabaseOrders;
   const filteredOrders = statusFilter === "all"
     ? displayOrders
-    : displayOrders.filter((o) => o.status === statusFilter);
+    : displayOrders.filter((o: OrderListRow) => o.status === statusFilter);
   const canCreateOrder = ORDER_CREATOR_ROLES.includes(role);
   const canOrder = canPlaceOrder(user?.role, window);
-  const tableCols = role === "help_org" ? 6 : 7;
+  const isHelpOrg = role === "help_org";
+  const tableCols = isHelpOrg ? 5 : 7;
 
   const setFilter = (key: string) => {
     if (key === "all") {
@@ -172,9 +110,15 @@ const Orders: React.FC = () => {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Bestellingen</h2>
+          <h2 className="text-2xl font-bold text-slate-900">
+            {isHelpOrg ? "Laptop aanvragen" : "Bestellingen"}
+          </h2>
           <p className="text-sm text-slate-500">
-            {isLoading ? "Laden..." : `${displayOrders.length} orders`}
+            {isLoading
+              ? "Laden..."
+              : isHelpOrg
+                ? `${displayOrders.length} aanvragen`
+                : `${displayOrders.length} orders`}
           </p>
         </div>
         {canCreateOrder ? (
@@ -185,10 +129,16 @@ const Orders: React.FC = () => {
             className="flex items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-digidromen-dark hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus size={16} />
-            Bestelling toevoegen
+            {isHelpOrg ? "Nieuwe aanvraag" : "Bestelling toevoegen"}
           </button>
         ) : null}
       </div>
+
+      {isHelpOrg ? (
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+          Kies <strong>Nieuwe aanvraag</strong> om een laptoppakket of vervangend onderdeel aan te vragen. Je ziet hier alleen aanvragen van je eigen organisatie.
+        </div>
+      ) : null}
 
       <OrderingWindowBanner />
 
@@ -216,12 +166,14 @@ const Orders: React.FC = () => {
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Bestelde producten
               </th>
-              {role !== "help_org" ? (
+              {!isHelpOrg ? (
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Klant</th>
               ) : null}
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Prioriteit</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Leverdatum</th>
+              {!isHelpOrg ? (
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Prioriteit</th>
+              ) : null}
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Gewenste leverdatum</th>
               <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Acties</th>
             </tr>
           </thead>
@@ -251,13 +203,15 @@ const Orders: React.FC = () => {
                       <span className="break-all">{order.id}</span>
                     </td>
                     <td className="max-w-md px-6 py-4 text-sm text-slate-700">{summary}</td>
-                    {role !== "help_org" ? (
+                    {!isHelpOrg ? (
                       <td className="px-6 py-4 text-sm text-slate-600">{orgName}</td>
                     ) : null}
                     <td className="px-6 py-4">
                       <StatusBadge status={order.status} />
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{displayPriority}</td>
+                    {!isHelpOrg ? (
+                      <td className="px-6 py-4 text-sm text-slate-600">{displayPriority}</td>
+                    ) : null}
                     <td className="px-6 py-4 text-sm text-slate-600">{displayDate}</td>
                     <td className="px-6 py-4 text-right">
                       <button
