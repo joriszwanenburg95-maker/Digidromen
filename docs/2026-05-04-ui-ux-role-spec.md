@@ -3,6 +3,13 @@
 Datum: 2026-05-04
 Doel: de portal high-end, rolgericht en expliciet Digidromen-eigen maken zonder de bestaande Vite/React/Supabase architectuur zwaarder te maken.
 
+Laatste implementatiestatus:
+- Fase 1 van `2026-05-04-shadcn-ui-implementation-plan.md` is uitgevoerd: shadcn/ui foundation, `components.json`, `src/lib/utils.ts` met `cn`, semantische shadcn tokens op Digidromen huisstijl en de afgesproken gratis componentbasis.
+- Fase 2 is uitgevoerd: `Layout.tsx` is vervangen door een AppShell met rolgerichte sidebar, topbar, mobile sheet navigation, role badge, echte logo-rendering en `cmd+k` command palette.
+- De shell gebruikt `roleSurface` als bron voor navigatie, labels en guards. Daardoor blijft de bestaande businesslogica intact, terwijl de UI per rol anders aanvoelt.
+- De huidige command palette is gebaseerd op `cmdk` en toont per rol alleen de relevante navigatie-items; admin ziet daarnaast de beheer-groep.
+- Animatie is bewust ingetogen: alleen opacity/transform micro-interactions, met Digidromen-warme styling en respect voor `prefers-reduced-motion`.
+
 Gebruikte skills:
 - `ui-ux-pro-max`: prioriteit op accessibility, touch targets, performance, responsive layout, consistente styling, animatie en data-UX.
 - `digidromen-branding`: Digidromen-kleuren, typografie, toon en missie als leidende ontwerpbron.
@@ -30,6 +37,25 @@ De portal is geen uniforme admin-app voor iedereen. Het is drie producten in een
    - UX-metafoor: operations cockpit.
    - Staff mag zien: operationele regiepagina's.
    - Admin mag daarnaast zien: gebruikers, audit log, technische instellingen.
+
+## Actuele AppShell
+
+De AppShell is de gedeelde technische laag, maar niet de gedeelde gebruikerservaring. De shell kiest op basis van de ingelogde rol een andere navigatie, taal en surface:
+
+| Rol | Surface in AppShell | Navigatiemodel | Doorontwikkelrichting |
+|---|---|---|---|
+| `help_org` | Aanvraagportaal | Maximaal 3 items: Start, Aanvragen, Mijn organisatie | Checkout-achtige aanvraagflow, statuspagina in mensentaal, weinig tabellen |
+| `service_partner` | Werkvoorraad | Taken en operationele werkbakken | Warehouse task board, grote statusacties, mobile-first verwerking |
+| `digidromen_staff` | Operations cockpit | Regiepagina's zonder adminbeheer | Accordering, uitzonderingen, planning, operationele signalen |
+| `digidromen_admin` | Operations + beheer | Staff-navigatie plus aparte beheer-groep | Gebruikers, audit, integraties en technische beheerfuncties gescheiden houden van dagelijks werk |
+
+Belangrijke afspraak voor vervolgwerk:
+- Voeg nieuwe navigatie en roltaal eerst toe aan `portal/src/lib/roleSurface.ts`.
+- Pagina's mogen technisch dezelfde route blijven gebruiken, maar de compositie moet per rol anders kunnen zijn.
+- Hulporganisatiepagina's vermijden backoffice-taal zoals orders, workflow mutaties, prioriteit en servicepartnerdetails.
+- Servicepartnerpagina's starten vanuit taken en statusacties, niet vanuit rapportages.
+- Staff/adminpagina's mogen data-dense zijn, maar blijven warm, rustig en Digidromen-eigen.
+- Adminbeheer blijft apart gegroepeerd en mag niet door de dagelijkse operations cockpit heen lopen.
 
 ## Designprincipes
 
