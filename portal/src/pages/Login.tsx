@@ -25,6 +25,11 @@ const Login: React.FC = () => {
           <img src="/Digidromen logo.png" alt="Digidromen" className="h-10 brightness-0 invert" />
         </div>
         <div>
+          <img
+            src="/Digidromen kleuren.png"
+            alt="Ieder kind verdient grote dromen"
+            className="mb-8 w-full rounded-2xl object-contain"
+          />
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-digidromen-primary">
             Live Portal
           </p>
@@ -33,20 +38,8 @@ const Login: React.FC = () => {
             <span className="text-digidromen-primary"> grote dromen</span>
           </h1>
           <p className="mt-6 max-w-lg text-sm leading-relaxed text-white/50">
-            Supply & Service Portal voor het beheren van bestellingen, reparaties en donaties. CRM-onafhankelijk, operationeel klaar.
+            Supply & Service Portal voor het beheren van bestellingen, donaties en leveringen.
           </p>
-          <div className="mt-10 grid grid-cols-2 gap-3">
-            {[
-              "Orders & reparaties",
-              "Voorraad & rapportages",
-              "Donatie workflows",
-              "CRM voorbereiding",
-            ].map((item) => (
-              <div key={item} className="rounded-xl border border-white/8 bg-white/5 px-4 py-3 text-xs font-medium text-white/60">
-                {item}
-              </div>
-            ))}
-          </div>
         </div>
         <p className="text-[11px] text-white/20">
           Digidromen &middot; Supply & Service Portal

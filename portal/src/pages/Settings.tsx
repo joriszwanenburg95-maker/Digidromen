@@ -123,14 +123,54 @@ type ProductQueryRow = Pick<
   | "active"
 >;
 
+/* ------------------------------------------------------------------ */
+/*  Per-role tab definitions                                           */
+/* ------------------------------------------------------------------ */
+
+type SettingsTabKey = "profile" | "users" | "organizations" | "products" | "bestelvenster";
+
+function getAvailableTabs(role: Role | undefined): { key: SettingsTabKey; label: string }[] {
+  const profile = { key: "profile" as const, label: "Profiel" };
+
+  switch (role) {
+    case "help_org":
+    case "service_partner":
+      return [profile];
+    case "digidromen_staff":
+      return [
+        profile,
+        { key: "organizations", label: "Organisaties" },
+        { key: "products", label: "Producten" },
+        { key: "bestelvenster", label: "Bestelvenster" },
+      ];
+    case "digidromen_admin":
+      return [
+        profile,
+        { key: "users", label: "Gebruikers" },
+        { key: "organizations", label: "Organisaties" },
+        { key: "products", label: "Producten" },
+        { key: "bestelvenster", label: "Bestelvenster" },
+      ];
+    default:
+      return [profile];
+  }
+}
+
+/* ------------------------------------------------------------------ */
+
 const Settings: React.FC = () => {
   const { user: authUser, authMode, refreshUserProfile } = useAuth();
   const queryClient = useQueryClient();
-  const isAdmin = authUser?.role === "digidromen_admin";
-  const isHelpOrgUser = authUser?.role === "help_org";
+  const role = authUser?.role as Role | undefined;
+  const isAdmin = role === "digidromen_admin";
+  const isStaffOrAdmin = role === "digidromen_admin" || role === "digidromen_staff";
+  const isHelpOrgUser = role === "help_org";
+  const isServicePartner = role === "service_partner";
+  const showSelfOrgProfile = isHelpOrgUser || isServicePartner;
   const isSupabase = authMode === "supabase";
 
-  const [activeTab, setActiveTab] = useState<"profile" | "users" | "organizations" | "products" | "bestelvenster">("profile");
+  const availableTabs = useMemo(() => getAvailableTabs(role), [role]);
+  const [activeTab, setActiveTab] = useState<SettingsTabKey>("profile");
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -253,7 +293,7 @@ const Settings: React.FC = () => {
       return data as HelpOrgSelfFormState & { id: string };
     },
     enabled:
-      isSupabase && isHelpOrgUser && Boolean(authUser?.organizationId),
+      isSupabase && showSelfOrgProfile && Boolean(authUser?.organizationId),
   });
 
   useEffect(() => {
@@ -280,7 +320,7 @@ const Settings: React.FC = () => {
       if (error) throw error;
       return data as { name: string; phone: string | null; email: string };
     },
-    enabled: isSupabase && isHelpOrgUser && Boolean(authUser?.id),
+    enabled: isSupabase && showSelfOrgProfile && Boolean(authUser?.id),
   });
 
   useEffect(() => {
@@ -331,7 +371,7 @@ const Settings: React.FC = () => {
       if (error) throw error;
       return data;
     },
-    enabled: isAdmin,
+    enabled: isStaffOrAdmin,
   });
 
   useEffect(() => {
@@ -479,10 +519,10 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleUpdateRole = async (profileId: string, role: Role) => {
+  const handleUpdateRole = async (profileId: string, newRole: Role) => {
     setUserActionId(`role-${profileId}`);
     try {
-      await callAdminFunction({ action: "update-role", profileId, role });
+      await callAdminFunction({ action: "update-role", profileId, role: newRole });
       await loadUsers();
       await queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
     } catch {
@@ -520,7 +560,7 @@ const Settings: React.FC = () => {
       );
       return;
     }
-    if (!f.target_group_description.trim()) {
+    if (isHelpOrgUser && !f.target_group_description.trim()) {
       setHelpOrgSelfError(
         "Vul de doelgroepomschrijving in (nodig voor laptoppakket-bestellingen).",
       );
@@ -750,30 +790,24 @@ const Settings: React.FC = () => {
     }
   };
 
-  const tabs = [
-    { key: "profile" as const, label: "Profiel" },
-    ...(isAdmin
-      ? [
-          { key: "users" as const, label: "Gebruikers" },
-          { key: "organizations" as const, label: "Organisaties" },
-          { key: "products" as const, label: "Producten" },
-          { key: "bestelvenster" as const, label: "Bestelvenster" },
-        ]
-      : []),
-  ];
+  /* ---- input style constants ---- */
+  const inputCls =
+    "w-full rounded-lg border border-digidromen-cream px-3 py-2 text-sm text-digidromen-dark focus:border-digidromen-orange focus:outline-none focus:ring-2 focus:ring-digidromen-orange/30";
+  const formInputCls =
+    "rounded-xl border border-digidromen-cream bg-digidromen-cream/30 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2";
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Instellingen</h2>
+      <h2 className="text-2xl font-bold text-digidromen-dark">Instellingen</h2>
 
-      {tabs.length > 1 ? (
-        <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
-          {tabs.map((tab) => (
+      {availableTabs.length > 1 ? (
+        <div className="flex gap-1 rounded-xl bg-digidromen-cream p-1">
+          {availableTabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                activeTab === tab.key ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                activeTab === tab.key ? "bg-surface text-digidromen-dark shadow-sm" : "text-digidromen-dark/60 hover:text-digidromen-dark"
               }`}
             >
               {tab.label}
@@ -782,18 +816,22 @@ const Settings: React.FC = () => {
         </div>
       ) : null}
 
+      {/* ============================================================ */}
+      {/*  PROFILE TAB                                                  */}
+      {/* ============================================================ */}
       {activeTab === "profile" ? (
-        <div className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-          {isHelpOrgUser ? (
+        <div className="divide-y divide-digidromen-cream overflow-hidden rounded-2xl border border-digidromen-cream bg-surface shadow-sm">
+          {showSelfOrgProfile ? (
             <>
+              {/* ---- Own user account ---- */}
               <div className="p-6">
-                <h3 className="mb-2 font-bold text-gray-800">Mijn account</h3>
-                <p className="mb-4 text-sm text-gray-600">
+                <h3 className="mb-2 font-bold text-digidromen-dark">Mijn account</h3>
+                <p className="mb-4 text-sm text-digidromen-dark/60">
                   Pas je naam en telefoon aan. Je inlog-e-mail wijzigen kan alleen via Digidromen (die koppeling staat in Supabase Auth).
                 </p>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
-                    <label htmlFor="self-name" className="mb-1 block text-xs font-semibold text-gray-400">
+                    <label htmlFor="self-name" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
                       Volledige naam
                     </label>
                     <input
@@ -804,11 +842,11 @@ const Settings: React.FC = () => {
                         setUserSelfNotice(null);
                         setUserSelfError(null);
                       }}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                      className={inputCls}
                     />
                   </div>
                   <div>
-                    <label htmlFor="self-phone" className="mb-1 block text-xs font-semibold text-gray-400">
+                    <label htmlFor="self-phone" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
                       Telefoon / mobiel
                     </label>
                     <input
@@ -820,19 +858,19 @@ const Settings: React.FC = () => {
                         setUserSelfNotice(null);
                         setUserSelfError(null);
                       }}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                      className={inputCls}
                       placeholder="Bijv. 06-12345678"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-gray-400">E-mail (inlog)</label>
-                    <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">
+                    <label className="mb-1 block text-xs font-semibold text-digidromen-dark/40">E-mail (inlog)</label>
+                    <p className="rounded border border-digidromen-cream bg-digidromen-cream/30 p-2 text-sm text-digidromen-dark/80">
                       {authUser?.email ?? "—"}
                     </p>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-gray-400">Rol</label>
-                    <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">
+                    <label className="mb-1 block text-xs font-semibold text-digidromen-dark/40">Rol</label>
+                    <p className="rounded border border-digidromen-cream bg-digidromen-cream/30 p-2 text-sm text-digidromen-dark/80">
                       {roleOptions.find((item) => item.value === authUser?.role)?.label ?? authUser?.role}
                     </p>
                   </div>
@@ -841,7 +879,7 @@ const Settings: React.FC = () => {
                 {userSelfNotice ? <p className="mt-3 text-sm text-green-700">{userSelfNotice}</p> : null}
                 <LoadingButton
                   type="button"
-                  className="mt-4"
+                  className="mt-4 rounded-[20px] bg-digidromen-yellow text-digidromen-dark"
                   onClick={() => {
                     void handleSaveUserSelf();
                   }}
@@ -852,15 +890,20 @@ const Settings: React.FC = () => {
                 </LoadingButton>
               </div>
 
+              {/* ---- Own organization ---- */}
               <div className="p-6">
-                <h3 className="mb-2 font-bold text-gray-800">Organisatiegegevens</h3>
-                <p className="mb-4 text-sm text-gray-600">
-                  Wijzig hier de gegevens van jullie organisatie (contactpersoon, adres, doelgroep). Deze gegevens gebruiken we voor levering en{" "}
-                  <strong className="font-semibold text-gray-800">laptoppakket-bestellingen</strong> (doelgroep).
+                <h3 className="mb-2 font-bold text-digidromen-dark">Organisatiegegevens</h3>
+                <p className="mb-4 text-sm text-digidromen-dark/60">
+                  Wijzig hier de gegevens van jullie organisatie (contactpersoon, adres{isHelpOrgUser ? ", doelgroep" : ""}). Deze gegevens gebruiken we voor levering
+                  {isHelpOrgUser ? (
+                    <>
+                      {" "}en <strong className="font-semibold text-digidromen-dark">laptoppakket-bestellingen</strong> (doelgroep)
+                    </>
+                  ) : null}.
                 </p>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="md:col-span-2">
-                    <label htmlFor="ho-name" className="mb-1 block text-xs font-semibold text-gray-400">
+                    <label htmlFor="ho-name" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
                       Organisatienaam
                     </label>
                     <input
@@ -871,11 +914,11 @@ const Settings: React.FC = () => {
                         setHelpOrgSelfError(null);
                         setHelpOrgSelfNotice(null);
                       }}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                      className={inputCls}
                     />
                   </div>
                   <div>
-                    <label htmlFor="ho-contact" className="mb-1 block text-xs font-semibold text-gray-400">
+                    <label htmlFor="ho-contact" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
                       Contactpersoon
                     </label>
                     <input
@@ -886,11 +929,11 @@ const Settings: React.FC = () => {
                         setHelpOrgSelfError(null);
                         setHelpOrgSelfNotice(null);
                       }}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                      className={inputCls}
                     />
                   </div>
                   <div>
-                    <label htmlFor="ho-email" className="mb-1 block text-xs font-semibold text-gray-400">
+                    <label htmlFor="ho-email" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
                       Contact e-mail organisatie
                     </label>
                     <input
@@ -902,11 +945,11 @@ const Settings: React.FC = () => {
                         setHelpOrgSelfError(null);
                         setHelpOrgSelfNotice(null);
                       }}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                      className={inputCls}
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label htmlFor="ho-address" className="mb-1 block text-xs font-semibold text-gray-400">
+                    <label htmlFor="ho-address" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
                       Adres (straat + huisnummer)
                     </label>
                     <input
@@ -917,11 +960,11 @@ const Settings: React.FC = () => {
                         setHelpOrgSelfError(null);
                         setHelpOrgSelfNotice(null);
                       }}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                      className={inputCls}
                     />
                   </div>
                   <div>
-                    <label htmlFor="ho-postal" className="mb-1 block text-xs font-semibold text-gray-400">
+                    <label htmlFor="ho-postal" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
                       Postcode
                     </label>
                     <input
@@ -932,11 +975,11 @@ const Settings: React.FC = () => {
                         setHelpOrgSelfError(null);
                         setHelpOrgSelfNotice(null);
                       }}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                      className={inputCls}
                     />
                   </div>
                   <div>
-                    <label htmlFor="ho-city" className="mb-1 block text-xs font-semibold text-gray-400">
+                    <label htmlFor="ho-city" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
                       Plaats
                     </label>
                     <input
@@ -947,35 +990,37 @@ const Settings: React.FC = () => {
                         setHelpOrgSelfError(null);
                         setHelpOrgSelfNotice(null);
                       }}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
+                      className={inputCls}
                     />
                   </div>
-                  <div className="md:col-span-2">
-                    <label htmlFor="ho-target" className="mb-1 block text-xs font-semibold text-gray-400">
-                      Doelgroepomschrijving (samenwerking / laptoppakketten)
-                    </label>
-                    <textarea
-                      id="ho-target"
-                      rows={4}
-                      value={helpOrgSelfForm.target_group_description}
-                      onChange={(e) => {
-                        setHelpOrgSelfForm((p) => ({
-                          ...p,
-                          target_group_description: e.target.value,
-                        }));
-                        setHelpOrgSelfError(null);
-                        setHelpOrgSelfNotice(null);
-                      }}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-digidromen-primary focus:outline-none focus:ring-2 focus:ring-digidromen-primary/30"
-                      placeholder="Bijvoorbeeld: gezinnen met een laag inkomen in regio X…"
-                    />
-                  </div>
+                  {isHelpOrgUser ? (
+                    <div className="md:col-span-2">
+                      <label htmlFor="ho-target" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
+                        Doelgroepomschrijving (samenwerking / laptoppakketten)
+                      </label>
+                      <textarea
+                        id="ho-target"
+                        rows={4}
+                        value={helpOrgSelfForm.target_group_description}
+                        onChange={(e) => {
+                          setHelpOrgSelfForm((p) => ({
+                            ...p,
+                            target_group_description: e.target.value,
+                          }));
+                          setHelpOrgSelfError(null);
+                          setHelpOrgSelfNotice(null);
+                        }}
+                        className={inputCls}
+                        placeholder="Bijvoorbeeld: gezinnen met een laag inkomen in regio X…"
+                      />
+                    </div>
+                  ) : null}
                 </div>
                 {helpOrgSelfError ? <p className="mt-3 text-sm text-red-600">{helpOrgSelfError}</p> : null}
                 {helpOrgSelfNotice ? <p className="mt-3 text-sm text-green-700">{helpOrgSelfNotice}</p> : null}
                 <LoadingButton
                   type="button"
-                  className="mt-4"
+                  className="mt-4 rounded-[20px] bg-digidromen-yellow text-digidromen-dark"
                   onClick={() => {
                     void handleSaveHelpOrgSelf();
                   }}
@@ -988,23 +1033,23 @@ const Settings: React.FC = () => {
             </>
           ) : (
             <div className="p-6">
-              <h3 className="mb-4 font-bold text-gray-800">Mijn Profiel</h3>
+              <h3 className="mb-4 font-bold text-digidromen-dark">Mijn Profiel</h3>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-gray-400">Volledige Naam</label>
-                  <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.name}</p>
+                  <label className="mb-1 block text-xs font-semibold text-digidromen-dark/40">Volledige Naam</label>
+                  <p className="rounded border border-digidromen-cream bg-digidromen-cream/30 p-2 text-sm text-digidromen-dark/80">{authUser?.name}</p>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-gray-400">Email Adres</label>
-                  <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.email}</p>
+                  <label className="mb-1 block text-xs font-semibold text-digidromen-dark/40">Email Adres</label>
+                  <p className="rounded border border-digidromen-cream bg-digidromen-cream/30 p-2 text-sm text-digidromen-dark/80">{authUser?.email}</p>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-gray-400">Organisatie</label>
-                  <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">{authUser?.organizationId ? orgLookup.get(authUser.organizationId) ?? "-" : "-"}</p>
+                  <label className="mb-1 block text-xs font-semibold text-digidromen-dark/40">Organisatie</label>
+                  <p className="rounded border border-digidromen-cream bg-digidromen-cream/30 p-2 text-sm text-digidromen-dark/80">{authUser?.organizationId ? orgLookup.get(authUser.organizationId) ?? "-" : "-"}</p>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-gray-400">Rol</label>
-                  <p className="rounded border border-gray-100 bg-gray-50 p-2 text-sm text-gray-700">
+                  <label className="mb-1 block text-xs font-semibold text-digidromen-dark/40">Rol</label>
+                  <p className="rounded border border-digidromen-cream bg-digidromen-cream/30 p-2 text-sm text-digidromen-dark/80">
                     {roleOptions.find((item) => item.value === authUser?.role)?.label ?? authUser?.role}
                   </p>
                 </div>
@@ -1013,7 +1058,7 @@ const Settings: React.FC = () => {
           )}
 
           <div className="p-6">
-            <h3 className="mb-4 font-bold text-gray-800">Notificatie Voorkeuren</h3>
+            <h3 className="mb-4 font-bold text-digidromen-dark">Notificatie Voorkeuren</h3>
             <div className="space-y-3">
               {[
                 "Email bij statuswijziging bestelling",
@@ -1024,10 +1069,10 @@ const Settings: React.FC = () => {
                   <input
                     type="checkbox"
                     id={`pref-${index}`}
-                    className="h-4 w-4 rounded border-gray-300 text-digidromen-primary focus:ring-digidromen-primary"
+                    className="h-4 w-4 rounded border-digidromen-cream text-digidromen-yellow focus:ring-digidromen-orange"
                     defaultChecked
                   />
-                  <label htmlFor={`pref-${index}`} className="ml-3 text-sm text-gray-700">
+                  <label htmlFor={`pref-${index}`} className="ml-3 text-sm text-digidromen-dark/80">
                     {pref}
                   </label>
                 </div>
@@ -1037,13 +1082,16 @@ const Settings: React.FC = () => {
         </div>
       ) : null}
 
+      {/* ============================================================ */}
+      {/*  USERS TAB (admin only)                                       */}
+      {/* ============================================================ */}
       {activeTab === "users" && isAdmin ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-900">Gebruikers</h3>
+            <h3 className="text-lg font-bold text-digidromen-dark">Gebruikers</h3>
             <button
               onClick={() => setShowAddUser(true)}
-              className="flex items-center rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
+              className="flex items-center rounded-[20px] bg-digidromen-yellow px-4 py-2 text-sm font-semibold text-digidromen-dark"
             >
               <UserPlus size={16} className="mr-2" />
               Gebruiker toevoegen
@@ -1051,45 +1099,45 @@ const Settings: React.FC = () => {
           </div>
 
           {showAddUser ? (
-            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h4 className="font-bold text-slate-800">Nieuwe gebruiker</h4>
+            <div className="space-y-4 rounded-2xl border border-digidromen-cream bg-surface p-6 shadow-sm">
+              <h4 className="font-bold text-digidromen-dark">Nieuwe gebruiker</h4>
               {userError ? <p className="text-sm text-rose-600">{userError}</p> : null}
               <div className="grid gap-3 md:grid-cols-2">
                 <input
                   value={newUser.name}
                   onChange={(event) => setNewUser((prev) => ({ ...prev, name: event.target.value }))}
                   placeholder="Volledige naam"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
                 <input
                   type="email"
                   value={newUser.email}
                   onChange={(event) => setNewUser((prev) => ({ ...prev, email: event.target.value }))}
                   placeholder="Email"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
                 <input
                   type="password"
                   value={newUser.password}
                   onChange={(event) => setNewUser((prev) => ({ ...prev, password: event.target.value }))}
                   placeholder="Wachtwoord"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
                 <select
                   value={newUser.role}
                   onChange={(event) => setNewUser((prev) => ({ ...prev, role: event.target.value as Role }))}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 >
-                  {roleOptions.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
+                  {roleOptions.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
                     </option>
                   ))}
                 </select>
                 <select
                   value={newUser.organizationId}
                   onChange={(event) => setNewUser((prev) => ({ ...prev, organizationId: event.target.value }))}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 >
                   <option value="">Selecteer organisatie</option>
                   {activeOrganizations.map((org) => (
@@ -1105,6 +1153,7 @@ const Settings: React.FC = () => {
                   isLoading={addUserLoading}
                   loadingLabel="Aanmaken..."
                   disabled={addUserLoading}
+                  className="rounded-[20px] bg-digidromen-yellow text-digidromen-dark"
                 >
                   Aanmaken
                 </LoadingButton>
@@ -1113,7 +1162,7 @@ const Settings: React.FC = () => {
                     setShowAddUser(false);
                     setUserError(null);
                   }}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+                  className="rounded-[20px] border border-digidromen-cream px-4 py-2 text-sm font-semibold text-digidromen-dark/60"
                 >
                   Annuleren
                 </button>
@@ -1121,57 +1170,57 @@ const Settings: React.FC = () => {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+          <div className="overflow-hidden rounded-2xl border border-digidromen-cream bg-surface shadow-sm">
+            <table className="min-w-full divide-y divide-digidromen-cream">
+              <thead className="bg-digidromen-cream/40">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Naam</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Rol</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Organisatie</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Acties</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Naam</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Rol</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Organisatie</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Acties</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-digidromen-cream bg-surface">
                 {usersLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">
+                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-digidromen-dark/40">
                       Laden...
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">
+                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-digidromen-dark/40">
                       Geen gebruikers gevonden.
                     </td>
                   </tr>
                 ) : (
                   users.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">{item.name}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{item.email}</td>
+                    <tr key={item.id} className="hover:bg-digidromen-cream/30">
+                      <td className="px-6 py-4 text-sm font-semibold text-digidromen-dark">{item.name}</td>
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">{item.email}</td>
                       <td className="px-6 py-4">
                         <select
                           value={item.role}
                           onChange={(event) => void handleUpdateRole(item.id, event.target.value as Role)}
                           disabled={userActionId === `role-${item.id}`}
-                          className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold outline-none"
+                          className="rounded-lg border border-digidromen-cream bg-digidromen-cream/30 px-2 py-1 text-xs font-semibold outline-none"
                         >
-                          {roleOptions.map((role) => (
-                            <option key={role.value} value={role.value}>
-                              {role.label}
+                          {roleOptions.map((r) => (
+                            <option key={r.value} value={r.value}>
+                              {r.label}
                             </option>
                           ))}
                         </select>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">
                         {orgLookup.get(item.organization_id) ?? item.organization_id}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => void handleDeactivateUser(item.id)}
                           disabled={userActionId === `deactivate-${item.id}`}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                          className="rounded-lg p-1.5 text-digidromen-dark/40 hover:bg-rose-50 hover:text-rose-500"
                           title="Deactiveren"
                         >
                           <Trash2 size={16} />
@@ -1186,19 +1235,22 @@ const Settings: React.FC = () => {
         </div>
       ) : null}
 
-      {activeTab === "organizations" && isAdmin ? (
+      {/* ============================================================ */}
+      {/*  ORGANIZATIONS TAB (staff + admin)                            */}
+      {/* ============================================================ */}
+      {activeTab === "organizations" && isStaffOrAdmin ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Organisaties</h3>
-              <p className="text-sm text-slate-500">
+              <h3 className="text-lg font-bold text-digidromen-dark">Organisaties</h3>
+              <p className="text-sm text-digidromen-dark/60">
                 Verwijderen maakt organisaties inactief zodat gebruikers, orders en donaties intact blijven.
               </p>
             </div>
             {isSupabase ? (
               <button
                 onClick={openAddOrgForm}
-                className="flex items-center rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
+                className="flex items-center rounded-[20px] bg-digidromen-yellow px-4 py-2 text-sm font-semibold text-digidromen-dark"
               >
                 <Building2 size={16} className="mr-2" />
                 Organisatie toevoegen
@@ -1210,19 +1262,19 @@ const Settings: React.FC = () => {
           {orgError ? <p className="text-sm text-rose-600">{orgError}</p> : null}
 
           {showOrgForm ? (
-            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h4 className="font-bold text-slate-800">{editingOrgId ? "Organisatie bewerken" : "Nieuwe organisatie"}</h4>
+            <div className="space-y-4 rounded-2xl border border-digidromen-cream bg-surface p-6 shadow-sm">
+              <h4 className="font-bold text-digidromen-dark">{editingOrgId ? "Organisatie bewerken" : "Nieuwe organisatie"}</h4>
               <div className="grid gap-3 md:grid-cols-2">
                 <input
                   value={orgForm.name}
                   onChange={(event) => setOrgForm((prev) => ({ ...prev, name: event.target.value }))}
                   placeholder="Organisatienaam"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
                 <select
                   value={orgForm.type}
                   onChange={(event) => setOrgForm((prev) => ({ ...prev, type: event.target.value }))}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 >
                   {orgTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1234,27 +1286,27 @@ const Settings: React.FC = () => {
                   value={orgForm.city}
                   onChange={(event) => setOrgForm((prev) => ({ ...prev, city: event.target.value }))}
                   placeholder="Stad"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
                 <input
                   value={orgForm.contactName}
                   onChange={(event) => setOrgForm((prev) => ({ ...prev, contactName: event.target.value }))}
                   placeholder="Contactpersoon"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
                 <input
                   type="email"
                   value={orgForm.contactEmail}
                   onChange={(event) => setOrgForm((prev) => ({ ...prev, contactEmail: event.target.value }))}
                   placeholder="Contact email"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
-                <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <label className="flex items-center gap-3 rounded-xl border border-digidromen-cream bg-digidromen-cream/30 p-3 text-sm text-digidromen-dark/80">
                   <input
                     type="checkbox"
                     checked={orgForm.active}
                     onChange={(event) => setOrgForm((prev) => ({ ...prev, active: event.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-300 text-digidromen-primary focus:ring-digidromen-primary"
+                    className="h-4 w-4 rounded border-digidromen-cream text-digidromen-yellow focus:ring-digidromen-orange"
                   />
                   Actief
                 </label>
@@ -1265,12 +1317,13 @@ const Settings: React.FC = () => {
                   isLoading={orgSaving}
                   loadingLabel="Opslaan..."
                   disabled={orgSaving}
+                  className="rounded-[20px] bg-digidromen-yellow text-digidromen-dark"
                 >
                   {editingOrgId ? "Opslaan" : "Aanmaken"}
                 </LoadingButton>
                 <button
                   onClick={closeOrgForm}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+                  className="rounded-[20px] border border-digidromen-cream px-4 py-2 text-sm font-semibold text-digidromen-dark/60"
                 >
                   Annuleren
                 </button>
@@ -1278,40 +1331,40 @@ const Settings: React.FC = () => {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+          <div className="overflow-hidden rounded-2xl border border-digidromen-cream bg-surface shadow-sm">
+            <table className="min-w-full divide-y divide-digidromen-cream">
+              <thead className="bg-digidromen-cream/40">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Naam</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Stad</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Acties</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Naam</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Stad</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Contact</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Acties</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-digidromen-cream bg-surface">
                 {organizations.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-slate-400">
+                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-digidromen-dark/40">
                       Geen organisaties.
                     </td>
                   </tr>
                 ) : (
                   organizations.map((org) => (
-                    <tr key={org.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">{org.name}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                    <tr key={org.id} className="hover:bg-digidromen-cream/30">
+                      <td className="px-6 py-4 text-sm font-semibold text-digidromen-dark">{org.name}</td>
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">
                         {orgTypeOptions.find((option) => option.value === org.type)?.label ?? org.type}
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{org.city}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">{org.city}</td>
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">
                         {org.contactName ? `${org.contactName} (${org.contactEmail ?? "-"})` : "-"}
                       </td>
                       <td className="px-6 py-4">
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            org.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                            org.active ? "bg-emerald-50 text-emerald-700" : "bg-digidromen-cream text-digidromen-dark/60"
                           }`}
                         >
                           {org.active ? "Actief" : "Inactief"}
@@ -1321,7 +1374,7 @@ const Settings: React.FC = () => {
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => openEditOrgForm(org)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-sky-50 hover:text-sky-600"
+                            className="rounded-lg p-1.5 text-digidromen-dark/40 hover:bg-sky-50 hover:text-sky-600"
                             title="Bewerken"
                           >
                             <Pencil size={16} />
@@ -1329,7 +1382,7 @@ const Settings: React.FC = () => {
                           <button
                             onClick={() => void handleDeleteOrg(org)}
                             disabled={orgDeletingId === org.id}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                            className="rounded-lg p-1.5 text-digidromen-dark/40 hover:bg-rose-50 hover:text-rose-500"
                             title="Verwijderen"
                           >
                             <Trash2 size={16} />
@@ -1345,19 +1398,22 @@ const Settings: React.FC = () => {
         </div>
       ) : null}
 
-      {activeTab === "products" && isAdmin ? (
+      {/* ============================================================ */}
+      {/*  PRODUCTS TAB (staff + admin)                                 */}
+      {/* ============================================================ */}
+      {activeTab === "products" && isStaffOrAdmin ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Producten</h3>
-              <p className="text-sm text-slate-500">
+              <h3 className="text-lg font-bold text-digidromen-dark">Producten</h3>
+              <p className="text-sm text-digidromen-dark/60">
                 Verwijderen maakt producten inactief zodat bestaande orders en voorraadkoppelingen leesbaar blijven.
               </p>
             </div>
             {isSupabase ? (
               <button
                 onClick={openAddProductForm}
-                className="flex items-center rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white"
+                className="flex items-center rounded-[20px] bg-digidromen-yellow px-4 py-2 text-sm font-semibold text-digidromen-dark"
               >
                 <Package size={16} className="mr-2" />
                 Product toevoegen
@@ -1369,25 +1425,25 @@ const Settings: React.FC = () => {
           {productError ? <p className="text-sm text-rose-600">{productError}</p> : null}
 
           {showProductForm ? (
-            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h4 className="font-bold text-slate-800">{editingProductId ? "Product bewerken" : "Nieuw product"}</h4>
+            <div className="space-y-4 rounded-2xl border border-digidromen-cream bg-surface p-6 shadow-sm">
+              <h4 className="font-bold text-digidromen-dark">{editingProductId ? "Product bewerken" : "Nieuw product"}</h4>
               <div className="grid gap-3 md:grid-cols-2">
                 <input
                   value={productForm.name}
                   onChange={(event) => setProductForm((prev) => ({ ...prev, name: event.target.value }))}
                   placeholder="Productnaam"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
                 <input
                   value={productForm.sku}
                   onChange={(event) => setProductForm((prev) => ({ ...prev, sku: event.target.value }))}
                   placeholder="SKU"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
                 <select
                   value={productForm.category}
                   onChange={(event) => setProductForm((prev) => ({ ...prev, category: event.target.value }))}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 >
                   {productCategoryOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1399,7 +1455,7 @@ const Settings: React.FC = () => {
                   value={productForm.specificationSummary}
                   onChange={(event) => setProductForm((prev) => ({ ...prev, specificationSummary: event.target.value }))}
                   placeholder="Specificaties (komma-gescheiden)"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
                 <input
                   type="number"
@@ -1412,7 +1468,7 @@ const Settings: React.FC = () => {
                     }))
                   }
                   placeholder="Voorraad"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
                 <input
                   type="number"
@@ -1425,14 +1481,14 @@ const Settings: React.FC = () => {
                     }))
                   }
                   placeholder="Gereserveerd"
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls}
                 />
-                <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <label className="flex items-center gap-3 rounded-xl border border-digidromen-cream bg-digidromen-cream/30 p-3 text-sm text-digidromen-dark/80">
                   <input
                     type="checkbox"
                     checked={productForm.active}
                     onChange={(event) => setProductForm((prev) => ({ ...prev, active: event.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-300 text-digidromen-primary focus:ring-digidromen-primary"
+                    className="h-4 w-4 rounded border-digidromen-cream text-digidromen-yellow focus:ring-digidromen-orange"
                   />
                   Actief
                 </label>
@@ -1442,7 +1498,7 @@ const Settings: React.FC = () => {
                 onChange={(event) => setProductForm((prev) => ({ ...prev, description: event.target.value }))}
                 placeholder="Beschrijving"
                 rows={3}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                className={"w-full " + formInputCls}
               />
               <div className="flex gap-3">
                 <LoadingButton
@@ -1450,12 +1506,13 @@ const Settings: React.FC = () => {
                   isLoading={productSaving}
                   loadingLabel="Opslaan..."
                   disabled={productSaving}
+                  className="rounded-[20px] bg-digidromen-yellow text-digidromen-dark"
                 >
                   {editingProductId ? "Opslaan" : "Aanmaken"}
                 </LoadingButton>
                 <button
                   onClick={closeProductForm}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+                  className="rounded-[20px] border border-digidromen-cream px-4 py-2 text-sm font-semibold text-digidromen-dark/60"
                 >
                   Annuleren
                 </button>
@@ -1463,40 +1520,40 @@ const Settings: React.FC = () => {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+          <div className="overflow-hidden rounded-2xl border border-digidromen-cream bg-surface shadow-sm">
+            <table className="min-w-full divide-y divide-digidromen-cream">
+              <thead className="bg-digidromen-cream/40">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Naam</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">SKU</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Categorie</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Voorraad</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Gereserveerd</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Acties</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Naam</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">SKU</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Categorie</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Voorraad</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Gereserveerd</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Acties</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-digidromen-cream bg-surface">
                 {products.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-sm text-slate-400">
+                    <td colSpan={7} className="px-6 py-8 text-center text-sm text-digidromen-dark/40">
                       Geen producten.
                     </td>
                   </tr>
                 ) : (
                   products.map((product) => (
-                    <tr key={product.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">{product.name}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{product.sku}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                    <tr key={product.id} className="hover:bg-digidromen-cream/30">
+                      <td className="px-6 py-4 text-sm font-semibold text-digidromen-dark">{product.name}</td>
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">{product.sku}</td>
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">
                         {productCategoryOptions.find((option) => option.value === product.category)?.label ?? product.category}
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{product.stockOnHand}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{product.stockReserved}</td>
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">{product.stockOnHand}</td>
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">{product.stockReserved}</td>
                       <td className="px-6 py-4">
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            product.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                            product.active ? "bg-emerald-50 text-emerald-700" : "bg-digidromen-cream text-digidromen-dark/60"
                           }`}
                         >
                           {product.active ? "Actief" : "Inactief"}
@@ -1506,7 +1563,7 @@ const Settings: React.FC = () => {
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => openEditProductForm(product)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-sky-50 hover:text-sky-600"
+                            className="rounded-lg p-1.5 text-digidromen-dark/40 hover:bg-sky-50 hover:text-sky-600"
                             title="Bewerken"
                           >
                             <Pencil size={16} />
@@ -1514,7 +1571,7 @@ const Settings: React.FC = () => {
                           <button
                             onClick={() => void handleDeleteProduct(product)}
                             disabled={productDeletingId === product.id}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                            className="rounded-lg p-1.5 text-digidromen-dark/40 hover:bg-rose-50 hover:text-rose-500"
                             title="Verwijderen"
                           >
                             <Trash2 size={16} />
@@ -1530,12 +1587,15 @@ const Settings: React.FC = () => {
         </div>
       ) : null}
 
-      {activeTab === "bestelvenster" && isAdmin ? (
+      {/* ============================================================ */}
+      {/*  BESTELVENSTER TAB (staff + admin)                            */}
+      {/* ============================================================ */}
+      {activeTab === "bestelvenster" && isStaffOrAdmin ? (
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-slate-900">Bestelvenster</h3>
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <p className="mb-4 text-sm text-slate-500">
-              Hulporganisaties kunnen alleen bestellen tussen dag <strong>{orderingWindowOpen}</strong> en dag <strong>{orderingWindowClose}</strong> van elke maand.
+          <h3 className="text-lg font-bold text-digidromen-dark">Bestelvenster</h3>
+          <div className="rounded-2xl border border-digidromen-cream bg-surface p-6 shadow-sm">
+            <p className="mb-4 text-sm text-digidromen-dark/60">
+              Hulporganisaties kunnen alleen bestellen tussen dag <strong className="text-digidromen-dark">{orderingWindowOpen}</strong> en dag <strong className="text-digidromen-dark">{orderingWindowClose}</strong> van elke maand.
               Buiten dit venster is de bestelknop geblokkeerd, tenzij je het venster hieronder handmatig opent.
             </p>
             <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-violet-100 bg-violet-50/60 p-4">
@@ -1546,11 +1606,11 @@ const Settings: React.FC = () => {
                   setOrderingWindowDirty(true);
                   setOrderingWindowForceOpen(e.target.checked);
                 }}
-                className="mt-1 h-4 w-4 rounded border-slate-300 text-digidromen-primary focus:ring-digidromen-primary"
+                className="mt-1 h-4 w-4 rounded border-digidromen-cream text-digidromen-yellow focus:ring-digidromen-orange"
               />
-              <span className="text-sm text-slate-700">
-                <strong className="text-slate-900">Bestelvenster handmatig open voor hulporganisaties</strong>
-                <span className="mt-1 block text-slate-600">
+              <span className="text-sm text-digidromen-dark/80">
+                <strong className="text-digidromen-dark">Bestelvenster handmatig open voor hulporganisaties</strong>
+                <span className="mt-1 block text-digidromen-dark/60">
                   Zet dit aan om bugfixes door te voeren of buiten het vaste venster bestellingen van klanten toe te staan. Laat het uit om weer alleen het kalendervenster te gebruiken.
                 </span>
               </span>
@@ -1563,7 +1623,7 @@ const Settings: React.FC = () => {
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2 max-w-sm">
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-digidromen-dark/40">
                   Openingsdag (dag v/d maand)
                 </label>
                 <input
@@ -1575,11 +1635,11 @@ const Settings: React.FC = () => {
                     setOrderingWindowDirty(true);
                     setOrderingWindowOpen(parseInt(e.target.value, 10) || 1);
                   }}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls + " w-full"}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-digidromen-dark/40">
                   Sluitingsdag (dag v/d maand)
                 </label>
                 <input
@@ -1591,7 +1651,7 @@ const Settings: React.FC = () => {
                     setOrderingWindowDirty(true);
                     setOrderingWindowClose(parseInt(e.target.value, 10) || 7);
                   }}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-primary focus:ring-2"
+                  className={formInputCls + " w-full"}
                 />
               </div>
             </div>
@@ -1656,7 +1716,7 @@ const Settings: React.FC = () => {
                 }
               }}
               disabled={orderingWindowSaving}
-              className="mt-4 rounded-xl bg-digidromen-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              className="mt-4 rounded-[20px] bg-digidromen-yellow px-5 py-2.5 text-sm font-semibold text-digidromen-dark disabled:opacity-60"
             >
               {orderingWindowSaving ? "Opslaan..." : "Opslaan"}
             </button>

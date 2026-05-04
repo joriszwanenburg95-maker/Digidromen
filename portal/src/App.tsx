@@ -1,10 +1,11 @@
 import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { initRealtime } from "./lib/realtime";
+import { isRouteAllowed } from "./lib/roleSurface";
 import type { Role } from "./lib/workflow";
 
 const Layout = lazy(() => import("./components/Layout"));
@@ -30,13 +31,11 @@ const RouteFallback: React.FC = () => (
   <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Portal laden...</div>
 );
 
-const RequireRole: React.FC<{
-  allowed: Role[];
-  children: React.ReactElement;
-}> = ({ allowed, children }) => {
+const RouteGuard: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { user } = useAuth();
+  const { pathname } = useLocation();
 
-  if (!user || !allowed.includes(user.role as Role)) {
+  if (!user || !isRouteAllowed(user.role as Role, pathname)) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -83,14 +82,6 @@ const RealtimeInit: React.FC = () => {
   return null;
 };
 
-const staffRoles: Role[] = ["digidromen_staff", "digidromen_admin"];
-const operationsRoles: Role[] = [
-  "digidromen_staff",
-  "digidromen_admin",
-  "service_partner",
-];
-const adminRoles: Role[] = ["digidromen_admin"];
-
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
@@ -107,19 +98,19 @@ const App: React.FC = () => {
                 <Route path="/orders/:id" element={<OrderDetail />} />
                 <Route path="/repairs" element={<Navigate to="/orders" replace />} />
                 <Route path="/repairs/:id" element={<Navigate to="/orders" replace />} />
-                <Route path="/planning" element={<RequireRole allowed={operationsRoles}><Planning /></RequireRole>} />
-                <Route path="/donations" element={<RequireRole allowed={operationsRoles}><Donations /></RequireRole>} />
-                <Route path="/donations/:id" element={<RequireRole allowed={operationsRoles}><DonationDetail /></RequireRole>} />
-                <Route path="/inventory" element={<RequireRole allowed={operationsRoles}><Inventory /></RequireRole>} />
-                <Route path="/reports" element={<RequireRole allowed={staffRoles}><Reports /></RequireRole>} />
-                <Route path="/crm-sync" element={<RequireRole allowed={staffRoles}><CrmSync /></RequireRole>} />
+                <Route path="/planning" element={<RouteGuard><Planning /></RouteGuard>} />
+                <Route path="/donations" element={<RouteGuard><Donations /></RouteGuard>} />
+                <Route path="/donations/:id" element={<RouteGuard><DonationDetail /></RouteGuard>} />
+                <Route path="/inventory" element={<RouteGuard><Inventory /></RouteGuard>} />
+                <Route path="/reports" element={<RouteGuard><Reports /></RouteGuard>} />
+                <Route path="/crm-sync" element={<RouteGuard><CrmSync /></RouteGuard>} />
                 <Route path="/settings" element={<Settings />} />
-                <Route path="/users" element={<RequireRole allowed={adminRoles}><Users /></RequireRole>} />
-                <Route path="/organizations" element={<RequireRole allowed={staffRoles}><Organizations /></RequireRole>} />
-                <Route path="/organizations/:id" element={<RequireRole allowed={staffRoles}><OrganizationDetail /></RequireRole>} />
-                <Route path="/forecast" element={<RequireRole allowed={staffRoles}><Forecast /></RequireRole>} />
-                <Route path="/audit-log" element={<RequireRole allowed={adminRoles}><AuditLog /></RequireRole>} />
-                <Route path="/stock-locations" element={<RequireRole allowed={staffRoles}><StockLocations /></RequireRole>} />
+                <Route path="/users" element={<RouteGuard><Users /></RouteGuard>} />
+                <Route path="/organizations" element={<RouteGuard><Organizations /></RouteGuard>} />
+                <Route path="/organizations/:id" element={<RouteGuard><OrganizationDetail /></RouteGuard>} />
+                <Route path="/forecast" element={<RouteGuard><Forecast /></RouteGuard>} />
+                <Route path="/audit-log" element={<RouteGuard><AuditLog /></RouteGuard>} />
+                <Route path="/stock-locations" element={<RouteGuard><StockLocations /></RouteGuard>} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
               </Route>
             </Routes>

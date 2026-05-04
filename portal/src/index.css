@@ -1,11 +1,13 @@
 @import "tailwindcss";
 
+/* Sora + Roboto worden geladen via <link> in index.html */
+
 :root {
-  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  font-family: 'Roboto', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #2D3436;
-  background-color: #FAF8F5;
+  color: #2E3848;
+  background-color: #FBF4EB;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -13,22 +15,53 @@
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 @theme {
-  --color-digidromen-primary: #F2A900;
-  --color-digidromen-secondary: #005FB8;
-  --color-digidromen-dark: #2D3436;
-  --color-digidromen-warm: #FAF8F5;
+  --color-digidromen-yellow: #FFD500;
+  --color-digidromen-orange: #EE7219;
+  --color-digidromen-orange-hover: #B75C0E;
+  --color-digidromen-dark: #2E3848;
+  --color-digidromen-beige: #FBF4EB;
+  --color-digidromen-blue: #87CEDC;
+  --color-surface: #FFFFFF;
+  --color-surface-soft: #FFF9EA;
+
+  /* Legacy aliases kept for existing usage */
+  --color-digidromen-primary: #FFD500;
+  --color-digidromen-warm: #FBF4EB;
   --color-digidromen-cream: #F5F0EB;
   --color-digidromen-orange-light: #FFF5E0;
   --color-digidromen-orange-medium: #FFE4A0;
+  --color-digidromen-secondary: #87CEDC;
+
+  --font-heading: 'Sora', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-body: 'Roboto', 'DM Sans', system-ui, sans-serif;
 }
 
-/* Heading font */
 h1, h2, h3, h4 {
-  font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
+/* Links default to orange */
+a:not([class]) {
+  color: #EE7219;
+}
+a:not([class]):hover {
+  color: #B75C0E;
+}
+
+/* Buttons: friendly rounded style */
+button, [role="button"] {
+  border-radius: 12px;
+}
+
+/* Focus states */
+:focus-visible {
+  outline: 2px solid #EE7219;
+  outline-offset: 2px;
 }
 
 /* Subtle scrollbar */
@@ -45,4 +78,13 @@ h1, h2, h3, h4 {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #B0A898;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

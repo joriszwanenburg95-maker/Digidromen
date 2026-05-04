@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
@@ -16,10 +16,22 @@ import {
 import { formatOrderLinesSummary } from "../lib/orderSummary";
 import { queryKeys } from "../lib/queryKeys";
 import type { Role } from "../lib/workflow";
+import { getSurface } from "../lib/roleSurface";
 import { useOrderingWindow } from "../hooks/useOrderingWindow";
 import StatusBadge from "../components/StatusBadge";
 
-const statusTabs = [
+/* ------------------------------------------------------------------ */
+/*  Per-role status tab definitions                                    */
+/* ------------------------------------------------------------------ */
+
+interface StatusTab {
+  key: string;
+  label: string;
+  /** If set, multiple DB statuses map to this single tab */
+  matchStatuses?: string[];
+}
+
+const allStatusTabs: StatusTab[] = [
   { key: "all", label: "Alle" },
   { key: "concept", label: "Concept" },
   { key: "ingediend", label: "Ingediend" },
@@ -30,6 +42,38 @@ const statusTabs = [
   { key: "afgesloten", label: "Afgesloten" },
   { key: "afgewezen", label: "Afgewezen" },
 ];
+
+const helpOrgStatusTabs: StatusTab[] = [
+  { key: "all", label: "Alle" },
+  { key: "ingediend", label: "Ingediend" },
+  {
+    key: "in_behandeling",
+    label: "In behandeling",
+    matchStatuses: ["te_accorderen", "geaccordeerd", "in_voorbereiding"],
+  },
+  { key: "geleverd", label: "Geleverd" },
+  { key: "afgesloten", label: "Afgesloten" },
+];
+
+const servicePartnerStatusTabs: StatusTab[] = [
+  { key: "all", label: "Alle" },
+  { key: "in_voorbereiding", label: "Voorbereiding" },
+  { key: "geleverd", label: "Geleverd" },
+  { key: "afgesloten", label: "Afgesloten" },
+];
+
+function getStatusTabs(role: Role): StatusTab[] {
+  switch (role) {
+    case "help_org":
+      return helpOrgStatusTabs;
+    case "service_partner":
+      return servicePartnerStatusTabs;
+    default:
+      return allStatusTabs;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 
 const ORDER_CREATOR_ROLES: string[] = [
   "help_org",
@@ -51,14 +95,18 @@ const Orders: React.FC = () => {
   }, [searchParams]);
 
   const role: Role = (user?.role as Role) ?? "help_org";
+  const surface = getSurface(role);
+  const isHelpOrg = role === "help_org";
+  const isServicePartner = role === "service_partner";
+  const isStaff = role === "digidromen_admin" || role === "digidromen_staff";
+
+  const statusTabs = useMemo(() => getStatusTabs(role), [role]);
 
   const { data: displayOrders = [], isLoading } = useQuery({
     queryKey: queryKeys.orders.list(),
     queryFn: () => listOrders({ role, organizationId: user?.organizationId }),
     enabled: !!user,
   });
-
-  const isStaff = role === "digidromen_admin" || role === "digidromen_staff";
 
   const { data: pendingApprovalCount = 0 } = useQuery({
     queryKey: ["orders", "te-accorderen-count"] as const,
@@ -68,13 +116,40 @@ const Orders: React.FC = () => {
 
   const { data: window } = useOrderingWindow();
 
-  const filteredOrders = statusFilter === "all"
-    ? displayOrders
-    : displayOrders.filter((o: OrderListRow) => o.status === statusFilter);
+  const filteredOrders = useMemo(() => {
+    if (statusFilter === "all") return displayOrders;
+    const tab = statusTabs.find((t) => t.key === statusFilter);
+    if (tab?.matchStatuses) {
+      return displayOrders.filter((o: OrderListRow) =>
+        tab.matchStatuses!.includes(o.status),
+      );
+    }
+    return displayOrders.filter((o: OrderListRow) => o.status === statusFilter);
+  }, [statusFilter, displayOrders, statusTabs]);
+
   const canCreateOrder = ORDER_CREATOR_ROLES.includes(role);
   const canOrder = canPlaceOrder(user?.role, window);
-  const isHelpOrg = role === "help_org";
-  const tableCols = isHelpOrg ? 5 : 7;
+
+  // Column count per role for skeleton/colSpan
+  const showKlant = !isHelpOrg;
+  const showPrioriteit = isStaff;
+  const tableCols = 4 + (showKlant ? 1 : 0) + (showPrioriteit ? 1 : 0);
+
+  // Labels per role
+  const heading = isHelpOrg
+    ? "Laptop aanvragen"
+    : isServicePartner
+      ? surface.orderLabel
+      : "Bestellingen";
+  const ctaLabel = isHelpOrg ? "Nieuwe aanvraag" : "Bestelling toevoegen";
+  const countLabel = isHelpOrg
+    ? `${displayOrders.length} aanvragen`
+    : `${displayOrders.length} orders`;
+  const emptyAllLabel = isHelpOrg
+    ? "Nog geen aanvragen. Start een eerste aanvraag."
+    : isServicePartner
+      ? "Nog geen uitleveringen."
+      : "Nog geen bestellingen.";
 
   const setFilter = (key: string) => {
     if (key === "all") {
@@ -110,47 +185,43 @@ const Orders: React.FC = () => {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">
-            {isHelpOrg ? "Laptop aanvragen" : "Bestellingen"}
+          <h2 className="text-2xl font-bold text-digidromen-dark">
+            {heading}
           </h2>
-          <p className="text-sm text-slate-500">
-            {isLoading
-              ? "Laden..."
-              : isHelpOrg
-                ? `${displayOrders.length} aanvragen`
-                : `${displayOrders.length} orders`}
+          <p className="text-sm text-digidromen-dark/60">
+            {isLoading ? "Laden..." : countLabel}
           </p>
         </div>
-        {canCreateOrder ? (
+        {canCreateOrder && !isServicePartner ? (
           <button
             type="button"
             disabled={!canOrder}
             onClick={() => setShowWizard(true)}
-            className="flex items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-digidromen-dark hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex items-center gap-2 rounded-[20px] bg-digidromen-yellow px-4 py-2 text-sm font-semibold text-digidromen-dark hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus size={16} />
-            {isHelpOrg ? "Nieuwe aanvraag" : "Bestelling toevoegen"}
+            {ctaLabel}
           </button>
         ) : null}
       </div>
 
       {isHelpOrg ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-          Kies <strong>Nieuwe aanvraag</strong> om een laptoppakket of vervangend onderdeel aan te vragen. Je ziet hier alleen aanvragen van je eigen organisatie.
+        <div className="rounded-xl border border-digidromen-cream bg-surface-soft px-4 py-3 text-sm text-digidromen-dark/60">
+          Kies <strong className="text-digidromen-dark">Nieuwe aanvraag</strong> om een laptoppakket of vervangend onderdeel aan te vragen. Je ziet hier alleen aanvragen van je eigen organisatie.
         </div>
       ) : null}
 
       <OrderingWindowBanner />
 
-      <div className="flex gap-1.5 overflow-x-auto rounded-xl bg-slate-100 p-1">
+      <div className="flex gap-1.5 overflow-x-auto rounded-xl bg-digidromen-cream p-1">
         {statusTabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setFilter(tab.key)}
             className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
               statusFilter === tab.key
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
+                ? "bg-surface text-digidromen-dark shadow-sm"
+                : "text-digidromen-dark/60 hover:text-digidromen-dark"
             }`}
           >
             {tab.label}
@@ -158,36 +229,36 @@ const Orders: React.FC = () => {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
+      <div className="overflow-hidden rounded-2xl border border-digidromen-cream bg-surface shadow-sm">
+        <table className="min-w-full divide-y divide-digidromen-cream">
+          <thead className="bg-digidromen-cream/40">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Order</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Order</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">
                 Bestelde producten
               </th>
-              {!isHelpOrg ? (
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Klant</th>
+              {showKlant ? (
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Klant</th>
               ) : null}
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-              {!isHelpOrg ? (
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Prioriteit</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Status</th>
+              {showPrioriteit ? (
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Prioriteit</th>
               ) : null}
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Gewenste leverdatum</th>
-              <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Acties</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Gewenste leverdatum</th>
+              <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-digidromen-dark/60">Acties</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
+          <tbody className="divide-y divide-digidromen-cream bg-surface">
             {isLoading ? (
               Array.from({ length: 6 }).map((_, index) => (
                 <SkeletonTableRow key={index} cols={tableCols} />
               ))
             ) : filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={tableCols} className="px-6 py-12 text-center text-sm text-slate-400">
+                <td colSpan={tableCols} className="px-6 py-12 text-center text-sm text-digidromen-dark/40">
                   {statusFilter === "all"
-                    ? "Nog geen bestellingen."
-                    : "Geen bestellingen met deze status. Kies ‘Alle’ om het volledige overzicht te zien."}
+                    ? emptyAllLabel
+                    : "Geen bestellingen met deze status. Kies 'Alle' om het volledige overzicht te zien."}
                 </td>
               </tr>
             ) : (
@@ -198,25 +269,25 @@ const Orders: React.FC = () => {
                 const summary = formatOrderLinesSummary(order.order_lines);
 
                 return (
-                  <tr key={order.id} className="hover:bg-slate-50">
+                  <tr key={order.id} className="hover:bg-digidromen-cream/30">
                     <td className="max-w-[140px] px-6 py-4 text-sm font-mono font-semibold text-sky-700">
                       <span className="break-all">{order.id}</span>
                     </td>
-                    <td className="max-w-md px-6 py-4 text-sm text-slate-700">{summary}</td>
-                    {!isHelpOrg ? (
-                      <td className="px-6 py-4 text-sm text-slate-600">{orgName}</td>
+                    <td className="max-w-md px-6 py-4 text-sm text-digidromen-dark/80">{summary}</td>
+                    {showKlant ? (
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">{orgName}</td>
                     ) : null}
                     <td className="px-6 py-4">
                       <StatusBadge status={order.status} />
                     </td>
-                    {!isHelpOrg ? (
-                      <td className="px-6 py-4 text-sm text-slate-600">{displayPriority}</td>
+                    {showPrioriteit ? (
+                      <td className="px-6 py-4 text-sm text-digidromen-dark/60">{displayPriority}</td>
                     ) : null}
-                    <td className="px-6 py-4 text-sm text-slate-600">{displayDate}</td>
+                    <td className="px-6 py-4 text-sm text-digidromen-dark/60">{displayDate}</td>
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => navigate(`/orders/${order.id}`)}
-                        className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-primary hover:bg-sky-50"
+                        className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-orange hover:text-digidromen-orange-hover"
                       >
                         Bekijken
                       </button>

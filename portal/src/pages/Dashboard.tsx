@@ -1,7 +1,18 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, BellRing, FileText, HeartHandshake, Plus, RefreshCw, ShoppingCart, TriangleAlert, Truck } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarCheck,
+  CheckCircle,
+  HeartHandshake,
+  HelpCircle,
+  Package,
+  Plus,
+  ShoppingCart,
+  TriangleAlert,
+  Truck,
+} from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
 import { OrderingWindowBanner } from "../components/OrderingWindowBanner";
@@ -11,26 +22,580 @@ import { queryKeys } from "../lib/queryKeys";
 import StatusBadge from "../components/StatusBadge";
 import KpiCard from "../components/KpiCard";
 
+/* ─── Human-friendly status copy for help_org ─── */
+
+const FRIENDLY_STATUS: Record<string, string> = {
+  concept: "Wordt opgesteld",
+  ingediend: "Aanvraag ontvangen",
+  te_accorderen: "Wordt beoordeeld",
+  geaccordeerd: "Goedgekeurd",
+  in_voorbereiding: "Laptop wordt klaargemaakt",
+  geleverd: "Afgeleverd",
+  afgesloten: "Afgerond",
+  afgewezen: "Helaas afgewezen",
+};
+
+/* ─── help_org: Mission Hero Panel ─── */
+
+const MissionHeroPanel: React.FC<{ firstName: string }> = ({ firstName }) => (
+  <div className="rounded-2xl bg-surface-soft p-8">
+    <p className="text-sm font-medium text-digidromen-dark/60">
+      Welkom terug, {firstName}
+    </p>
+    <h2 className="mt-1 font-heading text-2xl font-bold text-digidromen-dark">
+      Samen maken we digidromen waar
+    </h2>
+    <p className="mt-2 max-w-lg text-sm leading-relaxed text-digidromen-dark/60">
+      Via dit portaal vraag je laptops aan voor de kinderen en gezinnen die jij
+      ondersteunt. We helpen je graag op weg.
+    </p>
+    <div className="mt-6 flex flex-wrap items-center gap-3">
+      <Link
+        to="/orders"
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-[20px] bg-digidromen-yellow px-6 py-2.5 text-sm font-semibold text-digidromen-dark transition-colors hover:bg-digidromen-yellow/80"
+      >
+        <Plus size={16} />
+        Laptop aanvragen
+      </Link>
+      <Link
+        to="/orders"
+        className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold text-digidromen-orange transition-colors hover:text-digidromen-orange/80"
+      >
+        Bekijk mijn aanvragen
+        <ArrowRight size={15} />
+      </Link>
+    </div>
+  </div>
+);
+
+/* ─── help_org: My Request Timeline ─── */
+
+interface OrderRow {
+  id: string;
+  status: string;
+  organization_id: string;
+  priority: string;
+  preferred_delivery_date: string | null;
+  created_at: string;
+}
+
+const MyRequestTimeline: React.FC<{ orders: OrderRow[] }> = ({ orders }) => (
+  <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
+    <h3 className="mb-4 font-heading text-base font-bold text-digidromen-dark">
+      Mijn aanvragen
+    </h3>
+    <div className="space-y-3">
+      {orders.length === 0 ? (
+        <p className="py-6 text-center text-sm text-digidromen-dark/30">
+          Je hebt nog geen aanvragen gedaan.
+        </p>
+      ) : (
+        orders.slice(0, 3).map((order) => (
+          <Link
+            key={order.id}
+            to={`/orders/${order.id}`}
+            className="block rounded-2xl border border-digidromen-cream/80 p-4 transition-colors hover:bg-surface-soft"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm font-semibold text-digidromen-dark">
+                {FRIENDLY_STATUS[order.status] ?? order.status}
+              </p>
+              <StatusBadge status={order.status} />
+            </div>
+            {order.preferred_delivery_date ? (
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-digidromen-dark/50">
+                <CalendarCheck size={13} />
+                Gewenste levering: {order.preferred_delivery_date}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-digidromen-dark/40">
+                Leverdatum wordt later bepaald
+              </p>
+            )}
+          </Link>
+        ))
+      )}
+    </div>
+    {orders.length > 3 && (
+      <Link
+        to="/orders"
+        className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-digidromen-orange hover:text-digidromen-orange/80"
+      >
+        Alle aanvragen bekijken
+        <ArrowRight size={14} />
+      </Link>
+    )}
+  </div>
+);
+
+/* ─── help_org: Need Help Panel ─── */
+
+const NeedHelpPanel: React.FC = () => (
+  <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
+    <div className="flex items-start gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-digidromen-cream">
+        <HelpCircle size={18} className="text-digidromen-dark/50" />
+      </div>
+      <div>
+        <h3 className="font-heading text-base font-bold text-digidromen-dark">
+          Hulp nodig?
+        </h3>
+        <p className="mt-1 text-sm leading-relaxed text-digidromen-dark/55">
+          Kom je er niet uit of heb je een vraag over je aanvraag? Neem dan
+          contact op met Digidromen. We helpen je graag verder.
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+/* ─── service_partner: Warehouse Header ─── */
+
+const WarehouseHeader: React.FC<{ firstName: string }> = ({ firstName }) => (
+  <div className="rounded-2xl bg-digidromen-dark p-6">
+    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-digidromen-yellow">
+      Werkvoorraad
+    </p>
+    <h2 className="mt-1 font-heading text-xl font-bold text-white">
+      Hallo {firstName}
+    </h2>
+    <p className="mt-0.5 text-sm text-white/50">
+      {new Date().toLocaleDateString("nl-NL", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      })}
+    </p>
+  </div>
+);
+
+/* ─── service_partner: Warehouse Action Rail ─── */
+
+interface WarehouseActionRailProps {
+  donationCount: number;
+  ordersToPrepare: number;
+  lowStockCount: number;
+}
+
+const WarehouseActionRail: React.FC<WarehouseActionRailProps> = ({
+  donationCount,
+  ordersToPrepare,
+  lowStockCount,
+}) => (
+  <div className="grid grid-cols-3 gap-3">
+    <KpiCard
+      label="Donaties te ontvangen"
+      value={donationCount}
+      icon={HeartHandshake}
+      accent="bg-emerald-500"
+    />
+    <KpiCard
+      label="Orders klaar te maken"
+      value={ordersToPrepare}
+      icon={Package}
+      accent="bg-digidromen-primary"
+    />
+    <KpiCard
+      label="Voorraadsignalen"
+      value={lowStockCount}
+      icon={TriangleAlert}
+      accent="bg-amber-500"
+    />
+  </div>
+);
+
+/* ─── service_partner: Today Queue ─── */
+
+interface TodayQueueProps {
+  donations: DonationRow[];
+  orders: OrderRow[];
+}
+
+interface DonationRow {
+  id: string;
+  status: string;
+  sponsor_organization_id: string;
+  device_count_promised: number;
+  pickup_date: string | null;
+  created_at: string;
+}
+
+const TodayQueue: React.FC<TodayQueueProps> = ({ donations, orders }) => {
+  const items = [
+    ...donations.slice(0, 3).map((d) => ({
+      id: d.id,
+      type: "donatie" as const,
+      label: `Donatie — ${d.device_count_promised} apparaten`,
+      status: d.status,
+      link: `/donations/${d.id}`,
+    })),
+    ...orders
+      .filter((o) => o.status === "in_voorbereiding")
+      .slice(0, 3)
+      .map((o) => ({
+        id: o.id,
+        type: "order" as const,
+        label: "Order klaarzetten",
+        status: o.status,
+        link: `/orders/${o.id}`,
+      })),
+  ];
+
+  return (
+    <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
+      <h3 className="mb-4 font-heading text-base font-bold text-digidromen-dark">
+        Vandaag aan te pakken
+      </h3>
+      <div className="space-y-2.5">
+        {items.length === 0 ? (
+          <div className="flex items-center gap-3 py-6">
+            <CheckCircle size={18} className="text-emerald-400" />
+            <p className="text-sm text-digidromen-dark/40">
+              Alles is bij. Geen openstaande taken.
+            </p>
+          </div>
+        ) : (
+          items.map((item) => (
+            <Link
+              key={item.id}
+              to={item.link}
+              className="flex min-h-[44px] items-center justify-between gap-3 rounded-xl border border-digidromen-cream/80 p-3 transition-colors hover:bg-surface-soft"
+            >
+              <div className="flex items-center gap-3">
+                {item.type === "donatie" ? (
+                  <HeartHandshake
+                    size={16}
+                    className="shrink-0 text-emerald-500"
+                  />
+                ) : (
+                  <Truck size={16} className="shrink-0 text-digidromen-orange" />
+                )}
+                <p className="text-sm font-medium text-digidromen-dark">
+                  {item.label}
+                </p>
+              </div>
+              <StatusBadge status={item.status} />
+            </Link>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ─── service_partner: Stock Signal Strip ─── */
+
+interface StockItem {
+  productId: string;
+  name: string;
+  availableQuantity: number;
+}
+
+const StockSignalStrip: React.FC<{ items: StockItem[] }> = ({ items }) => (
+  <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
+    <h3 className="mb-4 font-heading text-base font-bold text-digidromen-dark">
+      Voorraadsignalen
+    </h3>
+    <div className="space-y-2.5">
+      {items.length === 0 ? (
+        <p className="py-4 text-center text-sm text-digidromen-dark/30">
+          Geen signalen.
+        </p>
+      ) : (
+        items.slice(0, 4).map((p) => (
+          <div
+            key={p.productId}
+            className="flex items-start gap-3 rounded-xl bg-amber-50 p-3.5"
+          >
+            <TriangleAlert
+              size={16}
+              className="mt-0.5 shrink-0 text-amber-600"
+            />
+            <div>
+              <p className="text-sm font-semibold text-digidromen-dark">
+                {p.name}
+              </p>
+              <p className="text-xs text-digidromen-dark/50">
+                Beschikbaar: {p.availableQuantity}
+              </p>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+);
+
+/* ─── staff/admin: Operations Header ─── */
+
+const OperationsHeader: React.FC<{ firstName: string }> = ({ firstName }) => (
+  <div className="rounded-2xl bg-digidromen-dark p-6">
+    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-digidromen-yellow">
+      Regie
+    </p>
+    <h2 className="mt-1 font-heading text-xl font-bold text-white">
+      Welkom terug, {firstName}
+    </h2>
+    <p className="mt-0.5 text-sm text-white/50">
+      {new Date().toLocaleDateString("nl-NL", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}
+    </p>
+  </div>
+);
+
+/* ─── staff/admin: Approval Command Card ─── */
+
+const ApprovalCommandCard: React.FC<{ count: number }> = ({ count }) => {
+  if (count === 0) return null;
+  return (
+    <Link
+      to="/orders?status=te_accorderen"
+      className="flex min-h-[44px] items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 shadow-sm transition-colors hover:bg-amber-100/90"
+    >
+      <div>
+        <p className="text-sm font-bold">Bestellingen goedkeuren</p>
+        <p className="mt-1 text-sm text-amber-900/85">
+          <strong>{count}</strong>{" "}
+          {count === 1 ? "bestelling wacht" : "bestellingen wachten"} op
+          accordering.
+        </p>
+      </div>
+      <ArrowRight className="shrink-0 text-amber-700" size={22} />
+    </Link>
+  );
+};
+
+/* ─── staff/admin: Operations Bento Grid ─── */
+
+interface BentoGridProps {
+  openOrderCount: number;
+  openDonationCount: number;
+  lowStockCount: number;
+  scheduledDeliveries: number;
+}
+
+const OperationsBentoGrid: React.FC<BentoGridProps> = ({
+  openOrderCount,
+  openDonationCount,
+  lowStockCount,
+  scheduledDeliveries,
+}) => (
+  <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <KpiCard
+      label="Open orders"
+      value={openOrderCount}
+      icon={ShoppingCart}
+      accent="bg-digidromen-primary"
+    />
+    <KpiCard
+      label="Open donaties"
+      value={openDonationCount}
+      icon={HeartHandshake}
+      accent="bg-emerald-500"
+    />
+    <KpiCard
+      label="Gepland voor levering"
+      value={scheduledDeliveries}
+      icon={Truck}
+      accent="bg-violet-500"
+    />
+    <KpiCard
+      label="Voorraadsignalen"
+      value={lowStockCount}
+      icon={TriangleAlert}
+      accent="bg-amber-500"
+    />
+  </div>
+);
+
+/* ─── staff/admin: Recent Activity Feed ─── */
+
+interface ActivityEvent {
+  id: string;
+  summary: string;
+  createdAt: string;
+  subjectType: string;
+  subjectId: string;
+}
+
+const RecentActivityFeed: React.FC<{ events: ActivityEvent[] }> = ({
+  events,
+}) => (
+  <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
+    <h3 className="mb-4 font-heading text-base font-bold text-digidromen-dark">
+      Recente activiteit
+    </h3>
+    <div className="space-y-3">
+      {events.length === 0 ? (
+        <p className="py-6 text-center text-sm text-digidromen-dark/30">
+          Nog geen activiteit.
+        </p>
+      ) : (
+        events.map((event) => (
+          <div
+            key={event.id}
+            className="rounded-xl border border-digidromen-cream/80 p-3.5 transition-colors hover:bg-digidromen-cream/40"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm font-semibold text-digidromen-dark">
+                {event.summary}
+              </p>
+              <p className="shrink-0 text-[11px] text-digidromen-dark/35">
+                {new Date(event.createdAt).toLocaleString("nl-NL", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+            </div>
+            <p className="mt-1 text-[11px] text-digidromen-dark/40">
+              {event.subjectType} &middot; {event.subjectId}
+            </p>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+);
+
+/* ─── staff/admin: Exception Rail ─── */
+
+const ExceptionRail: React.FC<{ lowStock: StockItem[] }> = ({ lowStock }) => (
+  <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
+    <h3 className="mb-4 font-heading text-base font-bold text-digidromen-dark">
+      Signalen
+    </h3>
+    <div className="space-y-2.5">
+      {lowStock.length === 0 ? (
+        <p className="py-4 text-center text-sm text-digidromen-dark/30">
+          Geen actieve signalen.
+        </p>
+      ) : (
+        lowStock.slice(0, 3).map((product) => (
+          <div
+            key={product.productId}
+            className="flex items-start gap-3 rounded-xl bg-amber-50 p-3.5"
+          >
+            <TriangleAlert
+              size={16}
+              className="mt-0.5 shrink-0 text-amber-600"
+            />
+            <div>
+              <p className="text-sm font-semibold text-digidromen-dark">
+                {product.name}
+              </p>
+              <p className="text-xs text-digidromen-dark/50">
+                Beschikbaar: {product.availableQuantity}
+              </p>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+);
+
+/* ─── staff/admin: Quick Links (Bento-style) ─── */
+
+interface QuickLinksProps {
+  openOrderCount: number;
+  openDonationCount: number;
+  lowStockCount: number;
+}
+
+const QuickLinks: React.FC<QuickLinksProps> = ({
+  openOrderCount,
+  openDonationCount,
+  lowStockCount,
+}) => {
+  const links = [
+    {
+      label: "Bestellingen",
+      route: "/orders",
+      description: `${openOrderCount} open`,
+      icon: ShoppingCart,
+    },
+    {
+      label: "Donaties",
+      route: "/donations",
+      description: `${openDonationCount} open`,
+      icon: HeartHandshake,
+    },
+    {
+      label: "Voorraad",
+      route: "/inventory",
+      description: `${lowStockCount} signalen`,
+      icon: TriangleAlert,
+    },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
+      <h3 className="mb-4 font-heading text-base font-bold text-digidromen-dark">
+        Snelle routes
+      </h3>
+      <div className="grid gap-2">
+        {links.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.route}
+              to={item.route}
+              className="flex min-h-[44px] items-center justify-between rounded-xl border border-digidromen-cream/60 p-3 transition-all hover:border-digidromen-primary/30 hover:bg-surface-soft"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-digidromen-cream">
+                  <Icon size={15} className="text-digidromen-dark/50" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-digidromen-dark">
+                    {item.label}
+                  </p>
+                  <p className="text-[11px] text-digidromen-dark/40">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+              <ArrowRight size={15} className="text-digidromen-dark/25" />
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════
+   Main Dashboard Component
+   ═══════════════════════════════════════════════════ */
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const role = user?.role ?? "help_org";
 
-  const { data: notifications = [], isLoading: notificationsLoading } = useQuery({
-    queryKey: queryKeys.notifications.unread(),
-    queryFn: async () => {
-      const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
-      const { data, error } = await getSupabaseClient()
-        .from("notifications")
-        .select("id, title, created_at")
-        .gte("created_at", oneDayAgo)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      return data;
-    },
-    enabled: role !== "help_org",
-  });
+  /* ── Data fetching (unchanged) ── */
+
+  const { isLoading: notificationsLoading } =
+    useQuery({
+      queryKey: queryKeys.notifications.unread(),
+      queryFn: async () => {
+        const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+        const { data, error } = await getSupabaseClient()
+          .from("notifications")
+          .select("id, title, created_at")
+          .gte("created_at", oneDayAgo)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (error) throw error;
+        return data;
+      },
+      enabled: role !== "help_org",
+    });
 
   const isStaff = role === "digidromen_admin" || role === "digidromen_staff";
 
@@ -64,7 +629,9 @@ const Dashboard: React.FC = () => {
     queryFn: async () => {
       let q = getSupabaseClient()
         .from("orders")
-        .select("id, status, organization_id, priority, preferred_delivery_date, created_at")
+        .select(
+          "id, status, organization_id, priority, preferred_delivery_date, created_at",
+        )
         .not("status", "in", "(afgesloten,afgewezen)")
         .order("created_at", { ascending: false })
         .limit(20);
@@ -87,7 +654,9 @@ const Dashboard: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("donation_batches")
-        .select("id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at")
+        .select(
+          "id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at",
+        )
         .neq("status", "verwerkt")
         .order("created_at", { ascending: false })
         .limit(20);
@@ -126,16 +695,18 @@ const Dashboard: React.FC = () => {
     enabled: role !== "help_org",
   });
 
+  /* ── Derived data ── */
+
   const openOrderCount = openOrders.length;
   const openDonationCount = openDonations.length;
 
   const displayEvents = recentEvents.map((e) => ({
-      id: e.id,
-      summary: e.title,
-      createdAt: e.created_at,
-      subjectType: e.case_type,
-      subjectId: e.case_id,
-    }));
+    id: e.id,
+    summary: e.title,
+    createdAt: e.created_at,
+    subjectType: e.case_type,
+    subjectId: e.case_id,
+  }));
 
   const displayLowStock = lowStockProducts.map((p) => ({
     productId: p.id,
@@ -143,13 +714,11 @@ const Dashboard: React.FC = () => {
     availableQuantity: p.stock_on_hand - p.stock_reserved,
   }));
 
-  const unreadNotifications = notifications.length;
   const scheduledDeliveries = openOrders.filter(
     (order) => order.preferred_delivery_date,
   ).length;
   const lowStockCount = displayLowStock.length;
-  const spotlightOrders = openOrders.slice(0, 3);
-  const spotlightDonations = openDonations.slice(0, 3);
+
   const isLoading =
     (role !== "help_org" && notificationsLoading) ||
     ordersLoading ||
@@ -157,26 +726,9 @@ const Dashboard: React.FC = () => {
     (role !== "help_org" && eventsLoading) ||
     (role !== "help_org" && stockLoading);
 
-  const cards = role === "help_org"
-    ? [
-        { label: "Mijn bestellingen", value: String(openOrderCount), icon: ShoppingCart, accent: "bg-digidromen-primary" },
-        { label: "Levermomenten", value: String(scheduledDeliveries), icon: Truck, accent: "bg-emerald-500" },
-        { label: "In behandeling", value: String(openOrders.filter((o) => !["geleverd", "afgesloten", "afgewezen"].includes(o.status)).length), icon: RefreshCw, accent: "bg-digidromen-secondary" },
-        { label: "Geleverd", value: String(openOrders.filter((o) => o.status === "geleverd").length), icon: BellRing, accent: "bg-amber-500" },
-      ]
-    : role === "service_partner"
-      ? [
-          { label: "Donatiebatches", value: String(openDonationCount), icon: HeartHandshake, accent: "bg-emerald-500" },
-          { label: "Te leveren orders", value: String(openOrders.filter((o) => ["in_voorbereiding"].includes(o.status)).length), icon: ShoppingCart, accent: "bg-digidromen-primary" },
-          { label: "Meldingen", value: String(unreadNotifications), icon: RefreshCw, accent: "bg-digidromen-secondary" },
-          { label: "Lage voorraad", value: String(lowStockCount), icon: TriangleAlert, accent: "bg-amber-500" },
-        ]
-      : [
-          { label: "Open orders", value: String(openOrderCount), icon: ShoppingCart, accent: "bg-digidromen-primary" },
-          { label: "Open donaties", value: String(openDonationCount), icon: HeartHandshake, accent: "bg-emerald-500" },
-          { label: "Meldingen", value: String(unreadNotifications), icon: FileText, accent: "bg-digidromen-secondary" },
-          { label: "Lage voorraad", value: String(lowStockCount), icon: TriangleAlert, accent: "bg-amber-500" },
-        ];
+  const firstName = user?.name?.split(" ")[0] ?? "";
+
+  /* ── Loading state ── */
 
   if (isLoading) {
     return (
@@ -195,239 +747,68 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  /* ══════════════════════════════════════════
+     help_org — Customer Surface
+     ══════════════════════════════════════════ */
+
+  if (role === "help_org") {
+    return (
+      <div className="space-y-6">
+        <MissionHeroPanel firstName={firstName} />
+        <OrderingWindowBanner />
+        <MyRequestTimeline orders={openOrders} />
+        <NeedHelpPanel />
+      </div>
+    );
+  }
+
+  /* ══════════════════════════════════════════
+     service_partner — Warehouse Surface
+     ══════════════════════════════════════════ */
+
+  if (role === "service_partner") {
+    const ordersToPrepare = openOrders.filter(
+      (o) => o.status === "in_voorbereiding",
+    ).length;
+
+    return (
+      <div className="space-y-6">
+        <WarehouseHeader firstName={firstName} />
+        <WarehouseActionRail
+          donationCount={openDonationCount}
+          ordersToPrepare={ordersToPrepare}
+          lowStockCount={lowStockCount}
+        />
+        <TodayQueue donations={openDonations} orders={openOrders} />
+        <StockSignalStrip items={displayLowStock} />
+      </div>
+    );
+  }
+
+  /* ══════════════════════════════════════════
+     digidromen_staff / digidromen_admin — Operations Surface
+     ══════════════════════════════════════════ */
+
   return (
-    <div className="space-y-8">
-      {/* Welcome banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-digidromen-dark p-8">
-        <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-digidromen-primary/20 blur-3xl" />
-        <div className="absolute -bottom-12 right-20 h-32 w-32 rounded-full bg-digidromen-primary/10 blur-2xl" />
-        <div className="relative">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-digidromen-primary">
-            Supply & Service Portal
-          </p>
-          <h2 className="mt-2 text-2xl font-bold text-white">
-            Welkom terug, {user?.name?.split(" ")[0]}
-          </h2>
-          <p className="mt-1 text-sm text-white/50">
-            {new Date().toLocaleDateString("nl-NL", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
-        </div>
-      </div>
-
-      <OrderingWindowBanner />
-
-      {role === "help_org" ? (
-        <Link
-          to="/orders"
-          className="flex flex-col justify-between gap-4 rounded-2xl border border-digidromen-primary/30 bg-white px-5 py-4 shadow-sm transition-colors hover:border-digidromen-primary/60 hover:bg-digidromen-orange-light/30 sm:flex-row sm:items-center"
-        >
-          <div>
-            <p className="text-sm font-bold text-digidromen-dark">Laptop aanvragen</p>
-            <p className="mt-1 text-sm text-digidromen-dark/55">
-              Plaats een nieuwe bestelling of volg de status van bestaande aanvragen.
-            </p>
-          </div>
-          <span className="inline-flex w-fit items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-digidromen-dark">
-            <Plus size={16} />
-            Naar bestellen
-          </span>
-        </Link>
-      ) : null}
-
-      {isStaff && approvalQueueCount > 0 ? (
-        <Link
-          to="/orders?status=te_accorderen"
-          className="flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 shadow-sm transition-colors hover:bg-amber-100/90"
-        >
-          <div>
-            <p className="text-sm font-bold">Bestellingen goedkeuren</p>
-            <p className="mt-1 text-sm text-amber-900/85">
-              <strong>{approvalQueueCount}</strong>{" "}
-              {approvalQueueCount === 1 ? "bestelling wacht" : "bestellingen wachten"} op accordering. Open een order en kies onderaan{" "}
-              <strong>Accorderen</strong> (of <strong>Afwijzen</strong>).
-            </p>
-          </div>
-          <ArrowRight className="shrink-0 text-amber-700" size={22} />
-        </Link>
-      ) : null}
-
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {cards.map((stat) => (
-          <KpiCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} accent={stat.accent} />
-        ))}
-      </div>
-
-      {/* Main grid */}
+    <div className="space-y-6">
+      <OperationsHeader firstName={firstName} />
+      <ApprovalCommandCard count={approvalQueueCount} />
+      <OperationsBentoGrid
+        openOrderCount={openOrderCount}
+        openDonationCount={openDonationCount}
+        lowStockCount={lowStockCount}
+        scheduledDeliveries={scheduledDeliveries}
+      />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
-        {/* Recent activity */}
-        <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
-          <h3 className="mb-4 text-base font-bold text-digidromen-dark">
-            {role === "help_org" ? "Mijn aanvragen" : "Recente activiteit"}
-          </h3>
-          <div className="space-y-3">
-            {role === "help_org" ? (
-              spotlightOrders.length === 0 ? (
-                <p className="py-6 text-center text-sm text-digidromen-dark/30">Nog geen aanvragen.</p>
-              ) : (
-                spotlightOrders.map((order) => (
-                  <Link key={order.id} to={`/orders/${order.id}`} className="block rounded-xl border border-digidromen-cream/80 p-3.5 transition-colors hover:bg-digidromen-cream/40">
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="break-all font-mono text-sm font-semibold text-digidromen-dark">{order.id}</p>
-                      <StatusBadge status={order.status} />
-                    </div>
-                    <p className="mt-1 text-xs text-digidromen-dark/45">
-                      Gewenste leverdatum: {order.preferred_delivery_date ?? "nog niet gekozen"}
-                    </p>
-                  </Link>
-                ))
-              )
-            ) : displayEvents.length === 0 ? (
-              <p className="py-6 text-center text-sm text-digidromen-dark/30">Nog geen activiteit.</p>
-            ) : (
-              displayEvents.map((event) => (
-                <div key={event.id} className="rounded-xl border border-digidromen-cream/80 p-3.5 transition-colors hover:bg-digidromen-cream/40">
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="text-sm font-semibold text-digidromen-dark">{event.summary}</p>
-                    <p className="shrink-0 text-[11px] text-digidromen-dark/35">
-                      {new Date(event.createdAt).toLocaleString("nl-NL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
-                  <p className="mt-1 text-[11px] text-digidromen-dark/40">
-                    {event.subjectType} &middot; {event.subjectId}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Right column */}
+        <RecentActivityFeed events={displayEvents} />
         <div className="space-y-6">
-          {/* Quick links */}
-          <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
-            <h3 className="mb-4 text-base font-bold text-digidromen-dark">Snelle routes</h3>
-            <div className="grid gap-2">
-              {[
-                { label: "Bestellingen", route: "/orders", description: `${openOrders.length} records`, icon: ShoppingCart },
-                { label: "Donaties", route: "/donations", description: `${openDonations.length} records`, icon: HeartHandshake },
-                { label: "Voorraad", route: "/inventory", description: `${lowStockCount} signalen`, icon: TriangleAlert },
-              ]
-                .filter((item) => !(role === "help_org" && ["/donations", "/inventory"].includes(item.route)))
-                .map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.route}
-                      to={item.route}
-                      className="flex items-center justify-between rounded-xl border border-digidromen-cream/60 p-3 transition-all hover:border-digidromen-primary/30 hover:bg-digidromen-orange-light/40"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-digidromen-cream">
-                          <Icon size={15} className="text-digidromen-dark/50" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-digidromen-dark">{item.label}</p>
-                          <p className="text-[11px] text-digidromen-dark/40">{item.description}</p>
-                        </div>
-                      </div>
-                      <ArrowRight size={15} className="text-digidromen-dark/25" />
-                    </Link>
-                  );
-                })}
-            </div>
-          </div>
-
-          {role !== "help_org" ? (
-            <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
-              <h3 className="mb-4 text-base font-bold text-digidromen-dark">Signalen</h3>
-              <div className="space-y-2.5">
-                {displayLowStock.length > 0 ? (
-                  displayLowStock.slice(0, 2).map((product) => (
-                    <div key={product.productId} className="flex items-start gap-3 rounded-xl bg-amber-50 p-3.5">
-                      <TriangleAlert size={16} className="mt-0.5 shrink-0 text-amber-600" />
-                      <div>
-                        <p className="text-sm font-semibold text-digidromen-dark">{product.name}</p>
-                        <p className="text-xs text-digidromen-dark/50">Beschikbaar: {product.availableQuantity}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen actieve signalen.</p>
-                )}
-              </div>
-            </div>
-          ) : null}
+          <QuickLinks
+            openOrderCount={openOrderCount}
+            openDonationCount={openDonationCount}
+            lowStockCount={lowStockCount}
+          />
+          <ExceptionRail lowStock={displayLowStock} />
         </div>
-      </div>
-
-      {/* Spotlight cards */}
-        <div className={`grid gap-6 ${role === "help_org" ? "lg:grid-cols-1" : "lg:grid-cols-3"}`}>
-        <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <ShoppingCart size={16} className="text-digidromen-primary" />
-            <h3 className="text-base font-bold text-digidromen-dark">Orders</h3>
-          </div>
-          <div className="space-y-2">
-            {spotlightOrders.length === 0 ? (
-              <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen openstaande orders.</p>
-            ) : (
-              spotlightOrders.map((order) => (
-                <Link key={order.id} to={`/orders/${order.id}`} className="block rounded-xl bg-digidromen-cream/50 p-3 transition-colors hover:bg-digidromen-cream">
-                  <p className="text-sm font-semibold text-digidromen-dark font-mono">{order.id}</p>
-                  <StatusBadge status={order.status} />
-                </Link>
-              ))
-            )}
-          </div>
-        </div>
-
-        {role !== "help_org" ? (
-          <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <HeartHandshake size={16} className="text-emerald-500" />
-              <h3 className="text-base font-bold text-digidromen-dark">Donaties</h3>
-            </div>
-            <div className="space-y-2">
-              {spotlightDonations.length === 0 ? (
-                <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen actieve donatiebatches.</p>
-              ) : (
-                spotlightDonations.map((donation) => (
-                  <Link key={donation.id} to={`/donations/${donation.id}`} className="block rounded-xl bg-digidromen-cream/50 p-3 transition-colors hover:bg-digidromen-cream">
-                    <p className="text-sm font-semibold text-digidromen-dark font-mono">{donation.id}</p>
-                    <StatusBadge status={donation.status} />
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        {role !== "help_org" ? (
-          <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <TriangleAlert size={16} className="text-amber-500" />
-              <h3 className="text-base font-bold text-digidromen-dark">Voorraadsignalen</h3>
-            </div>
-            <div className="space-y-2">
-              {displayLowStock.length === 0 ? (
-                <p className="py-4 text-center text-sm text-digidromen-dark/30">Geen actuele knelpunten.</p>
-              ) : (
-                displayLowStock.slice(0, 3).map((product) => (
-                  <div key={product.productId} className="rounded-xl bg-digidromen-cream/50 p-3">
-                    <p className="text-sm font-semibold text-digidromen-dark">{product.name}</p>
-                    <p className="mt-1 text-xs text-digidromen-dark/45">Beschikbaar: {product.availableQuantity}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        ) : null}
       </div>
     </div>
   );
