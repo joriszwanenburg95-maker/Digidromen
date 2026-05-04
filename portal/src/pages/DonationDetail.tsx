@@ -400,8 +400,9 @@ const DonationDetail: React.FC = () => {
       {pickupModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center">
           <div
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
             role="dialog"
+            aria-modal="true"
             aria-labelledby="pickup-plan-title"
           >
             <h2

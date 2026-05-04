@@ -49,7 +49,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         className="fixed inset-0 bg-digidromen-dark/30 backdrop-blur-sm"
         onClick={onCancel}
       />
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-start gap-4">
           {isDanger && (
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50">

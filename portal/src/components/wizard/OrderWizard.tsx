@@ -553,11 +553,17 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <div
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="order-wizard-title"
+      >
+        <div className="shrink-0 border-b border-slate-100 bg-white px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs text-slate-500">Nieuwe bestelling</p>
-            <p className="text-sm font-semibold text-slate-800">
+            <p id="order-wizard-title" className="text-sm font-semibold text-slate-800">
               {STEP_LABELS[step]}
             </p>
           </div>
@@ -576,97 +582,101 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
               <path d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+          </div>
         </div>
 
-        <div className="flex gap-1 px-6 pt-4">
-          {STEP_LABELS.map((label, index) => (
-            <div
-              key={label}
-              className={`h-1 flex-1 rounded-full transition-colors ${
-                index <= step ? "bg-digidromen-primary" : "bg-slate-200"
-              }`}
-            />
-          ))}
-        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex gap-1 px-6 pt-4">
+            {STEP_LABELS.map((label, index) => (
+              <div
+                key={label}
+                className={`h-1 flex-1 rounded-full transition-colors ${
+                  index <= step ? "bg-digidromen-primary" : "bg-slate-200"
+                }`}
+              />
+            ))}
+          </div>
 
-        <div className="px-6 py-5">
-          {step === 0 ? (
-            <StepOrganization
-              mode={isStaffOrderer ? "select" : "fixed"}
-              options={organizationOptions}
-              selectedId={
-                isStaffOrderer
-                  ? orderOrganizationId
-                  : (user?.organizationId ?? orderOrganizationId)
-              }
-              onChange={(id) => {
-                setOrderOrganizationId(id);
-                setErrors((current) => ({ ...current, organization: "" }));
-              }}
-              error={errors.organization}
-              isLoading={orgLoading}
-            />
-          ) : null}
+          <div className="px-6 py-5">
+            {step === 0 ? (
+              <StepOrganization
+                mode={isStaffOrderer ? "select" : "fixed"}
+                options={organizationOptions}
+                selectedId={
+                  isStaffOrderer
+                    ? orderOrganizationId
+                    : (user?.organizationId ?? orderOrganizationId)
+                }
+                onChange={(id) => {
+                  setOrderOrganizationId(id);
+                  setErrors((current) => ({ ...current, organization: "" }));
+                }}
+                error={errors.organization}
+                isLoading={orgLoading}
+              />
+            ) : null}
 
-          {step === 1 ? (
-            <StepProductType
-              selected={scenario}
-              error={errors.scenario}
-              onSelect={(nextScenario) => {
-                setScenario(nextScenario);
-                setErrors({});
-              }}
-            />
-          ) : null}
+            {step === 1 ? (
+              <StepProductType
+                selected={scenario}
+                error={errors.scenario}
+                onSelect={(nextScenario) => {
+                  setScenario(nextScenario);
+                  setErrors({});
+                }}
+              />
+            ) : null}
 
-          {step === 2 && scenario ? (
-            <StepProductFields
-              scenario={scenario}
-              values={productFields}
-              onChange={updateProductField}
-              errors={
-                errors as Partial<Record<keyof ProductFieldValues, string>>
-              }
-            />
-          ) : null}
+            {step === 2 && scenario ? (
+              <StepProductFields
+                scenario={scenario}
+                values={productFields}
+                onChange={updateProductField}
+                errors={
+                  errors as Partial<Record<keyof ProductFieldValues, string>>
+                }
+              />
+            ) : null}
 
-          {step === 3 ? (
-            <StepDelivery
-              values={delivery}
-              onChange={updateDelivery}
-              errors={errors as Partial<Record<keyof DeliveryValues, string>>}
-            />
-          ) : null}
+            {step === 3 ? (
+              <StepDelivery
+                values={delivery}
+                onChange={updateDelivery}
+                errors={errors as Partial<Record<keyof DeliveryValues, string>>}
+              />
+            ) : null}
 
-          {step === 4 && scenario ? (
-            <StepConfirm
-              organizationLabel={confirmOrganizationLabel}
-              scenario={scenario}
-              productFields={productFields}
-              targetGroupFromOrg={
-                scenario === "new_request"
-                  ? orgTargetGroupForOrder() || null
-                  : null
-              }
-              delivery={delivery}
-              isSubmitting={isSubmitting}
-              submitError={submitError}
-              onSubmit={() => {
-                void handleSubmit();
-              }}
-            />
-          ) : null}
+            {step === 4 && scenario ? (
+              <StepConfirm
+                organizationLabel={confirmOrganizationLabel}
+                scenario={scenario}
+                productFields={productFields}
+                targetGroupFromOrg={
+                  scenario === "new_request"
+                    ? orgTargetGroupForOrder() || null
+                    : null
+                }
+                delivery={delivery}
+                isSubmitting={isSubmitting}
+                submitError={submitError}
+                onSubmit={() => {
+                  void handleSubmit();
+                }}
+              />
+            ) : null}
 
-          {draftId ? (
-            <p className="mt-4 text-xs text-slate-400">
-              Concept-id: {draftId}
-              {isSaving ? " · opslaan..." : ""}
-            </p>
-          ) : null}
+            {draftId ? (
+              <p className="mt-4 text-xs text-slate-400">
+                Concept-id: {draftId}
+                {isSaving ? " · opslaan..." : ""}
+              </p>
+            ) : null}
+          </div>
         </div>
 
         {step < 4 ? (
-          <div className="flex justify-between border-t border-slate-100 px-6 py-4">
+          <div className="shrink-0 border-t border-slate-100 bg-white px-6 py-4">
+            <div className="flex justify-between gap-3">
             <button
               type="button"
               onClick={step === 0 ? onClose : () => setStep((current) => current - 1)}
@@ -683,6 +693,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
             >
               Volgende
             </button>
+            </div>
           </div>
         ) : null}
       </div>

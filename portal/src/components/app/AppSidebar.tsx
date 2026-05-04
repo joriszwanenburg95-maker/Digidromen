@@ -105,11 +105,11 @@ export function AppSidebar({
     <Sidebar collapsible="icon" className="border-sidebar-border">
       <SidebarHeader className="gap-4 p-4">
         <Link to="/dashboard" className="motion-safe:animate-shell-in flex min-h-12 items-center gap-3 rounded-xl px-1">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm transition-transform duration-300 hover:scale-[1.03]">
+          <span className="flex h-10 w-[4.5rem] shrink-0 items-center justify-center rounded-lg bg-white px-2 shadow-sm transition-transform duration-300 hover:scale-[1.02] group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:px-1">
             <img
               src="/Digidromen logo.png"
               alt="Digidromen"
-              className="h-8 w-auto object-contain"
+              className="max-h-7 w-full object-contain group-data-[collapsible=icon]:max-h-6"
             />
           </span>
           <span className="min-w-0 group-data-[collapsible=icon]:hidden">
