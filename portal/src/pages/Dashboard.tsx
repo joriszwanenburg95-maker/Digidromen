@@ -624,6 +624,7 @@ const QuickLinks: React.FC<QuickLinksProps> = ({
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const role = user?.role ?? "help_org";
+  const isStaff = role === "digidromen_admin" || role === "digidromen_staff";
 
   /* ── Data fetching (unchanged) ── */
 
@@ -638,13 +639,15 @@ const Dashboard: React.FC = () => {
           .gte("created_at", oneDayAgo)
           .order("created_at", { ascending: false })
           .limit(20);
-        if (error) throw error;
+        if (error) {
+          console.warn("Notificaties konden niet worden geladen", error);
+          return [];
+        }
         return data;
       },
-      enabled: role !== "help_org",
+      enabled: isStaff,
+      retry: false,
     });
-
-  const isStaff = role === "digidromen_admin" || role === "digidromen_staff";
 
   const { data: approvalQueueCount = 0 } = useQuery({
     queryKey: ["orders", "te-accorderen-count"] as const,
@@ -699,7 +702,7 @@ const Dashboard: React.FC = () => {
   const { data: openDonations = [], isLoading: donationsLoading } = useQuery({
     queryKey: queryKeys.donations.list({ status: "open" }),
     queryFn: async () => {
-      const { data, error } = await getSupabaseClient()
+      let q = getSupabaseClient()
         .from("donation_batches")
         .select(
           "id, status, sponsor_organization_id, device_count_promised, pickup_date, created_at",
@@ -707,10 +710,14 @@ const Dashboard: React.FC = () => {
         .neq("status", "verwerkt")
         .order("created_at", { ascending: false })
         .limit(20);
+      if (role === "service_partner" && user?.organizationId) {
+        q = q.eq("assigned_service_partner_id", user.organizationId);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
-    enabled: role !== "help_org",
+    enabled: isStaff,
   });
 
   const { data: recentEvents = [], isLoading: eventsLoading } = useQuery({
@@ -724,7 +731,9 @@ const Dashboard: React.FC = () => {
       if (error) throw error;
       return data;
     },
-    enabled: role !== "help_org",
+    enabled:
+      role !== "help_org" &&
+      (role !== "service_partner" || !!user?.organizationId),
   });
 
   const { data: lowStockProducts = [], isLoading: stockLoading } = useQuery({
@@ -767,10 +776,10 @@ const Dashboard: React.FC = () => {
   const lowStockCount = displayLowStock.length;
 
   const isLoading =
-    (role !== "help_org" && notificationsLoading) ||
+    (isStaff && notificationsLoading) ||
     ordersLoading ||
     (role !== "help_org" && donationsLoading) ||
-    (role !== "help_org" && eventsLoading) ||
+    (isStaff && eventsLoading) ||
     (role !== "help_org" && stockLoading);
 
   const firstName = user?.name?.split(" ")[0] ?? "";

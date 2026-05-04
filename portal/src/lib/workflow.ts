@@ -79,7 +79,7 @@ export const orderWorkflow = {
       return "bg-amber-500 hover:bg-amber-600 text-white";
     if (target === "geleverd" || target === "afgesloten")
       return "bg-green-600 hover:bg-green-700 text-white";
-    return "bg-digidromen-primary hover:bg-blue-700 text-white";
+    return "bg-digidromen-orange hover:bg-digidromen-orange-hover text-white";
   },
 };
 
@@ -154,7 +154,7 @@ export const donationWorkflow = {
     if (target === "verwerkt") return "bg-green-600 hover:bg-green-700 text-white";
     if (target === "pickup_gepland" || target === "in_verwerking")
       return "bg-amber-500 hover:bg-amber-600 text-white";
-    return "bg-digidromen-primary hover:bg-blue-700 text-white";
+    return "bg-digidromen-orange hover:bg-digidromen-orange-hover text-white";
   },
 };
 

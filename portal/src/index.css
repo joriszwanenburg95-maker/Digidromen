@@ -20,7 +20,7 @@
   --card-foreground: #2E3848;
   --popover: #FFFFFF;
   --popover-foreground: #2E3848;
-  --primary: #005FB8;
+  --primary: #EE7219;
   --primary-foreground: #FFFFFF;
   --secondary: #F5F0EB;
   --secondary-foreground: #2E3848;
@@ -33,7 +33,7 @@
   --border: #E7DDD1;
   --input: #E7DDD1;
   --ring: #EE7219;
-  --chart-1: #005FB8;
+  --chart-1: #EE7219;
   --chart-2: #EE7219;
   --chart-3: #87CEDC;
   --chart-4: #FFD500;
@@ -65,7 +65,7 @@ body {
   --color-surface-soft: #FFF9EA;
 
   /* Legacy aliases kept for existing usage */
-  --color-digidromen-primary: #005FB8;
+  --color-digidromen-primary: #EE7219;
   --color-digidromen-warm: #FAF8F5;
   --color-digidromen-cream: #F5F0EB;
   --color-digidromen-orange-light: #FFF7ED;

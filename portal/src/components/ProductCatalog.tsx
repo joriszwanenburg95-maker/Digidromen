@@ -133,7 +133,7 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({ products, onAdd }) => {
                       }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                         quantities[product.id] > 0
-                          ? "bg-digidromen-primary text-white hover:bg-blue-700"
+                          ? "bg-digidromen-primary text-white hover:bg-digidromen-orange-hover"
                           : "bg-gray-100 text-gray-400 cursor-not-allowed"
                       }`}
                     >
@@ -200,7 +200,7 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({ products, onAdd }) => {
                     className={`
                       flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
                       ${quantities[product.id] > 0
-                        ? 'bg-digidromen-primary text-white hover:bg-blue-700'
+                        ? 'bg-digidromen-primary text-white hover:bg-digidromen-orange-hover'
                         : 'bg-gray-100 text-gray-400 cursor-not-allowed'}
                     `}
                   >

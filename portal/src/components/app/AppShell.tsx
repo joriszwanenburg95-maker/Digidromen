@@ -21,6 +21,7 @@ export function AppShell() {
   const role: Role = user?.role ?? "help_org";
   const surface = useMemo(() => getSurface(role), [role]);
   const pageTitle = getPageTitle(role, location.pathname);
+  const canReadNotifications = role === "digidromen_admin" || role === "digidromen_staff";
 
   const { data: unreadCount = 0 } = useQuery<number>({
     queryKey: [...queryKeys.notifications.unread(), role],
@@ -30,10 +31,14 @@ export function AppShell() {
         .from("notifications")
         .select("id")
         .gte("created_at", oneDayAgo);
-      if (error) throw error;
+      if (error) {
+        console.warn("Notificaties konden niet worden geladen", error);
+        return 0;
+      }
       return data?.length ?? 0;
     },
-    enabled: role !== "help_org",
+    enabled: canReadNotifications,
+    retry: false,
   });
 
   const statusCopy = supabaseConfigured

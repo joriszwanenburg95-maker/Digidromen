@@ -92,6 +92,18 @@ export function AppTopbar({
             ) : null}
           </Button>
 
+          <Button
+            type="button"
+            variant="outline"
+            className="hidden h-10 rounded-full bg-card px-4 text-foreground transition-transform duration-200 hover:-translate-y-px hover:border-digidromen-orange/35 hover:bg-white lg:inline-flex"
+            onClick={() => {
+              onLogout().then(() => navigate("/login"));
+            }}
+          >
+            <LogOut className="size-4" />
+            Uitloggen
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

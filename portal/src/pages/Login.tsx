@@ -88,7 +88,7 @@ const Login: React.FC = () => {
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="w-full rounded-xl border border-digidromen-cream bg-white p-3.5 text-sm text-digidromen-dark outline-none transition-colors focus:border-digidromen-primary focus:ring-2 focus:ring-digidromen-primary/20"
+                  className="w-full rounded-xl border border-digidromen-cream bg-white p-3.5 text-sm text-digidromen-dark outline-none transition-colors focus:border-digidromen-orange focus:ring-2 focus:ring-digidromen-orange/20"
                   placeholder="naam@organisatie.nl"
                   disabled={!supabaseConfigured}
                   autoComplete="email"
@@ -104,7 +104,7 @@ const Login: React.FC = () => {
                     type="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    className="w-full rounded-xl border border-digidromen-cream bg-white p-3.5 text-sm text-digidromen-dark outline-none transition-colors focus:border-digidromen-primary focus:ring-2 focus:ring-digidromen-primary/20"
+                    className="w-full rounded-xl border border-digidromen-cream bg-white p-3.5 text-sm text-digidromen-dark outline-none transition-colors focus:border-digidromen-orange focus:ring-2 focus:ring-digidromen-orange/20"
                     placeholder="Wachtwoord"
                     disabled={!supabaseConfigured}
                     autoComplete="current-password"
@@ -115,7 +115,7 @@ const Login: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading || !email || !supabaseConfigured || (loginMode === "password" && !password)}
-                className="w-full rounded-xl bg-digidromen-primary px-4 py-3.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-digidromen-primary/90 hover:shadow-md disabled:cursor-not-allowed disabled:bg-digidromen-cream disabled:text-digidromen-dark/30 disabled:shadow-none"
+                className="w-full rounded-xl bg-digidromen-orange px-4 py-3.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-digidromen-orange-hover hover:shadow-md disabled:cursor-not-allowed disabled:bg-digidromen-cream disabled:text-digidromen-dark/30 disabled:shadow-none"
               >
                 {loading
                   ? "Bezig..."

@@ -656,7 +656,7 @@ const DonationDetail: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setAssignModalOpen(true)}
-                className="mt-4 w-full rounded-lg bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                className="mt-4 w-full rounded-lg bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white hover:bg-digidromen-orange-hover"
               >
                 {donation.assigned_service_partner_id ? "Hertoewijzen" : "Servicepartner toewijzen"}
               </button>

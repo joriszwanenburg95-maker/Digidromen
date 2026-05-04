@@ -128,7 +128,7 @@ const Users: React.FC = () => {
         <h2 className="text-2xl font-bold text-slate-900">Gebruikers</h2>
         <button
           onClick={() => { setShowInvite(!showInvite); setInviteError(null); setInviteSuccess(false); }}
-          className="inline-flex items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-600 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-digidromen-orange-hover transition-colors"
         >
           {showInvite ? <X size={16} /> : <UserPlus size={16} />}
           {showInvite ? "Annuleren" : "Uitnodigen"}

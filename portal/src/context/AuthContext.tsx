@@ -50,9 +50,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   /** Na eerste ingelogde sessie: token-refresh zonder `loading` → voorkomt unmount van o.a. bestelwizard bij tab-switch. */
   const hasAuthenticatedSessionRef = useRef(false);
 
-  const refreshUserProfile = useCallback(async () => {
+  const loadCurrentUserProfile = useCallback(async (): Promise<AuthUser | null> => {
     if (!portalEnv.isSupabaseConfigured || !supabase) {
-      return;
+      return null;
     }
     const sb = getSupabaseClient();
     const {
@@ -60,25 +60,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       error: authErr,
     } = await sb.auth.getUser();
     if (authErr || !authUser) {
-      return;
+      return null;
     }
-    const { data: profile } = await sb
+    const { data: profile, error: profileError } = await sb
       .from("user_profiles")
       .select("id, organization_id, role, name, email")
       .eq("auth_user_id", authUser.id)
       .maybeSingle();
-    if (!profile) {
-      return;
+    if (profileError) {
+      throw profileError;
     }
-    hasAuthenticatedSessionRef.current = true;
-    setUser({
+    if (!profile) {
+      return null;
+    }
+    return {
       id: profile.id,
       name: profile.name,
       role: profile.role,
       organizationId: profile.organization_id,
       email: profile.email,
-    });
+    };
   }, []);
+
+  const refreshUserProfile = useCallback(async () => {
+    const profile = await loadCurrentUserProfile();
+    if (!profile) return;
+    hasAuthenticatedSessionRef.current = true;
+    setUser(profile);
+  }, [loadCurrentUserProfile]);
 
   useEffect(() => {
     if (!portalEnv.isSupabaseConfigured || !supabase) {
@@ -95,28 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       try {
-        const sb = getSupabaseClient();
-        const {
-          data: { user: authUser },
-          error: authErr,
-        } = await sb.auth.getUser();
-
-        if (cancelled) return;
-
-        if (authErr) throw authErr;
-        if (!authUser) {
-          hasAuthenticatedSessionRef.current = false;
-          setUser(null);
-          setError(null);
-          return;
-        }
-
-        const { data: profile } = await sb
-          .from("user_profiles")
-          .select("id, organization_id, role, name, email")
-          .eq("auth_user_id", authUser.id)
-          .maybeSingle();
-
+        const profile = await loadCurrentUserProfile();
         if (cancelled) return;
 
         if (!profile) {
@@ -127,13 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         hasAuthenticatedSessionRef.current = true;
-        setUser({
-          id: profile.id,
-          name: profile.name,
-          role: profile.role,
-          organizationId: profile.organization_id,
-          email: profile.email,
-        });
+        setUser(profile);
         setError(null);
       } finally {
         if (!quietRefresh && !cancelled) {
@@ -165,7 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadCurrentUserProfile]);
 
   const setRole = (_role: Role) => {};
 
@@ -179,16 +161,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(true);
     setError(null);
 
-    const { error: signInError } = await getSupabaseClient().auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error: signInError } = await getSupabaseClient().auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    setLoading(false);
+      if (signInError) {
+        setError(translateError(signInError, "Inloggen mislukt. Controleer je gegevens en probeer opnieuw."));
+        throw signInError;
+      }
 
-    if (signInError) {
-      setError(translateError(signInError, "Inloggen mislukt. Controleer je gegevens en probeer opnieuw."));
-      throw signInError;
+      const profile = await loadCurrentUserProfile();
+      if (!profile) {
+        const profileError = new Error("Je bent ingelogd, maar je portalprofiel kon niet worden geladen.");
+        setError(translateError(profileError));
+        throw profileError;
+      }
+
+      hasAuthenticatedSessionRef.current = true;
+      setUser(profile);
+      setError(null);
+    } finally {
+      setLoading(false);
     }
   };
 

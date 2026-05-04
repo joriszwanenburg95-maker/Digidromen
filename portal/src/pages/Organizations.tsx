@@ -68,7 +68,7 @@ const Organizations: React.FC = () => {
         <h2 className="text-2xl font-bold text-slate-900">Organisaties</h2>
         <button
           onClick={() => { setShowCreate(!showCreate); setCreateError(null); }}
-          className="inline-flex items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-600 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-digidromen-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-digidromen-orange-hover transition-colors"
         >
           {showCreate ? <X size={16} /> : <Plus size={16} />}
           {showCreate ? "Annuleren" : "Nieuwe organisatie"}
