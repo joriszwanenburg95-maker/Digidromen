@@ -1,6 +1,6 @@
 import React from "react";
 import { ArrowRightIcon, AtSignIcon, LockKeyholeIcon } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,44 +28,98 @@ const loginQuotes = [
   "Maak Digidromen waar",
 ];
 
-function LoginAmbientMotion() {
+function LoginGlowRibbon() {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden rounded-[24px]"
+      className="pointer-events-none relative h-28 overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.06]"
     >
       <motion.div
-        className="absolute -left-10 -top-14 h-44 w-44 rounded-full bg-digidromen-yellow/38 blur-2xl"
+        className="absolute -left-12 top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-digidromen-yellow/70 blur-2xl"
         animate={{
-          x: [0, 24, 10, 0],
-          y: [0, 10, 30, 0],
-          scale: [1, 1.16, 0.96, 1],
-          opacity: [0.62, 0.82, 0.56, 0.62],
+          x: prefersReducedMotion ? 0 : [0, 96, 210, 52, 0],
+          y: prefersReducedMotion ? 0 : [0, -12, 12, 18, 0],
+          scale: prefersReducedMotion ? 1 : [1, 1.25, 0.92, 1.12, 1],
+          opacity: prefersReducedMotion ? 0.72 : [0.66, 0.9, 0.58, 0.82, 0.66],
+          backgroundColor: prefersReducedMotion
+            ? "#FFD500"
+            : ["#FFD500", "#F2A900", "#EE7219", "#FFD500"],
+        }}
+        transition={{ duration: 8.5, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -right-10 top-3 h-36 w-36 rounded-full bg-digidromen-orange/70 blur-2xl"
+        animate={{
+          x: prefersReducedMotion ? 0 : [0, -86, -190, -44, 0],
+          y: prefersReducedMotion ? 0 : [0, 16, -10, 8, 0],
+          scale: prefersReducedMotion ? 1 : [0.96, 1.18, 1.02, 1.24, 0.96],
+          opacity: prefersReducedMotion ? 0.68 : [0.58, 0.86, 0.62, 0.78, 0.58],
+          backgroundColor: prefersReducedMotion
+            ? "#EE7219"
+            : ["#EE7219", "#FFD500", "#F2A900", "#EE7219"],
+        }}
+        transition={{ duration: 9.5, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute left-1/2 top-1/2 h-52 w-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[conic-gradient(from_90deg,rgba(255,213,0,0.72),rgba(238,114,25,0.58),rgba(255,255,255,0),rgba(255,213,0,0.72))] blur-xl"
+        animate={{
+          rotate: prefersReducedMotion ? 0 : 360,
+          scale: prefersReducedMotion ? 1 : [1, 1.08, 0.98, 1],
+          opacity: prefersReducedMotion ? 0.46 : [0.34, 0.66, 0.44, 0.34],
+        }}
+        transition={{
+          rotate: { duration: 16, repeat: Infinity, ease: "linear" },
+          scale: { duration: 6.5, repeat: Infinity, ease: "easeInOut" },
+          opacity: { duration: 6.5, repeat: Infinity, ease: "easeInOut" },
+        }}
+      />
+      <motion.div
+        className="absolute inset-x-6 top-1/2 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent"
+        animate={{
+          x: prefersReducedMotion ? 0 : ["-62%", "62%"],
+          opacity: prefersReducedMotion ? 0.42 : [0, 0.95, 0],
+        }}
+        transition={{ duration: 4.8, repeat: Infinity, ease: "easeInOut" }}
+      />
+    </div>
+  );
+}
+
+function LoginCardGlow() {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 top-1/2 z-0 h-[34rem] -translate-y-1/2 overflow-visible"
+    >
+      <motion.div
+        className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-digidromen-yellow/34 blur-3xl"
+        animate={{
+          x: prefersReducedMotion ? 0 : [-28, 42, 14, -28],
+          y: prefersReducedMotion ? 0 : [-18, 22, -4, -18],
+          scale: prefersReducedMotion ? 1 : [1, 1.18, 0.98, 1],
+          opacity: prefersReducedMotion ? 0.44 : [0.34, 0.58, 0.4, 0.34],
+          backgroundColor: prefersReducedMotion
+            ? "#FFD500"
+            : ["#FFD500", "#F2A900", "#EE7219", "#FFD500"],
         }}
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute -right-12 top-2 h-40 w-40 rounded-full bg-digidromen-orange/34 blur-2xl"
+        className="absolute left-[56%] top-[56%] h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-digidromen-orange/24 blur-3xl"
         animate={{
-          x: [0, -18, -8, 0],
-          y: [0, 22, -6, 0],
-          scale: [0.96, 1.08, 1.18, 0.96],
-          opacity: [0.46, 0.68, 0.52, 0.46],
+          x: prefersReducedMotion ? 0 : [42, -32, 18, 42],
+          y: prefersReducedMotion ? 0 : [18, -20, 24, 18],
+          scale: prefersReducedMotion ? 1 : [0.96, 1.12, 1.22, 0.96],
+          opacity: prefersReducedMotion ? 0.38 : [0.28, 0.5, 0.36, 0.28],
+          backgroundColor: prefersReducedMotion
+            ? "#EE7219"
+            : ["#EE7219", "#FFD500", "#EE7219"],
         }}
         transition={{ duration: 10.5, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[conic-gradient(from_90deg,rgba(255,213,0,0.34),rgba(238,114,25,0.12),rgba(255,255,255,0),rgba(255,213,0,0.34))] blur-xl"
-        animate={{ rotate: 360, scale: [1, 1.05, 1] }}
-        transition={{
-          rotate: { duration: 18, repeat: Infinity, ease: "linear" },
-          scale: { duration: 6, repeat: Infinity, ease: "easeInOut" },
-        }}
-      />
-      <motion.div
-        className="absolute inset-x-8 top-1/2 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent"
-        animate={{ x: ["-60%", "60%"], opacity: [0, 0.9, 0] }}
-        transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
       />
     </div>
   );
@@ -103,9 +157,7 @@ export function AuthPage({
         </div>
 
         <div className="relative z-10 motion-safe:animate-auth-rise-delayed">
-          <div className="relative mb-6 min-h-[4.5rem] overflow-hidden rounded-[24px] border border-white/12 bg-white/10 px-5 py-4 text-white shadow-sm backdrop-blur">
-            <LoginAmbientMotion />
-            <div className="relative z-10">
+          <div className="relative mb-4 min-h-[4.5rem] overflow-hidden rounded-[24px] border border-white/12 bg-white/10 px-5 py-4 text-white shadow-sm backdrop-blur">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-digidromen-yellow">
               Digitale kansen
             </p>
@@ -121,9 +173,11 @@ export function AuthPage({
               transition={{ type: "spring", damping: 30, stiffness: 420 }}
               mainClassName="font-heading text-2xl font-semibold leading-tight"
             />
-            </div>
           </div>
-          <div className="overflow-hidden rounded-[28px] border border-white/12 bg-white shadow-2xl transition-transform duration-500 hover:-translate-y-1 hover:rotate-[0.4deg]">
+          <div className="mb-4">
+            <LoginGlowRibbon />
+          </div>
+          <div className="relative overflow-hidden rounded-[28px] border border-white/12 bg-white shadow-2xl transition-transform duration-500 hover:-translate-y-1 hover:rotate-[0.4deg]">
             <img
               src="/Digidromen kleuren.png"
               alt="Ieder kind verdient grote dromen"
@@ -138,10 +192,7 @@ export function AuthPage({
       </section>
 
       <section className="relative flex min-h-screen flex-col justify-center px-5 py-8 sm:px-8 lg:px-12">
-        <div aria-hidden className="absolute inset-0 overflow-hidden">
-          <div className="absolute right-[-8rem] top-[-10rem] h-80 w-80 rounded-full bg-digidromen-yellow/20 blur-3xl motion-safe:animate-auth-float" />
-          <div className="absolute bottom-[-12rem] left-[-10rem] h-96 w-96 rounded-full bg-digidromen-orange/10 blur-3xl motion-safe:animate-auth-float-delayed" />
-        </div>
+        <LoginCardGlow />
 
         <div className="relative z-10 mx-auto w-full max-w-md motion-safe:animate-auth-rise">
           <div className="mb-8 overflow-hidden rounded-3xl border border-digidromen-cream bg-white p-3 shadow-sm motion-safe:animate-auth-rise-delayed lg:hidden">
