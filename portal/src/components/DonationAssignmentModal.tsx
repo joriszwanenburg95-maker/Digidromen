@@ -213,7 +213,7 @@ export default function DonationAssignmentModal({
             type="button"
             disabled={!canSubmit || assignMutation.isPending}
             onClick={() => assignMutation.mutate()}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+            className="rounded-lg bg-digidromen-orange px-4 py-2 text-sm font-semibold text-white hover:bg-digidromen-orange-hover disabled:opacity-50"
           >
             {assignMutation.isPending ? "Bezig..." : "Toewijzen"}
           </button>

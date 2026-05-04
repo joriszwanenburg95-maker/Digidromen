@@ -465,7 +465,7 @@ const OrderDetail: React.FC = () => {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Bestelling</h2>
-                <p className="mt-0.5 font-mono text-sm text-sky-700">{order.id}</p>
+                <p className="mt-0.5 font-mono text-sm text-digidromen-orange">{order.id}</p>
                 <p className="text-sm text-slate-500">Geplaatst op {formatDate(order.created_at)}</p>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${orderWorkflow.badgeClass(order.status)}`}>
@@ -474,7 +474,7 @@ const OrderDetail: React.FC = () => {
             </div>
 
             {order.order_lines?.length ? (
-              <div className="mt-6 rounded-xl border-2 border-digidromen-primary/25 bg-gradient-to-br from-sky-50 to-white p-5 shadow-sm">
+              <div className="mt-6 rounded-xl border-2 border-digidromen-primary/25 bg-gradient-to-br from-digidromen-orange-light to-white p-5 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Wat is er besteld</p>
                 <p className="mt-2 text-lg font-bold leading-snug text-slate-900">
                   {formatOrderLinesSummary(order.order_lines)}
@@ -548,7 +548,7 @@ const OrderDetail: React.FC = () => {
                   onClick={() => setActiveTab(tab)}
                   className={`flex-1 py-4 text-sm font-bold capitalize ${
                     activeTab === tab
-                      ? "border-b-2 border-digidromen-primary bg-sky-50/60 text-digidromen-primary"
+                      ? "border-b-2 border-digidromen-primary bg-digidromen-orange-light/70 text-digidromen-primary"
                       : "text-slate-400 hover:text-slate-700"
                   }`}
                 >
@@ -636,7 +636,7 @@ const OrderDetail: React.FC = () => {
         <aside className="space-y-6">
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <h3 className="mb-4 flex items-center text-lg font-bold text-slate-900">
-              <Clock size={18} className="mr-2 text-sky-600" />
+              <Clock size={18} className="mr-2 text-digidromen-orange" />
               Zaaksamenvatting
             </h3>
             <dl className="space-y-3 text-sm">

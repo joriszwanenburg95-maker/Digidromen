@@ -138,7 +138,7 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "relative flex min-h-12 cursor-default select-none items-center gap-3 rounded-xl px-3 py-2 text-sm outline-hidden transition-colors data-[disabled=true]:pointer-events-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50",
+        "relative flex min-h-12 cursor-default select-none items-center gap-3 rounded-xl px-3 py-2 text-sm outline-hidden transition-colors data-[disabled=true]:pointer-events-none data-[selected=true]:bg-digidromen-orange-light data-[selected=true]:text-digidromen-dark data-[disabled=true]:opacity-50",
         className,
       )}
       {...props}

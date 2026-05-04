@@ -122,12 +122,12 @@ const Donations: React.FC = () => {
   if (createdId) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <CheckCircle size={64} className="text-green-500" />
+        <CheckCircle size={64} className="text-emerald-600" />
         <h2 className="mt-4 text-2xl font-bold text-slate-900">Donatiebatch geregistreerd</h2>
         <p className="mt-2 text-slate-500">Batch {createdId} staat klaar voor pickup planning.</p>
         <button
           onClick={() => navigate(`/donations/${createdId}`)}
-          className="mt-6 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white"
+          className="mt-6 rounded-xl bg-digidromen-orange px-4 py-2 text-sm font-semibold text-white"
         >
           Open detailpagina
         </button>
@@ -156,7 +156,7 @@ const Donations: React.FC = () => {
             <select
               value={donorOrgId || activeDonors[0]?.id || ""}
               onChange={(e) => setDonorOrgId(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-500 focus:ring-2"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
             >
               {activeDonors.map((o) => (
                 <option key={o.id} value={o.id}>{o.name}</option>
@@ -168,43 +168,43 @@ const Donations: React.FC = () => {
               min={1}
               value={deviceCount}
               onChange={(e) => setDeviceCount(Number(e.target.value))}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-500 focus:ring-2"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
               placeholder="Verwacht aantal apparaten"
             />
             <input
               type="date"
               value={pickupDate}
               onChange={(e) => setPickupDate(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-500 focus:ring-2"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
             />
             <input
               value={contactEmail}
               onChange={(e) => setContactEmail(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-500 focus:ring-2"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
               placeholder="Contact email"
             />
             <input
               value={contactName}
               onChange={(e) => setContactName(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-500 focus:ring-2"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
               placeholder="Contactpersoon"
             />
             <input
               value={street}
               onChange={(e) => setStreet(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-500 focus:ring-2"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
               placeholder="Straat"
             />
             <input
               value={postalCode}
               onChange={(e) => setPostalCode(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-500 focus:ring-2"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
               placeholder="Postcode"
             />
             <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-500 focus:ring-2"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
               placeholder="Plaats"
             />
           </div>
@@ -213,7 +213,7 @@ const Donations: React.FC = () => {
             rows={4}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-500 focus:ring-2"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
             placeholder="Aantekeningen voor pickup, telling of refurbish"
           />
 
@@ -246,7 +246,7 @@ const Donations: React.FC = () => {
         {role !== "service_partner" && role !== "help_org" ? (
           <button
             onClick={() => setShowNewDonation(true)}
-            className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-xl bg-digidromen-orange px-4 py-2 text-sm font-semibold text-white"
           >
             Registreer donatie
           </button>
@@ -300,7 +300,7 @@ const Donations: React.FC = () => {
 
                 return (
                   <tr key={donation.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 font-mono text-sm font-semibold text-green-700">{donation.id}</td>
+                    <td className="px-6 py-4 font-mono text-sm font-semibold text-digidromen-orange">{donation.id}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{orgName}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{count}</td>
                     <td className="px-6 py-4">
@@ -310,7 +310,7 @@ const Donations: React.FC = () => {
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => navigate(`/donations/${donation.id}`)}
-                        className="rounded-lg px-3 py-1 text-sm font-semibold text-green-700 hover:bg-green-50"
+                        className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-orange hover:bg-digidromen-orange-light"
                       >
                         Details
                       </button>

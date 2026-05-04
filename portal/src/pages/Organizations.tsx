@@ -183,7 +183,7 @@ const Organizations: React.FC = () => {
                   <td className="px-6 py-4 text-sm text-slate-600">{org.city ?? "-"}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{org.contact_name ?? "-"}</td>
                   <td className="px-6 py-4 text-right">
-                    <button onClick={() => navigate(`/organizations/${org.id}`)} className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-primary hover:bg-sky-50">Details</button>
+                    <button onClick={() => navigate(`/organizations/${org.id}`)} className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-primary hover:bg-digidromen-orange-light">Details</button>
                   </td>
                 </tr>
               ))

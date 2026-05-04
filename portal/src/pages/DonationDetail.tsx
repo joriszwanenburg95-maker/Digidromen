@@ -485,7 +485,7 @@ const DonationDetail: React.FC = () => {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Donatiebatch</h2>
-                <p className="mt-0.5 font-mono text-sm text-green-700">{donation.id}</p>
+                <p className="mt-0.5 font-mono text-sm text-digidromen-orange">{donation.id}</p>
                 <p className="text-sm text-slate-500">Geregistreerd op {formatDate(donation.registered_at)}</p>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${donationWorkflow.badgeClass(donation.status)}`}>
@@ -512,8 +512,8 @@ const DonationDetail: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-6 rounded-xl bg-green-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-green-700">Pickup details</p>
+            <div className="mt-6 rounded-xl bg-digidromen-orange-light p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-digidromen-orange">Pickup details</p>
               <p className="mt-2 text-sm text-slate-700">{donation.pickup_contact_name}, {donation.pickup_address}</p>
               <p className="mt-1 text-sm text-slate-700">Geplande pickup: {donation.pickup_date ? formatDate(donation.pickup_date) : "-"}</p>
             </div>
@@ -534,7 +534,7 @@ const DonationDetail: React.FC = () => {
                   onClick={() => setActiveTab(tab)}
                   className={`flex-1 py-4 text-sm font-bold ${
                     activeTab === tab
-                      ? "border-b-2 border-green-600 bg-green-50/60 text-green-700"
+                      ? "border-b-2 border-digidromen-orange bg-digidromen-orange-light/60 text-digidromen-orange"
                       : "text-slate-400 hover:text-slate-700"
                   }`}
                 >
@@ -564,7 +564,7 @@ const DonationDetail: React.FC = () => {
                     value={message}
                     onChange={(event) => setMessage(event.target.value)}
                     rows={3}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-600 focus:ring-2"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
                     placeholder="Plaats een update in de tijdlijn"
                   />
                   <button
@@ -573,7 +573,7 @@ const DonationDetail: React.FC = () => {
                       if (!message.trim()) return;
                       messageMutation.mutate(message.trim());
                     }}
-                    className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    className="flex items-center gap-2 rounded-lg bg-digidromen-orange px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
                     <Send size={14} />
                     Bericht toevoegen
@@ -598,7 +598,7 @@ const DonationDetail: React.FC = () => {
                   <input
                     value={documentName}
                     onChange={(event) => setDocumentName(event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-green-600 focus:ring-2"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
                     placeholder="Bijv. donation-manifest.pdf"
                   />
                   <button
@@ -620,7 +620,7 @@ const DonationDetail: React.FC = () => {
         <aside className="space-y-6">
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <h3 className="mb-4 flex items-center text-lg font-bold text-slate-900">
-              <HeartHandshake size={18} className="mr-2 text-green-600" />
+              <HeartHandshake size={18} className="mr-2 text-digidromen-orange" />
               Batchsamenvatting
             </h3>
             <dl className="space-y-3 text-sm">

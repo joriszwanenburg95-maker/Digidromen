@@ -55,7 +55,7 @@ export function CommandMenu({ open, onOpenChange, surface }: CommandMenuProps) {
           key={item.path}
           value={`${item.label} ${item.path}`}
           onSelect={() => openPath(item.path)}
-          className={cn(active && "bg-secondary text-foreground")}
+          className={cn(active && "text-foreground")}
         >
           <span
             className={cn(

@@ -104,7 +104,7 @@ const Reports: React.FC = () => {
       key: "orders-excel",
       title: "Orders in Excel",
       description: "Volledig overzicht van orderstatussen, prioriteit en geplande leverdatums.",
-      tone: "bg-sky-600 text-white",
+      tone: "bg-digidromen-orange text-white",
       action: () =>
         downloadWorkbook(
           "orders.xlsx",
@@ -219,10 +219,10 @@ const Reports: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_40%),linear-gradient(135deg,_#ffffff_0%,_#f8fafc_55%,_#ecfeff_100%)] shadow-sm">
+      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(238,114,25,0.16),_transparent_42%),linear-gradient(135deg,_#ffffff_0%,_#fff7ed_58%,_#fbf4eb_100%)] shadow-sm">
         <div className="grid gap-8 px-6 py-8 lg:grid-cols-[1.6fr_1fr] lg:px-8">
           <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+            <div className="inline-flex items-center gap-2 rounded-full border border-digidromen-orange/20 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-digidromen-orange">
               <ArrowDownToLine size={14} />
               Rapportagehub
             </div>
@@ -236,7 +236,7 @@ const Reports: React.FC = () => {
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {[
-                { label: "Open orders", value: openOrders.length, icon: ShoppingCart, tone: "bg-sky-50 text-sky-700" },
+                { label: "Open orders", value: openOrders.length, icon: ShoppingCart, tone: "bg-digidromen-orange-light text-digidromen-orange" },
                 { label: "Leveringen gepland", value: scheduledDeliveries, icon: CalendarDays, tone: "bg-amber-50 text-amber-700" },
                 { label: "Actieve donaties", value: activeDonations.length, icon: HeartHandshake, tone: "bg-emerald-50 text-emerald-700" },
                 { label: "Refurbish ready", value: refurbishReady, icon: Package, tone: "bg-slate-100 text-slate-800" },
@@ -265,7 +265,7 @@ const Reports: React.FC = () => {
             <div className="mt-6 flex h-48 items-end gap-3">
               {weeklyActivity.map((bucket) => (
                 <div key={bucket.label} className="flex flex-1 flex-col items-center gap-3">
-                  <div className="w-full rounded-t-2xl bg-gradient-to-t from-cyan-400 via-sky-400 to-white/80" style={{ height: bucket.height }} />
+                  <div className="w-full rounded-t-2xl bg-gradient-to-t from-digidromen-yellow via-digidromen-orange to-white/80" style={{ height: bucket.height }} />
                   <div className="text-center">
                     <p className="text-sm font-semibold text-white">{bucket.total}</p>
                     <p className="text-xs uppercase tracking-wide text-slate-400">{bucket.label}</p>
@@ -309,7 +309,7 @@ const Reports: React.FC = () => {
               <h3 className="text-lg font-bold text-slate-900">Recente orders</h3>
               <p className="text-sm text-slate-500">Focus op leverdatums en werkvoorraad.</p>
             </div>
-            <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+            <span className="rounded-full bg-digidromen-orange-light px-3 py-1 text-xs font-semibold text-digidromen-orange">
               {orders.length} totaal
             </span>
           </div>
@@ -318,7 +318,7 @@ const Reports: React.FC = () => {
               <div key={order.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="font-mono text-sm font-semibold text-sky-700">{order.id}</p>
+                    <p className="font-mono text-sm font-semibold text-digidromen-orange">{order.id}</p>
                     <p className="mt-1 text-sm font-semibold text-slate-900">{order.organizations?.name ?? "Onbekende organisatie"}</p>
                   </div>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">

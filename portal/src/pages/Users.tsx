@@ -136,13 +136,13 @@ const Users: React.FC = () => {
       </div>
 
       {inviteSuccess && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           Uitnodiging verstuurd! De gebruiker ontvangt een magic link per e-mail.
         </div>
       )}
 
       {deleteNotice && (
-        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+        <div className="rounded-xl border border-digidromen-blue/30 bg-digidromen-blue/15 px-4 py-3 text-sm text-digidromen-dark">
           {deleteNotice}
         </div>
       )}

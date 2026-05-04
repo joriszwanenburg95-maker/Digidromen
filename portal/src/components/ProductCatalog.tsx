@@ -46,16 +46,16 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({ products, onAdd }) => {
     <div className="space-y-4">
       <div className="flex items-center space-x-3 mb-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-digidromen-dark/35" size={18} />
           <input
             type="text"
             placeholder="Zoek producten..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-digidromen-primary focus:border-transparent outline-none"
+            className="w-full rounded-lg border border-digidromen-cream py-2 pl-10 pr-4 text-digidromen-dark outline-none focus:border-digidromen-orange focus:ring-2 focus:ring-digidromen-orange/30"
           />
         </div>
-        <div className="flex items-center px-3 py-2 border border-gray-200 rounded-lg text-gray-600 bg-white">
+        <div className="flex items-center rounded-lg border border-digidromen-cream bg-white px-3 py-2 text-digidromen-dark/65">
           <Filter size={16} className="mr-2" />
           <select
             value={category}
@@ -70,16 +70,16 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({ products, onAdd }) => {
             ))}
           </select>
         </div>
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+        <div className="flex overflow-hidden rounded-lg border border-digidromen-cream bg-white">
           <button
             onClick={() => setView("grid")}
-            className={`p-2 ${view === "grid" ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:bg-slate-50"}`}
+            className={`p-2 ${view === "grid" ? "bg-digidromen-orange-light text-digidromen-orange" : "text-digidromen-dark/40 hover:bg-digidromen-cream/60"}`}
           >
             <LayoutGrid size={16} />
           </button>
           <button
             onClick={() => setView("list")}
-            className={`p-2 ${view === "list" ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:bg-slate-50"}`}
+            className={`p-2 ${view === "list" ? "bg-digidromen-orange-light text-digidromen-orange" : "text-digidromen-dark/40 hover:bg-digidromen-cream/60"}`}
           >
             <List size={16} />
           </button>
@@ -108,18 +108,18 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({ products, onAdd }) => {
                     <p className="text-xs text-slate-400">{product.specsSummary}</p>
                   </td>
                   <td className="px-4 py-2">
-                    <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{product.category}</span>
+                    <span className="rounded-full bg-digidromen-orange-light px-2 py-0.5 text-xs text-digidromen-orange">{product.category}</span>
                   </td>
                   <td className="px-4 py-2">
                     <span className="text-sm text-slate-600">{product.availableQuantity}</span>
                   </td>
                   <td className="px-4 py-2">
                     <div className="flex items-center justify-center space-x-2">
-                      <button onClick={() => updateQuantity(product.id, -1)} className="p-1 rounded hover:bg-gray-100 text-gray-500">
+                      <button onClick={() => updateQuantity(product.id, -1)} className="rounded p-1 text-digidromen-dark/50 hover:bg-digidromen-cream/70">
                         <Minus size={14} />
                       </button>
                       <span className="text-sm font-bold w-4 text-center">{quantities[product.id] || 0}</span>
-                      <button onClick={() => updateQuantity(product.id, 1)} className="p-1 rounded hover:bg-gray-100 text-gray-500">
+                      <button onClick={() => updateQuantity(product.id, 1)} className="rounded p-1 text-digidromen-dark/50 hover:bg-digidromen-cream/70">
                         <Plus size={14} />
                       </button>
                     </div>
@@ -134,7 +134,7 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({ products, onAdd }) => {
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                         quantities[product.id] > 0
                           ? "bg-digidromen-primary text-white hover:bg-digidromen-orange-hover"
-                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : "cursor-not-allowed bg-digidromen-cream text-digidromen-dark/35"
                       }`}
                     >
                       Toevoegen
@@ -148,21 +148,21 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({ products, onAdd }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredProducts.map((product) => (
-            <div key={product.id} className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+            <div key={product.id} className="overflow-hidden rounded-xl border border-digidromen-cream bg-white shadow-sm transition-shadow hover:shadow-md">
               <div className="p-3">
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <div className="flex items-center gap-2">
                     <Box size={16} className="text-slate-400 shrink-0" />
-                    <h4 className="font-bold text-sm text-gray-800">{product.name}</h4>
+                    <h4 className="text-sm font-bold text-digidromen-dark">{product.name}</h4>
                   </div>
-                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full shrink-0">
+                  <span className="shrink-0 rounded-full bg-digidromen-orange-light px-2 py-0.5 text-xs text-digidromen-orange">
                     {product.category}
                   </span>
                 </div>
-                <p className="text-xs font-semibold text-gray-500">{product.brand}</p>
-                <p className="text-xs text-gray-500 mb-3">{product.specsSummary}</p>
+                <p className="text-xs font-semibold text-digidromen-dark/55">{product.brand}</p>
+                <p className="mb-3 text-xs text-digidromen-dark/55">{product.specsSummary}</p>
                 <div className="flex items-center justify-between text-xs mb-3">
-                  <span className="font-medium text-gray-500">
+                  <span className="font-medium text-digidromen-dark/55">
                     Beschikbaar: {product.availableQuantity}
                   </span>
                   <span
@@ -172,18 +172,18 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({ products, onAdd }) => {
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                <div className="flex items-center justify-between border-t border-digidromen-cream/70 pt-3">
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => updateQuantity(product.id, -1)}
-                      className="p-1 rounded-md hover:bg-gray-100 text-gray-500"
+                      className="rounded-md p-1 text-digidromen-dark/50 hover:bg-digidromen-cream/70"
                     >
                       <Minus size={14} />
                     </button>
                     <span className="text-sm font-bold w-4 text-center">{quantities[product.id] || 0}</span>
                     <button
                       onClick={() => updateQuantity(product.id, 1)}
-                      className="p-1 rounded-md hover:bg-gray-100 text-gray-500"
+                      className="rounded-md p-1 text-digidromen-dark/50 hover:bg-digidromen-cream/70"
                     >
                       <Plus size={14} />
                     </button>
@@ -201,7 +201,7 @@ const ProductCatalog: React.FC<ProductCatalogProps> = ({ products, onAdd }) => {
                       flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
                       ${quantities[product.id] > 0
                         ? 'bg-digidromen-primary text-white hover:bg-digidromen-orange-hover'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'}
+                        : 'cursor-not-allowed bg-digidromen-cream text-digidromen-dark/35'}
                     `}
                   >
                     <ShoppingCart size={14} className="mr-1" />

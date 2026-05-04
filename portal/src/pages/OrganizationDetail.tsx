@@ -14,16 +14,16 @@ type Tab = "overzicht" | "bestellingen" | "donaties";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-700",
-  submitted: "bg-blue-100 text-blue-700",
-  approved: "bg-green-100 text-green-700",
+  submitted: "bg-digidromen-blue/20 text-digidromen-dark",
+  approved: "bg-emerald-100 text-emerald-700",
   in_progress: "bg-amber-100 text-amber-700",
   shipped: "bg-indigo-100 text-indigo-700",
-  delivered: "bg-green-100 text-green-700",
+  delivered: "bg-emerald-100 text-emerald-700",
   cancelled: "bg-red-100 text-red-700",
   pending: "bg-amber-100 text-amber-700",
-  received: "bg-green-100 text-green-700",
-  inspected: "bg-blue-100 text-blue-700",
-  completed: "bg-green-100 text-green-700",
+  received: "bg-emerald-100 text-emerald-700",
+  inspected: "bg-digidromen-blue/20 text-digidromen-dark",
+  completed: "bg-emerald-100 text-emerald-700",
 };
 
 interface EditableFields {
@@ -215,7 +215,7 @@ const OrganizationDetail: React.FC = () => {
                 <button
                   onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending || !form.contact_name.trim() || !form.contact_email.trim() || !form.city.trim()}
-                  className="flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                  className="flex items-center gap-1 rounded-lg bg-digidromen-orange px-3 py-1.5 text-sm font-semibold text-white hover:bg-digidromen-orange-hover disabled:opacity-50"
                 >
                   <Save size={14} />
                   {saveMutation.isPending ? "Opslaan..." : "Opslaan"}
@@ -290,7 +290,7 @@ const OrganizationDetail: React.FC = () => {
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-600">{order.created_at ? new Date(order.created_at).toLocaleDateString("nl-NL") : "-"}</td>
                         <td className="px-4 py-3 text-right">
-                          <button onClick={() => navigate(`/orders/${order.id}`)} className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-primary hover:bg-sky-50">Bekijk</button>
+                          <button onClick={() => navigate(`/orders/${order.id}`)} className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-primary hover:bg-digidromen-orange-light">Bekijk</button>
                         </td>
                       </tr>
                     ))

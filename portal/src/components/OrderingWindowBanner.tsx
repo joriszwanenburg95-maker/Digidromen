@@ -14,7 +14,7 @@ export const OrderingWindowBanner: React.FC = () => {
 
   if (data.isOpen) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+      <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
         <CheckCircle2 size={16} className="shrink-0" />
         <span>
           <strong>Bestelvenster is open</strong>

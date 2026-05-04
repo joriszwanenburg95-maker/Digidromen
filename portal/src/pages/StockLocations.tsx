@@ -46,7 +46,7 @@ const StockLocations: React.FC = () => {
                   <td className="px-6 py-4 text-sm text-slate-600">{loc.city ?? "-"}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{(loc.organizations as any)?.name ?? "-"}</td>
                   <td className="px-6 py-4">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${loc.is_active ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${loc.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
                       {loc.is_active ? "Actief" : "Inactief"}
                     </span>
                   </td>

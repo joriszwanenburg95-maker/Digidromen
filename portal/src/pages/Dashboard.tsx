@@ -442,7 +442,7 @@ const OperationsBentoGrid: React.FC<BentoGridProps> = ({
       label="Gepland voor levering"
       value={scheduledDeliveries}
       icon={Truck}
-      accent="bg-violet-500"
+      accent="bg-digidromen-orange"
     />
     <KpiCard
       label="Voorraadsignalen"

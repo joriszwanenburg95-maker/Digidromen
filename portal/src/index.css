@@ -127,10 +127,10 @@ button, [role="button"] {
   border-radius: 12px;
 }
 
-/* Focus states */
-:focus-visible {
-  outline: 2px solid #EE7219;
-  outline-offset: 2px;
+/* Focus states: one orange focus language, without stacking outline + component ring. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(238 114 25 / 0.32);
 }
 
 /* Subtle scrollbar */

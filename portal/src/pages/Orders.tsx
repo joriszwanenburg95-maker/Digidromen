@@ -361,7 +361,7 @@ const Orders: React.FC = () => {
 
                   return (
                     <tr key={order.id} className="hover:bg-digidromen-cream/30">
-                      <td className="max-w-[140px] px-6 py-4 text-sm font-mono font-semibold text-sky-700">
+                      <td className="max-w-[140px] px-6 py-4 text-sm font-mono font-semibold text-digidromen-orange">
                         <span className="break-all">{order.id}</span>
                       </td>
                       <td className="max-w-md px-6 py-4 text-sm text-digidromen-dark/80">{summary}</td>

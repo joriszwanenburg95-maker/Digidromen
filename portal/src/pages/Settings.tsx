@@ -876,7 +876,7 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
                 {userSelfError ? <p className="mt-3 text-sm text-red-600">{userSelfError}</p> : null}
-                {userSelfNotice ? <p className="mt-3 text-sm text-green-700">{userSelfNotice}</p> : null}
+                {userSelfNotice ? <p className="mt-3 text-sm text-digidromen-orange">{userSelfNotice}</p> : null}
                 <LoadingButton
                   type="button"
                   className="mt-4 rounded-[20px] bg-digidromen-primary text-white"
@@ -1017,7 +1017,7 @@ const Settings: React.FC = () => {
                   ) : null}
                 </div>
                 {helpOrgSelfError ? <p className="mt-3 text-sm text-red-600">{helpOrgSelfError}</p> : null}
-                {helpOrgSelfNotice ? <p className="mt-3 text-sm text-green-700">{helpOrgSelfNotice}</p> : null}
+                {helpOrgSelfNotice ? <p className="mt-3 text-sm text-digidromen-orange">{helpOrgSelfNotice}</p> : null}
                 <LoadingButton
                   type="button"
                   className="mt-4 rounded-[20px] bg-digidromen-primary text-white"
@@ -1374,7 +1374,7 @@ const Settings: React.FC = () => {
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => openEditOrgForm(org)}
-                            className="rounded-lg p-1.5 text-digidromen-dark/40 hover:bg-sky-50 hover:text-sky-600"
+                            className="rounded-lg p-1.5 text-digidromen-dark/40 hover:bg-digidromen-orange-light hover:text-digidromen-orange"
                             title="Bewerken"
                           >
                             <Pencil size={16} />
@@ -1563,7 +1563,7 @@ const Settings: React.FC = () => {
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => openEditProductForm(product)}
-                            className="rounded-lg p-1.5 text-digidromen-dark/40 hover:bg-sky-50 hover:text-sky-600"
+                            className="rounded-lg p-1.5 text-digidromen-dark/40 hover:bg-digidromen-orange-light hover:text-digidromen-orange"
                             title="Bewerken"
                           >
                             <Pencil size={16} />
@@ -1598,7 +1598,7 @@ const Settings: React.FC = () => {
               Hulporganisaties kunnen alleen bestellen tussen dag <strong className="text-digidromen-dark">{orderingWindowOpen}</strong> en dag <strong className="text-digidromen-dark">{orderingWindowClose}</strong> van elke maand.
               Buiten dit venster is de bestelknop geblokkeerd, tenzij je het venster hieronder handmatig opent.
             </p>
-            <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-violet-100 bg-violet-50/60 p-4">
+            <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-digidromen-orange/20 bg-digidromen-orange-light/70 p-4">
               <input
                 type="checkbox"
                 checked={orderingWindowForceOpen}
@@ -1619,7 +1619,7 @@ const Settings: React.FC = () => {
               <p className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{orderingWindowError}</p>
             ) : null}
             {orderingWindowNotice ? (
-              <p className="mb-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{orderingWindowNotice}</p>
+              <p className="mb-3 rounded-xl bg-digidromen-orange-light px-4 py-3 text-sm text-digidromen-orange">{orderingWindowNotice}</p>
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2 max-w-sm">
               <div>

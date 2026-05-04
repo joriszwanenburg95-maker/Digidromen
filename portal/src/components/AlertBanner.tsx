@@ -13,10 +13,10 @@ const VARIANT_CONFIG: Record<
   { border: string; bg: string; icon: React.ElementType; iconColor: string }
 > = {
   info: {
-    border: "border-l-blue-500",
-    bg: "bg-blue-50",
+    border: "border-l-digidromen-blue",
+    bg: "bg-digidromen-blue/15",
     icon: Info,
-    iconColor: "text-blue-600",
+    iconColor: "text-digidromen-dark",
   },
   warning: {
     border: "border-l-amber-500",

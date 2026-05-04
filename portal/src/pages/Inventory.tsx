@@ -34,8 +34,8 @@ type InventoryView = "voorraad" | "mutatieregels" | "toekomstige_mutaties";
 /* ─── Constants ─── */
 
 const CATEGORY_CONFIG: Record<ProductCategory, { label: string; icon: typeof Laptop; className: string }> = {
-  laptop: { label: "Laptop", icon: Monitor, className: "bg-blue-100 text-blue-700" },
-  accessory: { label: "Accessoire", icon: Package, className: "bg-violet-100 text-violet-700" },
+  laptop: { label: "Laptop", icon: Monitor, className: "bg-digidromen-blue/20 text-digidromen-dark" },
+  accessory: { label: "Accessoire", icon: Package, className: "bg-digidromen-orange-light text-digidromen-orange" },
   service: { label: "Service", icon: Wrench, className: "bg-amber-100 text-amber-700" },
 };
 
@@ -49,10 +49,10 @@ const CONDITION_LABELS: Record<InventoryCondition, string> = {
 
 const CONDITION_STYLES: Record<InventoryCondition, string> = {
   new: "bg-emerald-100 text-emerald-700",
-  refurbished: "bg-sky-100 text-sky-700",
+  refurbished: "bg-digidromen-blue/20 text-digidromen-dark",
   damaged: "bg-red-100 text-red-700",
   reserved: "bg-amber-100 text-amber-700",
-  in_repair: "bg-purple-100 text-purple-700",
+  in_repair: "bg-digidromen-orange-light text-digidromen-orange",
 };
 
 const REQUIRED_HEADERS = ["locatie", "beschikbaar", "gereserveerd", "binnenkomend"];
@@ -477,7 +477,7 @@ const Inventory: React.FC = () => {
         {[
           { label: "Beschikbaar", value: totals.available, color: "bg-emerald-50 text-emerald-600", icon: Laptop },
           { label: "Gereserveerd", value: totals.reserved, color: "bg-amber-50 text-amber-600", icon: Package },
-          { label: "Totaal", value: totals.total, color: "bg-sky-50 text-sky-600", icon: Monitor },
+          { label: "Totaal", value: totals.total, color: "bg-digidromen-orange-light text-digidromen-orange", icon: Monitor },
         ].map(({ label, value, color, icon: Icon }) => (
           <div key={label} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
@@ -495,7 +495,7 @@ const Inventory: React.FC = () => {
 
       {/* ── Digidromen: accessoires vs laptopvoorraad (kleine opzet) ── */}
       {isDigidromenMgmt && (
-        <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/80 to-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-digidromen-orange/20 bg-gradient-to-br from-digidromen-orange-light/80 to-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <h3 className="text-sm font-bold text-slate-900">Intern bestelvenster: accessoires en overige producten</h3>
@@ -511,7 +511,7 @@ const Inventory: React.FC = () => {
                 </div>
                 <div className="rounded-xl border border-white/80 bg-white/90 px-3 py-2 shadow-sm">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Niet-laptop (acc. / service)</p>
-                  <p className="text-lg font-bold tabular-nums text-violet-800">{laptopAccessoryTotals.nonLaptopAvailable}</p>
+                  <p className="text-lg font-bold tabular-nums text-digidromen-orange">{laptopAccessoryTotals.nonLaptopAvailable}</p>
                 </div>
               </div>
               <p className="text-xs text-slate-500">

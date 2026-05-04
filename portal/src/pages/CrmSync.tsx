@@ -61,7 +61,7 @@ const CrmSync: React.FC = () => {
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="flex items-center rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="mr-4 rounded-lg bg-sky-100 p-3 text-sky-600">
+          <div className="mr-4 rounded-lg bg-digidromen-blue/20 p-3 text-digidromen-dark">
             <CheckCircle2 size={24} />
           </div>
           <div>
@@ -70,7 +70,7 @@ const CrmSync: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="mr-4 rounded-lg bg-violet-100 p-3 text-violet-600">
+          <div className="mr-4 rounded-lg bg-digidromen-orange-light p-3 text-digidromen-orange">
             <Clock size={24} />
           </div>
           <div>
@@ -104,11 +104,11 @@ const CrmSync: React.FC = () => {
                   <div
                     className={`mr-4 h-2 w-2 rounded-full ${
                       item.status === "synced"
-                        ? "bg-green-500"
+                        ? "bg-emerald-500"
                         : item.status === "queued"
-                          ? "bg-blue-500"
+                          ? "bg-digidromen-blue"
                           : item.status === "retrying"
-                            ? "bg-violet-500"
+                            ? "bg-digidromen-orange"
                             : "bg-amber-500"
                     }`}
                   ></div>
