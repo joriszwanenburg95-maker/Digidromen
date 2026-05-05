@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
@@ -98,6 +99,23 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
   const sessionRestoredRef = useRef(false);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const { body, documentElement } = document;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyOverscroll = body.style.overscrollBehavior;
+    const previousHtmlOverscroll = documentElement.style.overscrollBehavior;
+
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "contain";
+    documentElement.style.overscrollBehavior = "contain";
+
+    return () => {
+      body.style.overflow = previousBodyOverflow;
+      body.style.overscrollBehavior = previousBodyOverscroll;
+      documentElement.style.overscrollBehavior = previousHtmlOverscroll;
+    };
+  }, []);
 
   const persistWizardSession = useCallback(() => {
     const snapshot: OrderWizardPersistedState = {
@@ -551,10 +569,10 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     ownHelpOrg?.name ??
     "—";
 
-  return (
-    <div className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center overflow-hidden bg-digidromen-dark/45 p-3 backdrop-blur-sm sm:p-6">
+  const wizardDialog = (
+    <div className="fixed inset-0 z-[1000] flex h-dvh w-screen items-center justify-center overflow-hidden bg-digidromen-dark/45 p-3 backdrop-blur-sm sm:p-6">
       <div
-        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-digidromen-cream bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl translate-y-0 flex-col overflow-hidden rounded-[30px] border border-digidromen-cream bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="order-wizard-title"
@@ -692,4 +710,6 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
       </div>
     </div>
   );
+
+  return createPortal(wizardDialog, document.body);
 };
