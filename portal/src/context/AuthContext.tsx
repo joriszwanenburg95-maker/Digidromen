@@ -75,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const syncRunRef = useRef(0);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAuthErrorRef = useRef<string | null>(null);
+  const manualPasswordSignInRef = useRef(false);
 
   const setFriendlyAuthError = useCallback((err: unknown, fallback: string) => {
     const message = translateError(err, fallback);
@@ -206,6 +207,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setLoading(false);
         return;
       }
+      if (event === "SIGNED_IN" && manualPasswordSignInRef.current) {
+        return;
+      }
       scheduleSyncAuth(event === "SIGNED_IN" ? 40 : 120);
     });
 
@@ -230,6 +234,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(true);
     lastAuthErrorRef.current = null;
     setError(null);
+    manualPasswordSignInRef.current = true;
+    syncRunRef.current += 1;
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    }
 
     try {
       const { error: signInError } = await getSupabaseClient().auth.signInWithPassword({
@@ -254,6 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setError(null);
       lastAuthErrorRef.current = null;
     } finally {
+      manualPasswordSignInRef.current = false;
       setLoading(false);
     }
   };

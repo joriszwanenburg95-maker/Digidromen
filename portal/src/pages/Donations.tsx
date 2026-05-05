@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarClock, CheckCircle } from "lucide-react";
 
 import { LoadingButton } from "../components/LoadingButton";
 import { SkeletonTableRow } from "../components/Skeleton";
@@ -17,6 +17,7 @@ import { DEFAULT_SERVICE_PARTNER_ORG_ID } from "../lib/defaultServicePartner";
 import { queryKeys } from "../lib/queryKeys";
 import type { Role } from "../lib/workflow";
 import StatusBadge from "../components/StatusBadge";
+import { Button } from "../components/ui/button";
 
 const statusTabs = [
   { key: "all", label: "Alle" },
@@ -297,6 +298,7 @@ const Donations: React.FC = () => {
                 const orgName = donation.organizations?.name ?? "Onbekende donor";
                 const count = donation.device_count_promised;
                 const pickup = donation.pickup_date;
+                const isServicePickupAction = role === "service_partner" && donation.status === "aangemeld";
 
                 return (
                   <tr key={donation.id} className="hover:bg-slate-50">
@@ -308,12 +310,28 @@ const Donations: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">{pickup ?? "-"}</td>
                     <td className="px-6 py-4 text-right">
-                      <button
+                      <Button
+                        type="button"
                         onClick={() => navigate(`/donations/${donation.id}`)}
-                        className="rounded-lg px-3 py-1 text-sm font-semibold text-digidromen-orange hover:bg-digidromen-orange-light"
+                        variant={isServicePickupAction ? "default" : "outline"}
+                        className={`min-h-10 rounded-[18px] ${
+                          isServicePickupAction
+                            ? "bg-digidromen-orange text-white hover:bg-digidromen-orange-hover"
+                            : "border-digidromen-cream text-digidromen-orange hover:bg-digidromen-orange-light"
+                        }`}
                       >
-                        Details
-                      </button>
+                        {isServicePickupAction ? (
+                          <>
+                            <CalendarClock size={16} />
+                            Pickup plannen
+                          </>
+                        ) : (
+                          <>
+                            Details
+                            <ArrowRight size={15} />
+                          </>
+                        )}
+                      </Button>
                     </td>
                   </tr>
                 );

@@ -97,6 +97,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
 
   const sessionRestoredRef = useRef(false);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
   const persistWizardSession = useCallback(() => {
     const snapshot: OrderWizardPersistedState = {
@@ -174,6 +175,10 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     setProductFields(EMPTY_PRODUCT_FIELDS);
     setErrors({});
   }, [scenario]);
+
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
 
   const ORG_SELECT = "id, name, city, address, postal_code, target_group_description" as const;
 
@@ -547,9 +552,9 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     "—";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-digidromen-dark/45 p-3 backdrop-blur-sm sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center overflow-hidden bg-digidromen-dark/45 p-3 backdrop-blur-sm sm:p-6">
       <div
-        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-digidromen-cream bg-white shadow-2xl"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-digidromen-cream bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="order-wizard-title"
@@ -573,7 +578,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={contentScrollRef} className="min-h-0 flex-1 overscroll-contain overflow-y-auto">
           <div className="flex gap-1 px-5 pt-4 sm:px-7">
             {STEP_LABELS.map((label, index) => (
               <div

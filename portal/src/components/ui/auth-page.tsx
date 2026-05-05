@@ -328,7 +328,7 @@ export function AuthPage({
               </Button>
             </form>
 
-            {error ? (
+            {error && !loading ? (
               <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-relaxed text-rose-700">
                 {error}
               </div>

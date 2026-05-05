@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
+  CalendarClock,
   CalendarCheck,
   CheckCircle,
   HeartHandshake,
@@ -24,6 +25,8 @@ import { getSupabaseClient } from "../lib/supabase";
 import { queryKeys } from "../lib/queryKeys";
 import StatusBadge from "../components/StatusBadge";
 import KpiCard from "../components/KpiCard";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
 
 /* ─── Human-friendly status copy for help_org ─── */
 
@@ -266,9 +269,16 @@ const TodayQueue: React.FC<TodayQueueProps> = ({ donations, orders }) => {
     ...donations.slice(0, 3).map((d) => ({
       id: d.id,
       type: "donatie" as const,
-      label: `Donatie — ${d.device_count_promised} apparaten`,
+      label:
+        d.status === "aangemeld"
+          ? "Pickup plannen"
+          : d.status === "pickup_gepland"
+            ? "Ontvangst registreren"
+            : "Donatie verwerken",
+      description: `${d.device_count_promised} apparaten${d.pickup_date ? ` · pickup ${d.pickup_date}` : ""}`,
       status: d.status,
       link: `/donations/${d.id}`,
+      primary: d.status === "aangemeld",
     })),
     ...orders
       .filter((o) => o.status === "in_voorbereiding")
@@ -277,17 +287,37 @@ const TodayQueue: React.FC<TodayQueueProps> = ({ donations, orders }) => {
         id: o.id,
         type: "order" as const,
         label: "Order klaarzetten",
+        description: "Levering voorbereiden",
         status: o.status,
         link: `/orders/${o.id}`,
+        primary: false,
       })),
   ];
 
   return (
-    <div className="rounded-2xl border border-digidromen-cream bg-white p-6">
-      <h3 className="mb-4 font-heading text-base font-bold text-digidromen-dark">
-        Vandaag aan te pakken
-      </h3>
-      <div className="space-y-2.5">
+    <Card className="gap-0 rounded-2xl border-digidromen-cream bg-white py-0 shadow-sm">
+      <CardContent className="p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-digidromen-orange">
+              Werkrij
+            </p>
+            <h3 className="mt-1 font-heading text-base font-bold text-digidromen-dark">
+              Vandaag aan te pakken
+            </h3>
+          </div>
+          <Button
+            asChild
+            variant="outline"
+            className="min-h-11 rounded-[18px] border-digidromen-cream text-digidromen-dark hover:bg-surface-soft"
+          >
+            <Link to="/donations">
+              Alle donaties
+              <ArrowRight size={15} />
+            </Link>
+          </Button>
+        </div>
+        <div className="space-y-2.5">
         {items.length === 0 ? (
           <div className="flex items-center gap-3 py-6">
             <CheckCircle size={18} className="text-emerald-400" />
@@ -300,27 +330,49 @@ const TodayQueue: React.FC<TodayQueueProps> = ({ donations, orders }) => {
             <Link
               key={item.id}
               to={item.link}
-              className="flex min-h-[44px] items-center justify-between gap-3 rounded-xl border border-digidromen-cream/80 p-3 transition-colors hover:bg-surface-soft"
+              className={`flex min-h-[72px] items-center justify-between gap-4 rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm ${
+                item.primary
+                  ? "border-digidromen-orange/25 bg-digidromen-orange-light text-digidromen-dark"
+                  : "border-digidromen-cream/80 bg-white hover:bg-surface-soft"
+              }`}
             >
               <div className="flex items-center gap-3">
-                {item.type === "donatie" ? (
-                  <HeartHandshake
-                    size={16}
-                    className="shrink-0 text-emerald-500"
-                  />
-                ) : (
-                  <Truck size={16} className="shrink-0 text-digidromen-orange" />
-                )}
-                <p className="text-sm font-medium text-digidromen-dark">
-                  {item.label}
-                </p>
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                    item.primary
+                      ? "bg-digidromen-orange text-white"
+                      : "bg-digidromen-cream text-digidromen-orange"
+                  }`}
+                >
+                  {item.type === "donatie" ? (
+                    item.primary ? (
+                      <CalendarClock size={20} />
+                    ) : (
+                      <HeartHandshake size={20} />
+                    )
+                  ) : (
+                    <Truck size={20} />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-digidromen-dark">
+                    {item.label}
+                  </p>
+                  <p className="mt-0.5 text-xs text-digidromen-dark/50">
+                    {item.description}
+                  </p>
+                </div>
               </div>
-              <StatusBadge status={item.status} />
+              <div className="hidden items-center gap-2 sm:flex">
+                <StatusBadge status={item.status} />
+                <ArrowRight size={16} className="text-digidromen-dark/35" />
+              </div>
             </Link>
           ))
         )}
-      </div>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -717,7 +769,9 @@ const Dashboard: React.FC = () => {
       if (error) throw error;
       return data;
     },
-    enabled: isStaff,
+    enabled:
+      isStaff ||
+      (role === "service_partner" && !!user?.organizationId),
   });
 
   const { data: recentEvents = [], isLoading: eventsLoading } = useQuery({

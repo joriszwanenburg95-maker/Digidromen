@@ -1,12 +1,36 @@
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, HeartHandshake, Paperclip, Send } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarClock,
+  CheckCircle2,
+  ClipboardCheck,
+  HeartHandshake,
+  MapPin,
+  PackageCheck,
+  Paperclip,
+  Send,
+  Wrench,
+} from "lucide-react";
 
 import CrmPreparationCard from "../components/CrmPreparationCard";
 import DonationAssignmentModal from "../components/DonationAssignmentModal";
 import { SkeletonDetailSection } from "../components/Skeleton";
 import Timeline from "../components/Timeline";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateTime } from "../lib/format";
 import { formatCrmReference } from "../lib/crm-preparation";
@@ -51,6 +75,31 @@ function normalizeAssignedLocation(input: unknown): DonationDetailRow["assigned_
   };
 }
 
+const donationActionIcon: Record<DonationStatus, typeof CalendarClock> = {
+  concept: ClipboardCheck,
+  aangemeld: ClipboardCheck,
+  pickup_gepland: CalendarClock,
+  ontvangen: PackageCheck,
+  in_verwerking: Wrench,
+  verwerkt: CheckCircle2,
+  geannuleerd: ClipboardCheck,
+};
+
+function donationActionHint(status: DonationStatus): string {
+  if (status === "pickup_gepland") {
+    return "Leg direct datum en tijdvenster vast zodat de pickup niet als losse kleine actie verstopt zit.";
+  }
+  if (status === "ontvangen") {
+    return "Bevestig zodra de hardware fysiek binnen is. Daarna kan de verwerking starten.";
+  }
+  if (status === "in_verwerking") {
+    return "Start de refurbish-stap zodra de batch gecontroleerd is.";
+  }
+  if (status === "verwerkt") {
+    return "Rond de batch af wanneer de bruikbare laptops zijn verwerkt.";
+  }
+  return "Werk de batchstatus bij naar de volgende logistieke stap.";
+}
 
 const DonationDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -309,6 +358,8 @@ const DonationDetail: React.FC = () => {
   };
   const canManage = donationWorkflow.canManage(manageContext);
   const nextStatuses = donationWorkflow.nextStates(manageContext, donation.status);
+  const primaryAction = nextStatuses[0] ?? null;
+  const PrimaryActionIcon = primaryAction ? donationActionIcon[primaryAction] : CheckCircle2;
 
   const handleTransitionClick = (next: DonationStatus) => {
     transitionMutation.reset();
@@ -346,46 +397,10 @@ const DonationDetail: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <button onClick={() => navigate("/donations")} className="flex items-center text-slate-500 hover:text-slate-700">
+        <button onClick={() => navigate("/donations")} className="flex min-h-11 items-center text-slate-500 hover:text-slate-700">
           <ArrowLeft size={18} className="mr-2" />
           Terug naar donaties
         </button>
-        <div className="flex max-w-xl flex-col items-end gap-2">
-          <div className="flex flex-wrap justify-end gap-2">
-            {nextStatuses.map((next) => (
-              <button
-                key={next}
-                type="button"
-                disabled={transitionMutation.isPending}
-                onClick={() => handleTransitionClick(next)}
-                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${donationWorkflow.buttonClass(next)}`}
-              >
-                <CheckCircle2 size={15} />
-                {donationWorkflow.actionLabel(next)}
-              </button>
-            ))}
-          </div>
-          {nextStatuses.length > 0 ? (
-            <p className="text-right text-xs text-slate-500">
-              Geen aparte pagina: de status wordt hier bijgewerkt. Bij pickup
-              plannen vul je de geplande ophaaldatum in.
-            </p>
-          ) : null}
-          {role === "service_partner" && !canManage ? (
-            <p className="text-right text-xs text-amber-800">
-              Deze batch is nog niet aan jullie servicepunt toegewezen. Tot die
-              tijd kan alleen Digidromen de voortgang bijwerken.
-            </p>
-          ) : null}
-          {transitionMutation.isError ? (
-            <p className="text-right text-sm text-red-600" role="alert">
-              {translateError(
-                transitionMutation.error,
-                "Actie mislukt. Mogelijk ontbreken rechten (bijv. toewijzing voor servicepartner).",
-              )}
-            </p>
-          ) : null}
-        </div>
       </div>
 
       <DonationAssignmentModal
@@ -397,86 +412,142 @@ const DonationDetail: React.FC = () => {
         currentLocationId={donation.assigned_stock_location_id}
       />
 
-      {pickupModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center">
-          <div
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="pickup-plan-title"
-          >
-            <h2
-              id="pickup-plan-title"
-              className="text-lg font-bold text-slate-900"
-            >
-              Pickup plannen
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Zet de status op &apos;Ophaal gepland&apos; en vul wanneer de
-              hardware opgehaald wordt.
-            </p>
-            <div className="mt-4 space-y-3">
-              <div>
-                <label
-                  htmlFor="pickup-plan-date"
-                  className="text-xs font-semibold uppercase tracking-wide text-slate-500"
-                >
+      <Dialog
+        open={pickupModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            transitionMutation.reset();
+          }
+          setPickupModalOpen(open);
+        }}
+      >
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border-digidromen-cream p-0 sm:max-w-xl">
+          <div className="bg-surface-soft px-6 pb-5 pt-6">
+            <DialogHeader>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-digidromen-orange text-white">
+                <CalendarClock size={22} />
+              </div>
+              <DialogTitle className="font-heading text-2xl text-digidromen-dark">
+                Pickup plannen
+              </DialogTitle>
+              <DialogDescription className="leading-relaxed text-digidromen-dark/58">
+                Zet deze batch op ophaal gepland en leg direct vast wanneer de hardware wordt opgehaald.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="space-y-4 px-6 py-5">
+            <div className="rounded-2xl border border-digidromen-cream bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-digidromen-dark/45">
+                Pickup locatie
+              </p>
+              <div className="mt-2 flex items-start gap-2 text-sm leading-relaxed text-digidromen-dark/70">
+                <MapPin size={16} className="mt-0.5 shrink-0 text-digidromen-orange" />
+                <span>{donation.pickup_contact_name}, {donation.pickup_address}</span>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="pickup-plan-date" className="text-digidromen-dark">
                   Geplande ophaaldatum *
-                </label>
-                <input
+                </Label>
+                <Input
                   id="pickup-plan-date"
                   type="date"
                   value={pickupPlanDate}
                   onChange={(e) => setPickupPlanDate(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  className="min-h-11 rounded-2xl border-digidromen-cream bg-white focus-visible:ring-digidromen-orange/30"
                 />
               </div>
-              <div>
-                <label
-                  htmlFor="pickup-plan-window"
-                  className="text-xs font-semibold uppercase tracking-wide text-slate-500"
-                >
-                  Tijdvenster (optioneel)
-                </label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="pickup-plan-window" className="text-digidromen-dark">
+                  Tijdvenster
+                </Label>
+                <Input
                   id="pickup-plan-window"
                   type="text"
                   value={pickupPlanWindow}
                   onChange={(e) => setPickupPlanWindow(e.target.value)}
-                  placeholder="bijv. ochtend 09:00–12:00"
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Bijv. ochtend 09:00-12:00"
+                  className="min-h-11 rounded-2xl border-digidromen-cream bg-white focus-visible:ring-digidromen-orange/30"
                 />
               </div>
             </div>
             {transitionMutation.isError ? (
-              <p className="mt-3 text-sm text-red-600" role="alert">
-                {translateError(transitionMutation.error, "Opslaan mislukt.")}
+              <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+                {translateError(transitionMutation.error, "Opslaan mislukt. Controleer de datum en probeer opnieuw.")}
               </p>
             ) : null}
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  transitionMutation.reset();
-                  setPickupModalOpen(false);
-                }}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
-              >
-                Annuleren
-              </button>
-              <button
-                type="button"
-                disabled={
-                  !pickupPlanDate.trim() || transitionMutation.isPending
-                }
-                onClick={() => handleConfirmPickupPlan()}
-                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
-              >
-                {transitionMutation.isPending ? "Bezig..." : "Opslaan"}
-              </button>
-            </div>
           </div>
-        </div>
+          <DialogFooter className="border-t border-digidromen-cream bg-white px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                transitionMutation.reset();
+                setPickupModalOpen(false);
+              }}
+              className="min-h-11 rounded-[18px] border-digidromen-cream"
+            >
+              Annuleren
+            </Button>
+            <Button
+              type="button"
+              disabled={!pickupPlanDate.trim() || transitionMutation.isPending}
+              onClick={() => handleConfirmPickupPlan()}
+              className="min-h-11 rounded-[18px] bg-digidromen-orange px-5 text-white hover:bg-digidromen-orange-hover"
+            >
+              {transitionMutation.isPending ? "Opslaan..." : "Pickup vastleggen"}
+              {!transitionMutation.isPending ? <ArrowRight size={16} /> : null}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {primaryAction ? (
+        <Card className="overflow-hidden rounded-3xl border-digidromen-orange/20 bg-digidromen-orange-light py-0 shadow-sm">
+          <CardContent className="grid gap-5 p-5 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-digidromen-orange text-white shadow-sm">
+                <PrimaryActionIcon size={26} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-digidromen-orange">
+                  Volgende logistieke stap
+                </p>
+                <h1 className="mt-1 font-heading text-2xl font-semibold text-digidromen-dark">
+                  {donationWorkflow.actionLabel(primaryAction)}
+                </h1>
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-digidromen-dark/62">
+                  {donationActionHint(primaryAction)}
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              disabled={transitionMutation.isPending}
+              onClick={() => handleTransitionClick(primaryAction)}
+              className="min-h-12 rounded-[20px] bg-digidromen-orange px-6 text-base font-semibold text-white hover:bg-digidromen-orange-hover"
+            >
+              <PrimaryActionIcon size={18} />
+              {transitionMutation.isPending ? "Bezig..." : donationWorkflow.actionLabel(primaryAction)}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        role === "service_partner" && !canManage ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-relaxed text-amber-900">
+            Deze batch is nog niet aan jullie servicepunt toegewezen. Tot die tijd kan alleen Digidromen de voortgang bijwerken.
+          </div>
+        ) : null
+      )}
+
+      {transitionMutation.isError && !pickupModalOpen ? (
+        <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          {translateError(
+            transitionMutation.error,
+            "Actie mislukt. Mogelijk ontbreken rechten of is de batch niet aan jullie servicepunt toegewezen.",
+          )}
+        </p>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
