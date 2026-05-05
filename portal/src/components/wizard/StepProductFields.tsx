@@ -35,7 +35,7 @@ function TextField({
 }) {
   return (
     <div className="space-y-1">
-      <label className="block text-sm font-medium text-slate-700">
+      <label className="block text-sm font-medium text-digidromen-dark/72">
         {label}
         {required ? <span className="ml-1 text-red-500">*</span> : null}
       </label>
@@ -43,8 +43,8 @@ function TextField({
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-digidromen-primary/40 ${
-          error ? "border-red-400" : "border-slate-300"
+        className={`min-h-11 w-full rounded-[18px] border bg-white px-3 py-2 text-sm text-digidromen-dark focus:outline-none focus:ring-2 focus:ring-digidromen-orange/25 ${
+          error ? "border-red-400" : "border-digidromen-cream focus:border-digidromen-orange"
         }`}
       />
       {error ? <p className="text-xs text-red-500">{error}</p> : null}
@@ -67,7 +67,7 @@ function TextAreaField({
 }) {
   return (
     <div className="space-y-1">
-      <label className="block text-sm font-medium text-slate-700">
+      <label className="block text-sm font-medium text-digidromen-dark/72">
         {label}
         {required ? <span className="ml-1 text-red-500">*</span> : null}
       </label>
@@ -75,8 +75,8 @@ function TextAreaField({
         rows={3}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-digidromen-primary/40 ${
-          error ? "border-red-400" : "border-slate-300"
+        className={`w-full rounded-[18px] border bg-white px-3 py-2 text-sm text-digidromen-dark focus:outline-none focus:ring-2 focus:ring-digidromen-orange/25 ${
+          error ? "border-red-400" : "border-digidromen-cream focus:border-digidromen-orange"
         }`}
       />
       {error ? <p className="text-xs text-red-500">{error}</p> : null}
@@ -93,12 +93,12 @@ export const StepProductFields: React.FC<Props> = ({
   if (scenario === "new_request") {
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-slate-800">
-          Laptoppakket
+        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
+          Aantal laptoppakketten
         </h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm leading-relaxed text-digidromen-dark/58">
           De doelgroepomschrijving van jullie organisatie staat onder{" "}
-          <strong className="text-slate-700">Instellingen</strong> en wordt automatisch meegenomen bij deze bestelling.
+          <strong className="text-digidromen-dark">Mijn organisatie</strong> en wordt automatisch meegenomen.
         </p>
         {errors.motivation ? (
           <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -123,7 +123,7 @@ export const StepProductFields: React.FC<Props> = ({
   if (scenario === "laptop_replacement") {
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-slate-800">
+        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
           Gegevens defecte laptop
         </h2>
 
@@ -149,7 +149,7 @@ export const StepProductFields: React.FC<Props> = ({
   if (scenario === "cable_replacement") {
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-slate-800">
+        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
           Gegevens defecte voedingskabel
         </h2>
 
@@ -161,7 +161,7 @@ export const StepProductFields: React.FC<Props> = ({
           onChange={(value) => onChange("serial_number", value)}
         />
 
-        <p className="rounded-lg bg-slate-50 px-4 py-3 text-xs text-slate-600">
+        <p className="rounded-2xl bg-digidromen-orange-light px-4 py-3 text-xs leading-relaxed text-digidromen-dark/68">
           Vul het <strong>connector type</strong> en <strong>wattage</strong> in.
           Foto-upload is in deze versie nog niet aangesloten.
         </p>
@@ -194,10 +194,10 @@ export const StepProductFields: React.FC<Props> = ({
   if (scenario === "mouse_replacement") {
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-slate-800">
+        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
           Vervanging muis
         </h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm leading-relaxed text-digidromen-dark/58">
           Voor deze bestelling hoeven geen serienummer of reden voor vervanging te worden ingevuld. Ga verder naar levering.
         </p>
       </div>
@@ -207,10 +207,10 @@ export const StepProductFields: React.FC<Props> = ({
   if (scenario === "backpack_replacement") {
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-slate-800">
+        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
           Vervanging rugzak
         </h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm leading-relaxed text-digidromen-dark/58">
           Voor deze bestelling hoeven geen serienummer of reden voor vervanging te worden ingevuld. Ga verder naar levering.
         </p>
       </div>
@@ -220,7 +220,7 @@ export const StepProductFields: React.FC<Props> = ({
   if (scenario === "headset_replacement") {
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-slate-800">
+        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
           Vervanging headset
         </h2>
 
@@ -245,10 +245,10 @@ export const StepProductFields: React.FC<Props> = ({
   if (scenario === "powerbank_replacement") {
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-slate-800">
+        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
           Vervanging powerbank
         </h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm leading-relaxed text-digidromen-dark/58">
           Voor deze bestelling hoeven geen serienummer of klachtomschrijving te worden ingevuld. Ga verder naar levering.
         </p>
       </div>

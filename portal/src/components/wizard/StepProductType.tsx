@@ -15,40 +15,51 @@ export const StepProductType: React.FC<Props> = ({
   selected,
   onSelect,
 }) => (
-  <div className="space-y-4">
+  <div className="space-y-5">
     <div>
-      <h2 className="text-base font-semibold text-slate-800">
-        Wat wil je bestellen?
+      <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
+        Wat is er nodig?
       </h2>
-      <p className="mt-1 text-sm text-slate-500">
-        Kies het type aanvraag zodat we de juiste velden en validatie tonen.
+      <p className="mt-2 text-sm leading-relaxed text-digidromen-dark/58">
+        Kies het product of onderdeel. Daarna vragen we alleen de gegevens die daarvoor nodig zijn.
       </p>
     </div>
 
     <div className="grid gap-3 sm:grid-cols-2">
       {listRules().map(({ scenario, label, description, icon: Icon }) => {
         const isSelected = selected === scenario;
+        const isPackage = scenario === "new_request";
 
         return (
           <button
             key={scenario}
             type="button"
             onClick={() => onSelect(scenario)}
-            className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+            className={`group flex min-h-[128px] items-start gap-4 rounded-3xl border p-4 text-left transition-all hover:-translate-y-0.5 ${
               isSelected
-                ? "border-digidromen-primary bg-digidromen-primary/5"
-                : "border-slate-200 hover:border-slate-300"
+                ? "border-digidromen-orange bg-digidromen-orange-light shadow-sm"
+                : "border-digidromen-cream bg-white hover:border-digidromen-orange/25 hover:shadow-sm"
             }`}
           >
-            <Icon
-              size={20}
-              className={`mt-0.5 shrink-0 ${
-                isSelected ? "text-digidromen-primary" : "text-slate-400"
+            <span
+              className={`flex size-12 shrink-0 items-center justify-center rounded-2xl ${
+                isSelected
+                  ? "bg-white text-digidromen-orange"
+                  : isPackage
+                    ? "bg-digidromen-yellow/35 text-digidromen-dark"
+                    : "bg-digidromen-orange-light text-digidromen-orange"
               }`}
-            />
-            <div>
-              <p className="text-sm font-semibold text-slate-800">{label}</p>
-              <p className="mt-1 text-xs text-slate-500">{description}</p>
+            >
+              <Icon size={22} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-digidromen-dark">{label}</p>
+              <p className="mt-1 text-xs leading-relaxed text-digidromen-dark/55">{description}</p>
+              {isPackage ? (
+                <span className="mt-3 inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-digidromen-orange">
+                  Meest gebruikt
+                </span>
+              ) : null}
             </div>
           </button>
         );

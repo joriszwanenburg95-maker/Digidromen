@@ -1,7 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CalendarCheck, Laptop, Plus } from "lucide-react";
+import {
+  ArrowRight,
+  Backpack,
+  Battery,
+  Cable,
+  CalendarCheck,
+  CheckCircle2,
+  Headphones,
+  Laptop,
+  Mouse,
+  Plus,
+} from "lucide-react";
 
 import { OrderWizard } from "../components/wizard/OrderWizard";
 import { OrderingWindowBanner } from "../components/OrderingWindowBanner";
@@ -80,6 +91,110 @@ const ORDER_CREATOR_ROLES: string[] = [
   "digidromen_staff",
   "digidromen_admin",
 ];
+
+const helpOrgProducts = [
+  {
+    label: "Laptoppakket",
+    description: "Voor een kind dat digitaal mee moet kunnen doen.",
+    icon: Laptop,
+  },
+  {
+    label: "Adapter",
+    description: "Vervanging van een defecte voedingskabel.",
+    icon: Cable,
+  },
+  {
+    label: "Rugzak",
+    description: "Als de laptoptas ontbreekt of vervangen moet worden.",
+    icon: Backpack,
+  },
+  {
+    label: "Accessoires",
+    description: "Muis vervangen bij defect of ontbreken.",
+    icon: Mouse,
+  },
+  {
+    label: "Headset",
+    description: "Vervanging wanneer luisteren of spreken niet lukt.",
+    icon: Headphones,
+  },
+  {
+    label: "Powerbank",
+    description: "Vervanging van een defecte powerbank.",
+    icon: Battery,
+  },
+] as const;
+
+const HelpOrgOrderPortalHeader: React.FC<{
+  total: number;
+  activeCount: number;
+  deliveredCount: number;
+  canOrder: boolean;
+  onNewRequest: () => void;
+}> = ({ total, activeCount, deliveredCount, canOrder, onNewRequest }) => (
+  <section className="overflow-hidden rounded-[32px] border border-digidromen-cream bg-white shadow-sm">
+    <div className="grid gap-0 lg:grid-cols-[1.12fr_0.88fr]">
+      <div className="relative overflow-hidden bg-[radial-gradient(circle_at_16%_16%,rgba(255,213,0,0.28),transparent_34%),linear-gradient(135deg,#fff9ea_0%,#fff7ed_58%,#ffffff_100%)] p-6 sm:p-8">
+        <div aria-hidden className="absolute -right-24 -top-24 h-56 w-56 rounded-full bg-digidromen-orange/12 blur-3xl" />
+        <div className="relative">
+          <div className="inline-flex items-center gap-2 rounded-full border border-digidromen-orange/15 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-digidromen-orange">
+            Aanvraagportaal
+          </div>
+          <h2 className="mt-5 max-w-2xl font-heading text-3xl font-semibold leading-tight text-digidromen-dark sm:text-4xl">
+            Vraag snel aan wat een kind nodig heeft.
+          </h2>
+          <p className="mt-3 max-w-xl text-base leading-relaxed text-digidromen-dark/62">
+            Kies een laptoppakket of vervangend onderdeel. Digidromen beoordeelt de aanvraag en houdt je aanvraagstatus overzichtelijk bij.
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={!canOrder}
+              onClick={onNewRequest}
+              className="inline-flex min-h-12 items-center gap-2 rounded-[22px] bg-digidromen-orange px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-digidromen-orange-hover disabled:cursor-not-allowed disabled:bg-digidromen-cream disabled:text-digidromen-dark/35"
+            >
+              <Plus size={17} />
+              Nieuwe aanvraag starten
+            </button>
+            {!canOrder ? (
+              <span className="inline-flex min-h-12 items-center rounded-[22px] border border-digidromen-cream bg-white px-4 text-sm font-semibold text-digidromen-dark/55">
+                Bestelvenster gesloten
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 p-5 sm:p-6">
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Totaal", value: total },
+            { label: "Bezig", value: activeCount },
+            { label: "Geleverd", value: deliveredCount },
+          ].map((item) => (
+            <div key={item.label} className="rounded-2xl border border-digidromen-cream bg-digidromen-warm px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-digidromen-dark/42">{item.label}</p>
+              <p className="mt-1 font-heading text-2xl font-semibold text-digidromen-dark">{item.value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {helpOrgProducts.map(({ label, description, icon: Icon }) => (
+            <div key={label} className="flex min-h-[92px] items-start gap-3 rounded-2xl border border-digidromen-cream bg-white p-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-digidromen-orange-light text-digidromen-orange">
+                <Icon size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-digidromen-dark">{label}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-digidromen-dark/55">{description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+);
 
 const HelpOrgRequestCards: React.FC<{
   orders: OrderListRow[];
@@ -211,6 +326,12 @@ const Orders: React.FC = () => {
 
   const canCreateOrder = ORDER_CREATOR_ROLES.includes(role);
   const canOrder = canPlaceOrder(user?.role, window);
+  const activeHelpOrgCount = displayOrders.filter((order) =>
+    ["ingediend", "te_accorderen", "geaccordeerd", "in_voorbereiding"].includes(order.status),
+  ).length;
+  const deliveredHelpOrgCount = displayOrders.filter((order) =>
+    ["geleverd", "afgesloten"].includes(order.status),
+  ).length;
 
   // Column count per role for skeleton/colSpan
   const showKlant = !isHelpOrg;
@@ -265,7 +386,18 @@ const Orders: React.FC = () => {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      {isHelpOrg ? (
+        <HelpOrgOrderPortalHeader
+          total={displayOrders.length}
+          activeCount={activeHelpOrgCount}
+          deliveredCount={deliveredHelpOrgCount}
+          canOrder={canOrder}
+          onNewRequest={() => setShowWizard(true)}
+        />
+      ) : null}
+
+      {!isHelpOrg ? (
+        <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-digidromen-dark">
             {heading}
@@ -285,17 +417,19 @@ const Orders: React.FC = () => {
             {ctaLabel}
           </button>
         ) : null}
-      </div>
-
-      {isHelpOrg ? (
-        <div className="rounded-xl border border-digidromen-cream bg-surface-soft px-4 py-3 text-sm text-digidromen-dark/60">
-          Kies <strong className="text-digidromen-dark">Nieuwe aanvraag</strong> om een laptoppakket of vervangend onderdeel aan te vragen. Je ziet hier alleen aanvragen van je eigen organisatie.
         </div>
       ) : null}
 
-      <OrderingWindowBanner />
+      {isHelpOrg ? (
+        <div className="flex items-center gap-2 text-sm font-semibold text-digidromen-dark">
+          <CheckCircle2 size={16} className="text-digidromen-orange" />
+          Je ziet alleen aanvragen van je eigen organisatie.
+        </div>
+      ) : null}
 
-      <div className="flex gap-1.5 overflow-x-auto rounded-xl bg-digidromen-cream p-1">
+      {!isHelpOrg ? <OrderingWindowBanner /> : null}
+
+      <div className={`flex gap-1.5 overflow-x-auto rounded-xl p-1 ${isHelpOrg ? "bg-white shadow-sm border border-digidromen-cream" : "bg-digidromen-cream"}`}>
         {statusTabs.map((tab) => (
           <button
             key={tab.key}

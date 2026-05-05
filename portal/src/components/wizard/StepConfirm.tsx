@@ -31,9 +31,9 @@ interface Props {
 }
 
 const Row: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <div className="flex justify-between gap-4 px-4 py-2.5 text-sm">
-    <span className="text-slate-500">{label}</span>
-    <span className="max-w-[60%] text-right font-medium text-slate-800">
+  <div className="flex justify-between gap-4 px-4 py-3 text-sm">
+    <span className="text-digidromen-dark/52">{label}</span>
+    <span className="max-w-[60%] text-right font-medium text-digidromen-dark">
       {value}
     </span>
   </div>
@@ -55,9 +55,9 @@ export const StepConfirm: React.FC<Props> = ({
 
   return (
     <div className="space-y-5">
-      <h2 className="text-base font-semibold text-slate-800">Overzicht</h2>
+      <h2 className="font-heading text-xl font-semibold text-digidromen-dark">Controleer je aanvraag</h2>
 
-      <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+      <div className="divide-y divide-digidromen-cream rounded-2xl border border-digidromen-cream bg-white">
         <Row label="Organisatie" value={organizationLabel} />
         <Row label="Type" value={SCENARIO_LABELS[scenario]} />
         {scenario === "new_request" ? (
@@ -120,7 +120,7 @@ export const StepConfirm: React.FC<Props> = ({
         type="button"
         disabled={!canSubmit || isSubmitting}
         onClick={onSubmit}
-        className="w-full rounded-xl bg-digidromen-primary px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        className="min-h-12 w-full rounded-[20px] bg-digidromen-orange px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-digidromen-orange-hover disabled:cursor-not-allowed disabled:opacity-40"
       >
         {isSubmitting ? "Bezig met indienen..." : "Bestelling indienen"}
       </button>

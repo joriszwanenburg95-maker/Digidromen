@@ -133,6 +133,10 @@ button, [role="button"] {
   box-shadow: 0 0 0 3px rgb(238 114 25 / 0.32);
 }
 
+[data-slot="command-input"]:focus-visible {
+  box-shadow: none;
+}
+
 /* Subtle scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

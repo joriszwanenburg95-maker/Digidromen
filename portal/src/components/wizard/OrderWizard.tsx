@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { X } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
 import { translateError } from "../../lib/errors";
@@ -34,13 +35,7 @@ import {
   type OrderWizardPersistedState,
 } from "./orderWizardSession";
 
-const STEP_LABELS = [
-  "Organisatie",
-  "Type",
-  "Gegevens",
-  "Levering",
-  "Bevestigen",
-];
+const STEP_LABELS = ["Organisatie", "Product", "Details", "Levering", "Controle"];
 
 const STAFF_ORDER_ROLES = ["digidromen_staff", "digidromen_admin"] as const;
 
@@ -552,52 +547,45 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     "—";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-digidromen-dark/45 p-3 backdrop-blur-sm sm:items-center sm:p-6">
       <div
-        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[30px] border border-digidromen-cream bg-white shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="order-wizard-title"
       >
-        <div className="shrink-0 border-b border-slate-100 bg-white px-6 py-4">
+        <div className="shrink-0 border-b border-digidromen-cream bg-[linear-gradient(135deg,#fff9ea_0%,#ffffff_62%)] px-5 py-4 sm:px-7">
           <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs text-slate-500">Nieuwe bestelling</p>
-            <p id="order-wizard-title" className="text-sm font-semibold text-slate-800">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-digidromen-orange">Nieuwe aanvraag</p>
+            <p id="order-wizard-title" className="mt-1 font-heading text-lg font-semibold text-digidromen-dark">
               {STEP_LABELS[step]}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="flex size-10 items-center justify-center rounded-full text-digidromen-dark/45 hover:bg-white hover:text-digidromen-dark"
+            aria-label="Aanvraag sluiten"
           >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="size-5" />
           </button>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex gap-1 px-6 pt-4">
+          <div className="flex gap-1 px-5 pt-4 sm:px-7">
             {STEP_LABELS.map((label, index) => (
               <div
                 key={label}
                 className={`h-1 flex-1 rounded-full transition-colors ${
-                  index <= step ? "bg-digidromen-primary" : "bg-slate-200"
+                  index <= step ? "bg-digidromen-orange" : "bg-digidromen-cream"
                 }`}
               />
             ))}
           </div>
 
-          <div className="px-6 py-5">
+          <div className="px-5 py-6 sm:px-7">
             {step === 0 ? (
               <StepOrganization
                 mode={isStaffOrderer ? "select" : "fixed"}
@@ -666,7 +654,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
             ) : null}
 
             {draftId ? (
-              <p className="mt-4 text-xs text-slate-400">
+              <p className="mt-4 text-xs text-digidromen-dark/35">
                 Concept-id: {draftId}
                 {isSaving ? " · opslaan..." : ""}
               </p>
@@ -675,12 +663,12 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
         </div>
 
         {step < 4 ? (
-          <div className="shrink-0 border-t border-slate-100 bg-white px-6 py-4">
+          <div className="shrink-0 border-t border-digidromen-cream bg-white px-5 py-4 sm:px-7">
             <div className="flex justify-between gap-3">
             <button
               type="button"
               onClick={step === 0 ? onClose : () => setStep((current) => current - 1)}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              className="min-h-11 rounded-[18px] border border-digidromen-cream px-4 py-2 text-sm font-medium text-digidromen-dark/62 hover:bg-digidromen-cream/60"
             >
               {step === 0 ? "Annuleren" : "Vorige"}
             </button>
@@ -689,7 +677,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
               onClick={() => {
                 void handleNext();
               }}
-              className="rounded-xl bg-digidromen-primary px-5 py-2 text-sm font-semibold text-white hover:opacity-90"
+              className="min-h-11 rounded-[18px] bg-digidromen-orange px-5 py-2 text-sm font-semibold text-white hover:bg-digidromen-orange-hover"
             >
               Volgende
             </button>

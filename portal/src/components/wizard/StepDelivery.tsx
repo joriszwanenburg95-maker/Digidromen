@@ -25,7 +25,7 @@ export const StepDelivery: React.FC<Props> = ({
     type = "text",
   ) => (
     <div className="space-y-1">
-      <label className="block text-sm font-medium text-slate-700">
+      <label className="block text-sm font-medium text-digidromen-dark/72">
         {label}
         {required ? <span className="ml-1 text-red-500">*</span> : null}
       </label>
@@ -33,8 +33,8 @@ export const StepDelivery: React.FC<Props> = ({
         type={type}
         value={values[key]}
         onChange={(event) => onChange(key, event.target.value)}
-        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-digidromen-primary/40 ${
-          errors[key] ? "border-red-400" : "border-slate-300"
+        className={`min-h-11 w-full rounded-[18px] border bg-white px-3 py-2 text-sm text-digidromen-dark focus:outline-none focus:ring-2 focus:ring-digidromen-orange/25 ${
+          errors[key] ? "border-red-400" : "border-digidromen-cream focus:border-digidromen-orange"
         }`}
       />
       {errors[key] ? <p className="text-xs text-red-500">{errors[key]}</p> : null}
@@ -43,8 +43,8 @@ export const StepDelivery: React.FC<Props> = ({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-base font-semibold text-slate-800">
-        Aflevergegevens
+      <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
+        Waar mag het naartoe?
       </h2>
 
       {field("Straat + huisnummer", "delivery_address", true)}
@@ -61,7 +61,7 @@ export const StepDelivery: React.FC<Props> = ({
         "date",
       )}
 
-      <p className="text-xs text-slate-500">
+      <p className="rounded-2xl bg-digidromen-warm px-4 py-3 text-xs leading-relaxed text-digidromen-dark/58">
         De exacte bezorgdatum wordt later door de servicepartner ingevuld en is
         daarna zichtbaar in de bestelling.
       </p>
