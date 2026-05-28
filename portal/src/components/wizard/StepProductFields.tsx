@@ -96,10 +96,6 @@ export const StepProductFields: React.FC<Props> = ({
         <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
           Aantal laptoppakketten
         </h2>
-        <p className="text-sm leading-relaxed text-digidromen-dark/58">
-          De doelgroepomschrijving van jullie organisatie staat onder{" "}
-          <strong className="text-digidromen-dark">Mijn organisatie</strong> en wordt automatisch meegenomen.
-        </p>
         {errors.motivation ? (
           <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errors.motivation}
@@ -198,7 +194,7 @@ export const StepProductFields: React.FC<Props> = ({
           Vervanging muis
         </h2>
         <p className="text-sm leading-relaxed text-digidromen-dark/58">
-          Voor deze bestelling hoeven geen serienummer of reden voor vervanging te worden ingevuld. Ga verder naar levering.
+          Voor deze bestelling hoeven geen extra gegevens te worden ingevuld. Ga verder naar levering.
         </p>
       </div>
     );
@@ -211,7 +207,7 @@ export const StepProductFields: React.FC<Props> = ({
           Vervanging rugzak
         </h2>
         <p className="text-sm leading-relaxed text-digidromen-dark/58">
-          Voor deze bestelling hoeven geen serienummer of reden voor vervanging te worden ingevuld. Ga verder naar levering.
+          Voor deze bestelling hoeven geen extra gegevens te worden ingevuld. Ga verder naar levering.
         </p>
       </div>
     );
@@ -223,21 +219,9 @@ export const StepProductFields: React.FC<Props> = ({
         <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
           Vervanging headset
         </h2>
-
-        <TextField
-          label="Serienummer / ordernummer (optioneel)"
-          value={values.serial_number}
-          error={errors.serial_number}
-          onChange={(value) => onChange("serial_number", value)}
-        />
-
-        <TextAreaField
-          required
-          label="Reden voor vervanging"
-          value={values.defect_description}
-          error={errors.defect_description}
-          onChange={(value) => onChange("defect_description", value)}
-        />
+        <p className="text-sm leading-relaxed text-digidromen-dark/58">
+          Voor deze bestelling hoeven geen extra gegevens te worden ingevuld. Ga verder naar levering.
+        </p>
       </div>
     );
   }
@@ -249,7 +233,7 @@ export const StepProductFields: React.FC<Props> = ({
           Vervanging powerbank
         </h2>
         <p className="text-sm leading-relaxed text-digidromen-dark/58">
-          Voor deze bestelling hoeven geen serienummer of klachtomschrijving te worden ingevuld. Ga verder naar levering.
+          Voor deze bestelling hoeven geen extra gegevens te worden ingevuld. Ga verder naar levering.
         </p>
       </div>
     );

@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, CalendarClock, CheckCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarClock, CheckCircle, Plus } from "lucide-react";
 
 import { LoadingButton } from "../components/LoadingButton";
 import { SkeletonTableRow } from "../components/Skeleton";
@@ -29,6 +29,20 @@ const statusTabs = [
   { key: "geannuleerd", label: "Geannuleerd" },
 ];
 
+const DONATION_DRAFT_KEY = "donation_new_draft_v1";
+
+interface DonationDraft {
+  donorOrgId: string;
+  deviceCount: number;
+  pickupDate: string;
+  contactName: string;
+  contactEmail: string;
+  street: string;
+  postalCode: string;
+  city: string;
+  notes: string;
+}
+
 const Donations: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -47,6 +61,17 @@ const Donations: React.FC = () => {
   const [donorOrgId, setDonorOrgId] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Inline nieuwe donateur
+  const [showAddDonor, setShowAddDonor] = useState(false);
+  const [newDonorName, setNewDonorName] = useState("");
+  const [newDonorCity, setNewDonorCity] = useState("");
+  const [newDonorContactName, setNewDonorContactName] = useState("");
+  const [newDonorContactEmail, setNewDonorContactEmail] = useState("");
+  const [newDonorSaving, setNewDonorSaving] = useState(false);
+  const [newDonorError, setNewDonorError] = useState<string | null>(null);
+
+  const draftRestoredRef = useRef(false);
+
   const role: Role = (user?.role as Role) ?? "help_org";
 
   const { data: displayDonations = [], isLoading } = useQuery({
@@ -60,6 +85,123 @@ const Donations: React.FC = () => {
     queryFn: listDonorOrganizations,
     enabled: showNewDonation,
   });
+
+  // Restore draft op mount
+  useEffect(() => {
+    if (draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+    try {
+      const raw = sessionStorage.getItem(DONATION_DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as Partial<DonationDraft>;
+      if (draft.donorOrgId) setDonorOrgId(draft.donorOrgId);
+      if (typeof draft.deviceCount === "number") setDeviceCount(draft.deviceCount);
+      if (draft.pickupDate) setPickupDate(draft.pickupDate);
+      if (draft.contactName) setContactName(draft.contactName);
+      if (draft.contactEmail) setContactEmail(draft.contactEmail);
+      if (draft.street) setStreet(draft.street);
+      if (draft.postalCode) setPostalCode(draft.postalCode);
+      if (draft.city) setCity(draft.city);
+      if (draft.notes) setNotes(draft.notes);
+      const hasContent =
+        draft.donorOrgId ||
+        draft.contactName ||
+        draft.street ||
+        draft.city ||
+        draft.notes ||
+        draft.pickupDate;
+      if (hasContent) setShowNewDonation(true);
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
+
+  // Auto-save draft
+  useEffect(() => {
+    if (!draftRestoredRef.current) return;
+    const hasContent =
+      donorOrgId ||
+      contactName.trim() ||
+      contactEmail.trim() ||
+      street.trim() ||
+      postalCode.trim() ||
+      city.trim() ||
+      notes.trim() ||
+      pickupDate ||
+      deviceCount > 1;
+    if (!hasContent && !showNewDonation) {
+      sessionStorage.removeItem(DONATION_DRAFT_KEY);
+      return;
+    }
+    const draft: DonationDraft = {
+      donorOrgId,
+      deviceCount,
+      pickupDate,
+      contactName,
+      contactEmail,
+      street,
+      postalCode,
+      city,
+      notes,
+    };
+    sessionStorage.setItem(DONATION_DRAFT_KEY, JSON.stringify(draft));
+  }, [
+    donorOrgId,
+    deviceCount,
+    pickupDate,
+    contactName,
+    contactEmail,
+    street,
+    postalCode,
+    city,
+    notes,
+    showNewDonation,
+  ]);
+
+  const resetDonationForm = () => {
+    setDonorOrgId("");
+    setDeviceCount(1);
+    setPickupDate("");
+    setContactName("");
+    setContactEmail("");
+    setStreet("");
+    setPostalCode("");
+    setCity("");
+    setNotes("");
+    sessionStorage.removeItem(DONATION_DRAFT_KEY);
+  };
+
+  const submitNewDonor = async () => {
+    setNewDonorError(null);
+    if (!newDonorName.trim() || !newDonorCity.trim() || !newDonorContactName.trim() || !newDonorContactEmail.trim()) {
+      setNewDonorError("Naam, stad, contactpersoon en contact-e-mail zijn verplicht.");
+      return;
+    }
+    setNewDonorSaving(true);
+    const id = `org-${crypto.randomUUID().slice(0, 8)}`;
+    const { error } = await getSupabaseClient().from("organizations").insert({
+      id,
+      name: newDonorName.trim(),
+      type: "sponsor",
+      city: newDonorCity.trim(),
+      contact_name: newDonorContactName.trim(),
+      contact_email: newDonorContactEmail.trim(),
+      active: true,
+    });
+    setNewDonorSaving(false);
+    if (error) {
+      setNewDonorError(translateError(error));
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: queryKeys.organizations.list({ type: "sponsor" }) });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.organizations.all });
+    setDonorOrgId(id);
+    setShowAddDonor(false);
+    setNewDonorName("");
+    setNewDonorCity("");
+    setNewDonorContactName("");
+    setNewDonorContactEmail("");
+  };
 
   const filteredDonations = statusFilter === "all"
     ? displayDonations
@@ -117,7 +259,7 @@ const Donations: React.FC = () => {
     void queryClient.invalidateQueries({ queryKey: ["workflow-events"] });
     setCreatedId(id);
     setShowNewDonation(false);
-    setNotes("");
+    resetDonationForm();
   };
 
   if (createdId) {
@@ -153,17 +295,88 @@ const Donations: React.FC = () => {
         </div>
 
         <form onSubmit={(e) => { void submitDonation(e); }} className="space-y-4 rounded-2xl border border-slate-100 bg-white p-8 shadow-sm">
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Donerende organisatie
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <select
+                value={donorOrgId}
+                onChange={(e) => setDonorOrgId(e.target.value)}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
+              >
+                <option value="">Maak een keuze...</option>
+                {activeDonors.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowAddDonor((v) => !v)}
+                className="flex items-center justify-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-digidromen-orange hover:bg-digidromen-orange-light"
+              >
+                <Plus size={14} />
+                Nieuwe donateur
+              </button>
+            </div>
+          </div>
+
+          {showAddDonor ? (
+            <div className="space-y-3 rounded-2xl border border-digidromen-cream bg-digidromen-orange-light/30 p-4">
+              <p className="text-sm font-semibold text-digidromen-dark">Nieuwe donerende organisatie</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <input
+                  value={newDonorName}
+                  onChange={(e) => setNewDonorName(e.target.value)}
+                  placeholder="Organisatienaam"
+                  className="rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
+                />
+                <input
+                  value={newDonorCity}
+                  onChange={(e) => setNewDonorCity(e.target.value)}
+                  placeholder="Stad"
+                  className="rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
+                />
+                <input
+                  value={newDonorContactName}
+                  onChange={(e) => setNewDonorContactName(e.target.value)}
+                  placeholder="Contactpersoon"
+                  className="rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
+                />
+                <input
+                  type="email"
+                  value={newDonorContactEmail}
+                  onChange={(e) => setNewDonorContactEmail(e.target.value)}
+                  placeholder="Contact e-mail"
+                  className="rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
+                />
+              </div>
+              {newDonorError ? <p className="text-sm text-red-600">{newDonorError}</p> : null}
+              <div className="flex gap-2">
+                <LoadingButton
+                  type="button"
+                  variant="success"
+                  isLoading={newDonorSaving}
+                  loadingLabel="Aanmaken..."
+                  onClick={() => { void submitNewDonor(); }}
+                >
+                  Donateur aanmaken
+                </LoadingButton>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddDonor(false);
+                    setNewDonorError(null);
+                  }}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Annuleren
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-4 md:grid-cols-2">
-            <select
-              value={donorOrgId || activeDonors[0]?.id || ""}
-              onChange={(e) => setDonorOrgId(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
-            >
-              {activeDonors.map((o) => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
-              {activeDonors.length === 0 && <option value="">Geen donoren gevonden</option>}
-            </select>
             <input
               type="number"
               min={1}

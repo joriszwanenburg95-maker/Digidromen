@@ -7,16 +7,15 @@ import {
   Clock,
   Package,
   Paperclip,
+  Plus,
   Send,
   XCircle,
 } from "lucide-react";
 
-import CrmPreparationCard from "../components/CrmPreparationCard";
 import { SkeletonDetailSection } from "../components/Skeleton";
 import Timeline from "../components/Timeline";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateTime } from "../lib/format";
-import { formatCrmReference } from "../lib/crm-preparation";
 import {
   formatOrderLineDetailLabel,
   formatOrderLinesSummary,
@@ -431,10 +430,22 @@ const OrderDetail: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <button onClick={() => navigate("/orders")} className="flex items-center text-slate-500 hover:text-slate-700">
-          <ArrowLeft size={18} className="mr-2" />
-          Terug naar overzicht
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate("/orders")} className="flex items-center text-slate-500 hover:text-slate-700">
+            <ArrowLeft size={18} className="mr-2" />
+            Terug naar overzicht
+          </button>
+          {role === "help_org" ? (
+            <button
+              type="button"
+              onClick={() => navigate("/orders?new=1")}
+              className="flex items-center gap-1.5 rounded-[18px] bg-digidromen-orange px-3 py-1.5 text-sm font-semibold text-white hover:bg-digidromen-orange-hover"
+            >
+              <Plus size={14} />
+              Nieuwe bestelling
+            </button>
+          ) : null}
+        </div>
 
         <div className="flex max-w-xl flex-col items-end gap-2">
           {nextStatuses.length > 0 ? (
@@ -500,14 +511,6 @@ const OrderDetail: React.FC = () => {
                 <p className="mt-1 text-sm font-semibold text-slate-800">{formatDate(order.updated_at)}</p>
               </div>
             </div>
-
-            {(!order.order_lines?.length ||
-              order.order_lines.some((line) => line.line_type === "new_request")) ? (
-              <div className="mt-6 rounded-xl bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Motivatie</p>
-                <p className="mt-2 text-sm text-slate-700">{order.motivation}</p>
-              </div>
-            ) : null}
 
             {order.order_lines?.length > 0 ? (
               <div className="mt-6">
@@ -692,15 +695,6 @@ const OrderDetail: React.FC = () => {
             </div>
           </div>
 
-          <CrmPreparationCard
-            subjectLabel="Deze bestelling"
-            references={[
-              { label: "CRM relatie", value: formatCrmReference(order.crm_relation_id) },
-              { label: "CRM case", value: formatCrmReference(order.crm_case_id) },
-              { label: "CRM taak", value: formatCrmReference(order.crm_task_id) },
-            ]}
-            syncStates={[]}
-          />
         </aside>
       </div>
     </div>

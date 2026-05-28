@@ -314,18 +314,26 @@ const Inventory: React.FC = () => {
         };
       }),
     );
-    const donationMuts = donations.map((d) => ({
-      id: `donation-${d.id}`,
-      type: "Donatie",
-      direction: "in" as const,
-      category: "laptop" as const satisfies ProductCategory,
-      quantity: Number(d.refurbish_ready_count ?? d.device_count_promised ?? 0),
-      party: d.organizations?.name ?? "Onbekende donor",
-      reference: d.id,
-      status: d.status,
-      scope: d.status === "verwerkt" ? "historisch" : "toekomstig",
-      note: d.status === "verwerkt" ? "Laptops toegevoegd aan voorraad" : "Donatie laptops in aanloop",
-    }));
+    const donationMuts = donations.map((d) => {
+      const isProcessed = d.status === "verwerkt";
+      const quantity = isProcessed
+        ? Number(d.refurbish_ready_count ?? 0)
+        : Number(d.device_count_promised ?? 0);
+      return {
+        id: `donation-${d.id}`,
+        type: "Donatie",
+        direction: "in" as const,
+        category: "laptop" as const satisfies ProductCategory,
+        quantity,
+        party: d.organizations?.name ?? "Onbekende donor",
+        reference: d.id,
+        status: d.status,
+        scope: isProcessed ? "historisch" : "toekomstig",
+        note: isProcessed
+          ? "Laptops toegevoegd aan voorraad (refurbish gereed)"
+          : "Verwachte donatie (toegezegd, nog niet verwerkt)",
+      };
+    });
     return [...donationMuts, ...orderMuts].filter((r) => r.quantity > 0);
   }, [orders, donations]);
 

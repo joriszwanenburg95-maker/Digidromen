@@ -126,12 +126,11 @@ const helpOrgProducts = [
 ] as const;
 
 const HelpOrgOrderPortalHeader: React.FC<{
-  total: number;
+  thisMonthCount: number;
   activeCount: number;
-  deliveredCount: number;
   canOrder: boolean;
   onNewRequest: () => void;
-}> = ({ total, activeCount, deliveredCount, canOrder, onNewRequest }) => (
+}> = ({ thisMonthCount, activeCount, canOrder, onNewRequest }) => (
   <section className="overflow-hidden rounded-[32px] border border-digidromen-cream bg-white shadow-sm">
     <div className="grid gap-0 lg:grid-cols-[1.12fr_0.88fr]">
       <div className="relative overflow-hidden bg-[radial-gradient(circle_at_16%_16%,rgba(255,213,0,0.28),transparent_34%),linear-gradient(135deg,#fff9ea_0%,#fff7ed_58%,#ffffff_100%)] p-6 sm:p-8">
@@ -166,11 +165,10 @@ const HelpOrgOrderPortalHeader: React.FC<{
       </div>
 
       <div className="grid gap-3 p-5 sm:p-6">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {[
-            { label: "Totaal", value: total },
-            { label: "Bezig", value: activeCount },
-            { label: "Geleverd", value: deliveredCount },
+            { label: "Deze maand besteld", value: thisMonthCount },
+            { label: "In behandeling", value: activeCount },
           ].map((item) => (
             <div key={item.label} className="rounded-2xl border border-digidromen-cream bg-digidromen-warm px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-digidromen-dark/42">{item.label}</p>
@@ -291,6 +289,14 @@ const Orders: React.FC = () => {
     setStatusFilter(searchParams.get("status") ?? "all");
   }, [searchParams]);
 
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setShowWizard(true);
+      searchParams.delete("new");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const role: Role = (user?.role as Role) ?? "help_org";
   const surface = getSurface(role);
   const isHelpOrg = role === "help_org";
@@ -329,9 +335,15 @@ const Orders: React.FC = () => {
   const activeHelpOrgCount = displayOrders.filter((order) =>
     ["ingediend", "te_accorderen", "geaccordeerd", "in_voorbereiding"].includes(order.status),
   ).length;
-  const deliveredHelpOrgCount = displayOrders.filter((order) =>
-    ["geleverd", "afgesloten"].includes(order.status),
-  ).length;
+  const now = new Date();
+  const thisMonthHelpOrgCount = displayOrders.filter((order) => {
+    if (!order.created_at) return false;
+    const created = new Date(order.created_at);
+    return (
+      created.getFullYear() === now.getFullYear() &&
+      created.getMonth() === now.getMonth()
+    );
+  }).length;
 
   // Column count per role for skeleton/colSpan
   const showKlant = !isHelpOrg;
@@ -388,9 +400,8 @@ const Orders: React.FC = () => {
 
       {isHelpOrg ? (
         <HelpOrgOrderPortalHeader
-          total={displayOrders.length}
+          thisMonthCount={thisMonthHelpOrgCount}
           activeCount={activeHelpOrgCount}
-          deliveredCount={deliveredHelpOrgCount}
           canOrder={canOrder}
           onNewRequest={() => setShowWizard(true)}
         />

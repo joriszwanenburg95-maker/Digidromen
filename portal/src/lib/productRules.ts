@@ -201,13 +201,7 @@ const RULES: Record<ProductScenario, ProductRule> = {
           (p.name.toLowerCase().includes("headset") ||
             p.name.toLowerCase().includes("koptelefoon")),
       ),
-    validate: (values) => {
-      const errors: FieldErrors = {};
-      if (!values.defect_description.trim()) {
-        errors.defect_description = "Reden voor vervanging is verplicht";
-      }
-      return errors;
-    },
+    validate: () => ({}),
   },
 };
 

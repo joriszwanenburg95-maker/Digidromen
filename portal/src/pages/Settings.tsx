@@ -24,6 +24,22 @@ const orgTypeOptions = [
   { value: "digidromen", label: "Digidromen" },
 ];
 
+const contactRoleOptions = [
+  "Coordinator",
+  "Projectmedewerker",
+  "Directeur",
+  "Bestuur",
+  "Locatiemanager",
+  "Anders",
+] as const;
+
+const targetGroupOptions = [
+  "Basisschool (groep 3-8)",
+  "Middelbare school",
+  "MBO / HBO / WO",
+  "Anders",
+] as const;
+
 const productCategoryOptions = [
   { value: "laptop", label: "Laptop" },
   { value: "accessory", label: "Accessoire" },
@@ -272,6 +288,7 @@ const Settings: React.FC = () => {
 
   const [userSelfName, setUserSelfName] = useState("");
   const [userSelfPhone, setUserSelfPhone] = useState("");
+  const [userSelfTitle, setUserSelfTitle] = useState("");
   const [userSelfSaving, setUserSelfSaving] = useState(false);
   const [userSelfNotice, setUserSelfNotice] = useState<string | null>(null);
   const [userSelfError, setUserSelfError] = useState<string | null>(null);
@@ -314,11 +331,11 @@ const Settings: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from("user_profiles")
-        .select("name, phone, email")
+        .select("name, phone, title, email")
         .eq("id", authUser!.id!)
         .single();
       if (error) throw error;
-      return data as { name: string; phone: string | null; email: string };
+      return data as { name: string; phone: string | null; title: string | null; email: string };
     },
     enabled: isSupabase && showSelfOrgProfile && Boolean(authUser?.id),
   });
@@ -327,6 +344,7 @@ const Settings: React.FC = () => {
     if (!selfUserProfile) return;
     setUserSelfName(selfUserProfile.name ?? "");
     setUserSelfPhone(selfUserProfile.phone ?? "");
+    setUserSelfTitle(selfUserProfile.title ?? "");
   }, [selfUserProfile]);
 
   const { data: productsRaw = [] } = useQuery({
@@ -612,6 +630,7 @@ const Settings: React.FC = () => {
         .update({
           name: userSelfName.trim(),
           phone: userSelfPhone.trim() || null,
+          title: userSelfTitle.trim() || null,
         })
         .eq("id", authUser.id);
       if (error) throw error;
@@ -862,6 +881,28 @@ const Settings: React.FC = () => {
                       placeholder="Bijv. 06-12345678"
                     />
                   </div>
+                  {isHelpOrgUser ? (
+                    <div>
+                      <label htmlFor="self-title" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
+                        Functie binnen organisatie
+                      </label>
+                      <select
+                        id="self-title"
+                        value={userSelfTitle}
+                        onChange={(e) => {
+                          setUserSelfTitle(e.target.value);
+                          setUserSelfNotice(null);
+                          setUserSelfError(null);
+                        }}
+                        className={inputCls}
+                      >
+                        <option value="">Maak een keuze...</option>
+                        {contactRoleOptions.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-digidromen-dark/40">E-mail (inlog)</label>
                     <p className="rounded border border-digidromen-cream bg-digidromen-cream/30 p-2 text-sm text-digidromen-dark/80">
@@ -996,12 +1037,19 @@ const Settings: React.FC = () => {
                   {isHelpOrgUser ? (
                     <div className="md:col-span-2">
                       <label htmlFor="ho-target" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
-                        Doelgroepomschrijving (samenwerking / laptoppakketten)
+                        Doelgroep (samenwerking / laptoppakketten)
                       </label>
-                      <textarea
+                      <select
                         id="ho-target"
-                        rows={4}
-                        value={helpOrgSelfForm.target_group_description}
+                        value={
+                          targetGroupOptions.includes(
+                            helpOrgSelfForm.target_group_description as (typeof targetGroupOptions)[number],
+                          )
+                            ? helpOrgSelfForm.target_group_description
+                            : helpOrgSelfForm.target_group_description
+                              ? "Anders"
+                              : ""
+                        }
                         onChange={(e) => {
                           setHelpOrgSelfForm((p) => ({
                             ...p,
@@ -1011,8 +1059,12 @@ const Settings: React.FC = () => {
                           setHelpOrgSelfNotice(null);
                         }}
                         className={inputCls}
-                        placeholder="Bijvoorbeeld: gezinnen met een laag inkomen in regio X…"
-                      />
+                      >
+                        <option value="">Maak een keuze...</option>
+                        {targetGroupOptions.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
                     </div>
                   ) : null}
                 </div>
@@ -1057,28 +1109,30 @@ const Settings: React.FC = () => {
             </div>
           )}
 
-          <div className="p-6">
-            <h3 className="mb-4 font-bold text-digidromen-dark">Notificatie Voorkeuren</h3>
-            <div className="space-y-3">
-              {[
-                "Email bij statuswijziging bestelling",
-                "Email bij nieuwe reparatie update",
-                "Melding bij CRM sync fouten",
-              ].map((pref, index) => (
-                <div key={pref} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id={`pref-${index}`}
-                    className="h-4 w-4 rounded border-digidromen-cream text-digidromen-primary focus:ring-digidromen-primary"
-                    defaultChecked
-                  />
-                  <label htmlFor={`pref-${index}`} className="ml-3 text-sm text-digidromen-dark/80">
-                    {pref}
-                  </label>
-                </div>
-              ))}
+          {isHelpOrgUser ? null : (
+            <div className="p-6">
+              <h3 className="mb-4 font-bold text-digidromen-dark">Notificatie Voorkeuren</h3>
+              <div className="space-y-3">
+                {[
+                  "Email bij statuswijziging bestelling",
+                  "Email bij nieuwe reparatie update",
+                  "Melding bij CRM sync fouten",
+                ].map((pref, index) => (
+                  <div key={pref} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`pref-${index}`}
+                      className="h-4 w-4 rounded border-digidromen-cream text-digidromen-primary focus:ring-digidromen-primary"
+                      defaultChecked
+                    />
+                    <label htmlFor={`pref-${index}`} className="ml-3 text-sm text-digidromen-dark/80">
+                      {pref}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       ) : null}
 

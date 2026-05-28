@@ -109,10 +109,16 @@ const DonationDetail: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"status" | "berichten" | "documenten">("status");
   const [message, setMessage] = useState("");
   const [documentName, setDocumentName] = useState("");
+  const [documentKind, setDocumentKind] = useState<"donation_report" | "data_wipe_certificate" | "other">("donation_report");
   const [pickupModalOpen, setPickupModalOpen] = useState(false);
   const [pickupPlanDate, setPickupPlanDate] = useState("");
   const [pickupPlanWindow, setPickupPlanWindow] = useState("");
+  const [pickupPlanShipment, setPickupPlanShipment] = useState("");
   const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [editingPickupDate, setEditingPickupDate] = useState(false);
+  const [pickupDateDraft, setPickupDateDraft] = useState("");
+  const [pickupDateSaving, setPickupDateSaving] = useState(false);
+  const [pickupDateError, setPickupDateError] = useState<string | null>(null);
 
   const donationId = id?.trim() ?? "";
 
@@ -212,7 +218,7 @@ const DonationDetail: React.FC = () => {
 
   type TransitionPayload = {
     nextStatus: DonationStatus;
-    pickupPlan?: { pickup_date: string; pickup_window?: string };
+    pickupPlan?: { pickup_date: string; pickup_window?: string; shipment_reference?: string };
   };
 
   const transitionMutation = useMutation({
@@ -227,6 +233,9 @@ const DonationDetail: React.FC = () => {
         patch.pickup_scheduled_at = new Date().toISOString();
         if (pickupPlan.pickup_window?.trim()) {
           patch.pickup_window = pickupPlan.pickup_window.trim();
+        }
+        if (pickupPlan.shipment_reference?.trim()) {
+          patch.shipment_reference = pickupPlan.shipment_reference.trim();
         }
       }
 
@@ -257,6 +266,7 @@ const DonationDetail: React.FC = () => {
       setPickupModalOpen(false);
       setPickupPlanDate("");
       setPickupPlanWindow("");
+      setPickupPlanShipment("");
       void queryClient.invalidateQueries({ queryKey: queryKeys.donations.detail(donationId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.donations.all });
       void queryClient.invalidateQueries({ queryKey: ["workflow-events", "donation", donationId] });
@@ -287,14 +297,19 @@ const DonationDetail: React.FC = () => {
   });
 
   const documentMutation = useMutation({
-    mutationFn: async (fileName: string) => {
+    mutationFn: async ({ fileName, kind }: { fileName: string; kind: typeof documentKind }) => {
+      const certificatePatch =
+        kind === "data_wipe_certificate"
+          ? { certificate_uploaded_at: new Date().toISOString() }
+          : null;
+
       const { error } = await getSupabaseClient().from("documents").insert({
         id: crypto.randomUUID(),
         case_id: donationId,
         case_type: "donation",
         file_name: fileName,
         file_size_label: "Metadata only",
-        kind: "donation_report",
+        kind,
         mime_type: "application/pdf",
         storage_mode: "metadata_only",
         uploaded_at: new Date().toISOString(),
@@ -302,12 +317,28 @@ const DonationDetail: React.FC = () => {
         uploaded_by_user_id: user?.id ?? null,
       });
       if (error) throw error;
+
+      if (certificatePatch) {
+        const { error: patchError } = await getSupabaseClient()
+          .from("donation_batches")
+          .update(certificatePatch)
+          .eq("id", donationId);
+        if (patchError) throw patchError;
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.documents.byCase(donationId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.donations.detail(donationId) });
       setDocumentName("");
     },
   });
+
+  const documentKindLabel = (kind: string | null) => {
+    if (kind === "donation_report") return "Donatierapportage";
+    if (kind === "data_wipe_certificate") return "Dataverwijderingscertificaat";
+    if (kind === "shipping_note") return "Pakbon";
+    return "Document";
+  };
 
   if (isLoading) {
     return (
@@ -361,6 +392,10 @@ const DonationDetail: React.FC = () => {
   const primaryAction = nextStatuses[0] ?? null;
   const PrimaryActionIcon = primaryAction ? donationActionIcon[primaryAction] : CheckCircle2;
 
+  const hasDonationReport = documents.some(
+    (doc) => doc.kind === "donation_report" || doc.kind === "data_wipe_certificate",
+  );
+
   const handleTransitionClick = (next: DonationStatus) => {
     transitionMutation.reset();
     if (next === "pickup_gepland") {
@@ -370,10 +405,19 @@ const DonationDetail: React.FC = () => {
           : "",
       );
       setPickupPlanWindow(donation.pickup_window ?? "");
+      setPickupPlanShipment(donation.shipment_reference ?? "");
       setPickupModalOpen(true);
-    } else {
-      transitionMutation.mutate({ nextStatus: next });
+      return;
     }
+    if (next === "verwerkt" && !hasDonationReport) {
+      setActiveTab("documenten");
+      transitionMutation.reset();
+      window.alert(
+        "Upload eerst de donatierapportage en/of het dataverwijderingscertificaat onder het tabblad Documenten voordat je deze batch op 'Verwerkt' kunt zetten.",
+      );
+      return;
+    }
+    transitionMutation.mutate({ nextStatus: next });
   };
 
   const handleConfirmPickupPlan = () => {
@@ -383,8 +427,29 @@ const DonationDetail: React.FC = () => {
       pickupPlan: {
         pickup_date: pickupPlanDate,
         pickup_window: pickupPlanWindow.trim() || undefined,
+        shipment_reference: pickupPlanShipment.trim() || undefined,
       },
     });
+  };
+
+  const handleSavePickupDate = async () => {
+    setPickupDateError(null);
+    setPickupDateSaving(true);
+    const { error } = await getSupabaseClient()
+      .from("donation_batches")
+      .update({
+        pickup_date: pickupDateDraft || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", donationId);
+    setPickupDateSaving(false);
+    if (error) {
+      setPickupDateError(translateError(error, "Wijzigen mislukt."));
+      return;
+    }
+    setEditingPickupDate(false);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.donations.detail(donationId) });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.donations.all });
   };
   const timelineEvents: TimelineEvent[] = workflowEvents.map((event) => ({
     id: event.id,
@@ -471,6 +536,22 @@ const DonationDetail: React.FC = () => {
                   className="min-h-11 rounded-2xl border-digidromen-cream bg-white focus-visible:ring-digidromen-orange/30"
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pickup-plan-shipment" className="text-digidromen-dark">
+                Ladingnummer Aces Direct
+              </Label>
+              <Input
+                id="pickup-plan-shipment"
+                type="text"
+                value={pickupPlanShipment}
+                onChange={(e) => setPickupPlanShipment(e.target.value)}
+                placeholder="Bijv. AD-2026-00123"
+                className="min-h-11 rounded-2xl border-digidromen-cream bg-white focus-visible:ring-digidromen-orange/30"
+              />
+              <p className="text-xs text-digidromen-dark/55">
+                Het referentienummer waarmee Aces Direct deze lading communiceert.
+              </p>
             </div>
             {transitionMutation.isError ? (
               <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
@@ -586,7 +667,62 @@ const DonationDetail: React.FC = () => {
             <div className="mt-6 rounded-xl bg-digidromen-orange-light p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-digidromen-orange">Pickup details</p>
               <p className="mt-2 text-sm text-slate-700">{donation.pickup_contact_name}, {donation.pickup_address}</p>
-              <p className="mt-1 text-sm text-slate-700">Geplande pickup: {donation.pickup_date ? formatDate(donation.pickup_date) : "-"}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                <span>
+                  Geplande pickup:{" "}
+                  {editingPickupDate ? null : donation.pickup_date ? formatDate(donation.pickup_date) : "-"}
+                </span>
+                {editingPickupDate ? (
+                  <>
+                    <input
+                      type="date"
+                      value={pickupDateDraft}
+                      onChange={(e) => setPickupDateDraft(e.target.value)}
+                      className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { void handleSavePickupDate(); }}
+                      disabled={pickupDateSaving}
+                      className="rounded-lg bg-digidromen-orange px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                    >
+                      {pickupDateSaving ? "Opslaan..." : "Opslaan"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPickupDate(false);
+                        setPickupDateError(null);
+                      }}
+                      className="text-xs text-slate-500 hover:text-slate-700"
+                    >
+                      Annuleren
+                    </button>
+                  </>
+                ) : canManage ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPickupDateDraft(donation.pickup_date ? donation.pickup_date.slice(0, 10) : "");
+                      setEditingPickupDate(true);
+                    }}
+                    className="text-xs font-semibold text-digidromen-orange hover:underline"
+                  >
+                    {donation.pickup_date ? "Wijzigen" : "Invullen"}
+                  </button>
+                ) : null}
+              </div>
+              {donation.pickup_window ? (
+                <p className="mt-1 text-sm text-slate-700">Tijdvenster: {donation.pickup_window}</p>
+              ) : null}
+              {donation.shipment_reference ? (
+                <p className="mt-1 text-sm text-slate-700">
+                  Ladingnummer Aces Direct: <span className="font-mono font-semibold">{donation.shipment_reference}</span>
+                </p>
+              ) : null}
+              {pickupDateError ? (
+                <p className="mt-1 text-xs text-red-600">{pickupDateError}</p>
+              ) : null}
             </div>
 
             {donation.notes ? (
@@ -654,31 +790,49 @@ const DonationDetail: React.FC = () => {
 
               {activeTab === "documenten" ? (
                 <div className="space-y-4">
+                  {!hasDonationReport && donation.status !== "verwerkt" ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      Voor status <strong>Verwerkt</strong> moet de donatierapportage of een dataverwijderingscertificaat zijn gekoppeld.
+                    </div>
+                  ) : null}
                   <div className="space-y-3">
                     {documents.map((item) => (
                       <div key={item.id} className="flex items-center rounded-xl bg-slate-50 p-3">
                         <Paperclip size={16} className="mr-3 text-slate-400" />
-                        <div>
+                        <div className="flex-1">
                           <p className="text-sm font-semibold text-slate-800">{item.file_name}</p>
-                          <p className="text-xs text-slate-400">{item.file_size_label}</p>
+                          <p className="text-xs text-slate-400">
+                            {documentKindLabel(item.kind)} · {item.file_size_label}
+                          </p>
                         </div>
                       </div>
                     ))}
                     {documents.length === 0 ? <p className="text-sm text-slate-400">Nog geen documenten.</p> : null}
                   </div>
-                  <input
-                    value={documentName}
-                    onChange={(event) => setDocumentName(event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
-                    placeholder="Bijv. donation-manifest.pdf"
-                  />
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <input
+                      value={documentName}
+                      onChange={(event) => setDocumentName(event.target.value)}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
+                      placeholder="Bijv. donatierapportage-2026Q2.pdf"
+                    />
+                    <select
+                      value={documentKind}
+                      onChange={(event) => setDocumentKind(event.target.value as typeof documentKind)}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none ring-digidromen-orange focus:ring-2"
+                    >
+                      <option value="donation_report">Donatierapportage</option>
+                      <option value="data_wipe_certificate">Dataverwijderingscertificaat</option>
+                      <option value="other">Overig document</option>
+                    </select>
+                  </div>
                   <button
                     disabled={!documentName.trim() || documentMutation.isPending}
                     onClick={() => {
                       if (!documentName.trim()) return;
-                      documentMutation.mutate(documentName.trim());
+                      documentMutation.mutate({ fileName: documentName.trim(), kind: documentKind });
                     }}
-                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
+                    className="rounded-lg bg-digidromen-orange px-4 py-2 text-sm font-semibold text-white hover:bg-digidromen-orange-hover disabled:opacity-60"
                   >
                     Document koppelen
                   </button>
