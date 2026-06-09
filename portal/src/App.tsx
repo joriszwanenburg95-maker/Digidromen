@@ -42,6 +42,16 @@ const RouteGuard: React.FC<{ children: React.ReactElement }> = ({ children }) =>
   return children;
 };
 
+// Hulporganisatie heeft één hoofdpagina (de webshop): stuur /dashboard door
+// naar /orders zodat "Start" en "Aanvragen" samen één tabblad zijn.
+const DashboardRoute: React.FC = () => {
+  const { user } = useAuth();
+  if (user?.role === "help_org") {
+    return <Navigate to="/orders" replace />;
+  }
+  return <Dashboard />;
+};
+
 const ProtectedLayout: React.FC = () => {
   const { user, loading } = useAuth();
 
@@ -93,7 +103,7 @@ const App: React.FC = () => {
               <Route path="/login" element={<LoginRoute />} />
 
               <Route element={<ProtectedLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/dashboard" element={<DashboardRoute />} />
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/orders/:id" element={<OrderDetail />} />
                 <Route path="/repairs" element={<Navigate to="/orders" replace />} />

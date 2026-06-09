@@ -33,7 +33,7 @@ export const StepProductType: React.FC<Props> = ({
       {hero ? (
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-digidromen-dark/40">
-            Nieuw aanvragen
+            Nieuwe bestelling
           </p>
           <button
             type="button"

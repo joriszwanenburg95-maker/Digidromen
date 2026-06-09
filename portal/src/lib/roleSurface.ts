@@ -123,16 +123,15 @@ const nav = {
 export const roleSurface: Record<Role, RoleSurfaceConfig> = {
   help_org: {
     kind: "customer",
-    homeLabel: "Start",
-    orderLabel: "Aanvragen",
+    homeLabel: "Webshop",
+    orderLabel: "Webshop",
     nav: [
-      nav.dashboard("Start"),
-      nav.orders("Aanvragen"),
+      nav.orders("Webshop"),
       nav.settings("Mijn organisatie"),
     ],
     pageTitle: {
-      "/dashboard": "Start",
-      "/orders": "Laptop aanvragen",
+      "/dashboard": "Webshop",
+      "/orders": "Webshop",
       "/settings": "Mijn organisatie",
     },
   },
