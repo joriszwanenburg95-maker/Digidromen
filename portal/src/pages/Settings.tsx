@@ -851,7 +851,7 @@ const Settings: React.FC = () => {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label htmlFor="self-name" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
-                      Volledige naam
+                      Volledige naam (jouw persoonlijke naam)
                     </label>
                     <input
                       id="self-name"
@@ -945,8 +945,12 @@ const Settings: React.FC = () => {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="md:col-span-2">
                     <label htmlFor="ho-name" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
-                      Organisatienaam
+                      Naam organisatie (bedrijf / stichting)
                     </label>
+                    <p className="mb-1 text-xs text-digidromen-dark/50">
+                      De officiële naam van je organisatie of bedrijf — niet je
+                      persoonlijke naam. Deze naam staat op je aanvragen en leveringen.
+                    </p>
                     <input
                       id="ho-name"
                       value={helpOrgSelfForm.name}
@@ -960,7 +964,7 @@ const Settings: React.FC = () => {
                   </div>
                   <div>
                     <label htmlFor="ho-contact" className="mb-1 block text-xs font-semibold text-digidromen-dark/40">
-                      Contactpersoon
+                      Contactpersoon (persoonlijke naam)
                     </label>
                     <input
                       id="ho-contact"

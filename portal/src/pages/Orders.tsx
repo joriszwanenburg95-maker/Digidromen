@@ -26,6 +26,7 @@ import {
 } from "../lib/data/orders";
 import { formatOrderLinesSummary } from "../lib/orderSummary";
 import { queryKeys } from "../lib/queryKeys";
+import type { ProductScenario } from "../lib/productRules";
 import type { Role } from "../lib/workflow";
 import { getSurface } from "../lib/roleSurface";
 import { useOrderingWindow } from "../hooks/useOrderingWindow";
@@ -92,103 +93,139 @@ const ORDER_CREATOR_ROLES: string[] = [
   "digidromen_admin",
 ];
 
-const helpOrgProducts = [
+const helpOrgProducts: ReadonlyArray<{
+  label: string;
+  description: string;
+  icon: typeof Laptop;
+  scenario: ProductScenario;
+}> = [
   {
     label: "Laptoppakket",
     description: "Voor een kind dat digitaal mee moet kunnen doen.",
     icon: Laptop,
+    scenario: "new_request",
   },
   {
-    label: "Adapter",
-    description: "Vervanging van een defecte voedingskabel.",
+    label: "Voedingskabel",
+    description: "Vervanging van een defecte voedingskabel of adapter.",
     icon: Cable,
+    scenario: "cable_replacement",
   },
   {
     label: "Rugzak",
     description: "Als de laptoptas ontbreekt of vervangen moet worden.",
     icon: Backpack,
+    scenario: "backpack_replacement",
   },
   {
-    label: "Accessoires",
+    label: "Muis",
     description: "Muis vervangen bij defect of ontbreken.",
     icon: Mouse,
+    scenario: "mouse_replacement",
   },
   {
     label: "Headset",
     description: "Vervanging wanneer luisteren of spreken niet lukt.",
     icon: Headphones,
+    scenario: "headset_replacement",
   },
   {
     label: "Powerbank",
     description: "Vervanging van een defecte powerbank.",
     icon: Battery,
+    scenario: "powerbank_replacement",
   },
-] as const;
+];
 
 const HelpOrgOrderPortalHeader: React.FC<{
   thisMonthCount: number;
   activeCount: number;
   canOrder: boolean;
   onNewRequest: () => void;
-}> = ({ thisMonthCount, activeCount, canOrder, onNewRequest }) => (
+  onPickProduct: (scenario: ProductScenario) => void;
+}> = ({ thisMonthCount, activeCount, canOrder, onNewRequest, onPickProduct }) => (
   <section className="overflow-hidden rounded-[32px] border border-digidromen-cream bg-white shadow-sm">
-    <div className="grid gap-0 lg:grid-cols-[1.12fr_0.88fr]">
-      <div className="relative overflow-hidden bg-[radial-gradient(circle_at_16%_16%,rgba(255,213,0,0.28),transparent_34%),linear-gradient(135deg,#fff9ea_0%,#fff7ed_58%,#ffffff_100%)] p-6 sm:p-8">
-        <div aria-hidden className="absolute -right-24 -top-24 h-56 w-56 rounded-full bg-digidromen-orange/12 blur-3xl" />
-        <div className="relative">
+    <div className="relative overflow-hidden bg-[radial-gradient(circle_at_16%_16%,rgba(255,213,0,0.28),transparent_34%),linear-gradient(135deg,#fff9ea_0%,#fff7ed_58%,#ffffff_100%)] p-6 sm:p-8">
+      <div aria-hidden className="absolute -right-24 -top-24 h-56 w-56 rounded-full bg-digidromen-orange/12 blur-3xl" />
+      <div className="relative flex flex-wrap items-end justify-between gap-5">
+        <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-digidromen-orange/15 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-digidromen-orange">
-            Aanvraagportaal
+            Digidromen webshop
           </div>
           <h2 className="mt-5 max-w-2xl font-heading text-3xl font-semibold leading-tight text-digidromen-dark sm:text-4xl">
-            Vraag snel aan wat een kind nodig heeft.
+            Kies wat een kind nodig heeft.
           </h2>
           <p className="mt-3 max-w-xl text-base leading-relaxed text-digidromen-dark/62">
-            Kies een laptoppakket of vervangend onderdeel. Digidromen beoordeelt de aanvraag en houdt je aanvraagstatus overzichtelijk bij.
+            Klik op een product hieronder om te bestellen, of start een lege aanvraag.
+            Digidromen beoordeelt je aanvraag en je volgt de status hier.
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <button
-              type="button"
-              disabled={!canOrder}
-              onClick={onNewRequest}
-              className="inline-flex min-h-12 items-center gap-2 rounded-[22px] bg-digidromen-orange px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-digidromen-orange-hover disabled:cursor-not-allowed disabled:bg-digidromen-cream disabled:text-digidromen-dark/35"
-            >
-              <Plus size={17} />
-              Nieuwe aanvraag starten
-            </button>
-            {!canOrder ? (
-              <span className="inline-flex min-h-12 items-center rounded-[22px] border border-digidromen-cream bg-white px-4 text-sm font-semibold text-digidromen-dark/55">
-                Bestelvenster gesloten
-              </span>
-            ) : null}
-          </div>
         </div>
-      </div>
-
-      <div className="grid gap-3 p-5 sm:p-6">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid w-full grid-cols-2 gap-3 sm:w-auto sm:min-w-[240px]">
           {[
             { label: "Deze maand besteld", value: thisMonthCount },
             { label: "In behandeling", value: activeCount },
           ].map((item) => (
-            <div key={item.label} className="rounded-2xl border border-digidromen-cream bg-digidromen-warm px-4 py-3">
+            <div key={item.label} className="rounded-2xl border border-digidromen-cream bg-white/70 px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-digidromen-dark/42">{item.label}</p>
               <p className="mt-1 font-heading text-2xl font-semibold text-digidromen-dark">{item.value}</p>
             </div>
           ))}
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {helpOrgProducts.map(({ label, description, icon: Icon }) => (
-            <div key={label} className="flex min-h-[92px] items-start gap-3 rounded-2xl border border-digidromen-cream bg-white p-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-digidromen-orange-light text-digidromen-orange">
-                <Icon size={18} />
+      </div>
+    </div>
+
+    <div className="border-t border-digidromen-cream p-5 sm:p-6">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-digidromen-dark">Onze producten</p>
+        {!canOrder ? (
+          <span className="inline-flex items-center rounded-full border border-digidromen-cream bg-digidromen-warm px-3 py-1 text-xs font-semibold text-digidromen-dark/55">
+            Bestelvenster gesloten
+          </span>
+        ) : null}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {helpOrgProducts.map(({ label, description, icon: Icon, scenario }) => {
+          const isPackage = scenario === "new_request";
+          return (
+            <button
+              key={label}
+              type="button"
+              disabled={!canOrder}
+              onClick={() => onPickProduct(scenario)}
+              className="group flex min-h-[104px] items-start gap-3 rounded-2xl border border-digidromen-cream bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-digidromen-orange/30 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+            >
+              <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${isPackage ? "bg-digidromen-yellow/35 text-digidromen-dark" : "bg-digidromen-orange-light text-digidromen-orange"}`}>
+                <Icon size={20} />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-digidromen-dark">{label}</p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-digidromen-dark">{label}</p>
+                  {isPackage ? (
+                    <span className="shrink-0 rounded-full bg-digidromen-yellow/40 px-2 py-0.5 text-[10px] font-semibold text-digidromen-dark">
+                      Meest gekozen
+                    </span>
+                  ) : null}
+                </div>
                 <p className="mt-0.5 text-xs leading-relaxed text-digidromen-dark/55">{description}</p>
+                <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-digidromen-orange group-hover:text-digidromen-orange-hover">
+                  Bestellen
+                  <ArrowRight size={13} />
+                </span>
               </div>
-            </div>
-          ))}
-        </div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-4">
+        <button
+          type="button"
+          disabled={!canOrder}
+          onClick={onNewRequest}
+          className="inline-flex min-h-11 items-center gap-2 rounded-[20px] border border-digidromen-cream bg-white px-4 py-2 text-sm font-semibold text-digidromen-dark transition-all hover:border-digidromen-orange/30 hover:bg-digidromen-warm disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Plus size={16} />
+          Lege aanvraag starten
+        </button>
       </div>
     </div>
   </section>
@@ -281,6 +318,9 @@ const Orders: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [showWizard, setShowWizard] = useState(false);
+  const [wizardScenario, setWizardScenario] = useState<ProductScenario | null>(
+    null,
+  );
   const [statusFilter, setStatusFilter] = useState<string>(
     () => searchParams.get("status") ?? "all",
   );
@@ -403,7 +443,14 @@ const Orders: React.FC = () => {
           thisMonthCount={thisMonthHelpOrgCount}
           activeCount={activeHelpOrgCount}
           canOrder={canOrder}
-          onNewRequest={() => setShowWizard(true)}
+          onNewRequest={() => {
+            setWizardScenario(null);
+            setShowWizard(true);
+          }}
+          onPickProduct={(scenario) => {
+            setWizardScenario(scenario);
+            setShowWizard(true);
+          }}
         />
       ) : null}
 
@@ -537,7 +584,15 @@ const Orders: React.FC = () => {
         </div>
       )}
 
-      {showWizard ? <OrderWizard onClose={() => setShowWizard(false)} /> : null}
+      {showWizard ? (
+        <OrderWizard
+          initialScenario={wizardScenario}
+          onClose={() => {
+            setShowWizard(false);
+            setWizardScenario(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 };

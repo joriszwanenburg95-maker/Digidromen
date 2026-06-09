@@ -60,9 +60,11 @@ const EMPTY_DELIVERY: DeliveryValues = {
 
 interface Props {
   onClose: () => void;
+  /** Product/scenario dat al gekozen is (bijv. via een producttegel in de winkel). */
+  initialScenario?: ProductScenario | null;
 }
 
-export const OrderWizard: React.FC<Props> = ({ onClose }) => {
+export const OrderWizard: React.FC<Props> = ({ onClose, initialScenario = null }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { draftId, isSaving, saveDraft, scheduleSave, submitDraft, discardDraft } =
@@ -88,7 +90,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
 
   const [step, setStep] = useState(0);
   const [orderOrganizationId, setOrderOrganizationId] = useState("");
-  const [scenario, setScenario] = useState<ProductScenario | null>(null);
+  const [scenario, setScenario] = useState<ProductScenario | null>(initialScenario);
   const [productFields, setProductFields] =
     useState<ProductFieldValues>(EMPTY_PRODUCT_FIELDS);
   const [delivery, setDelivery] = useState<DeliveryValues>(EMPTY_DELIVERY);
@@ -477,10 +479,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose }) => {
     }
 
     if (scenario === "cable_replacement") {
-      if (!serialTrim) {
-        setSubmitError("Serienummer (SRN) van de laptop is verplicht.");
-        return;
-      }
+      // Serienummer is optioneel: het aantal geldt per connectortype/wattage.
       if (!connectorTypeTrim || !connectorWattageTrim) {
         setSubmitError(
           "Connectortype en wattage zijn verplicht voor een voedingskabel.",

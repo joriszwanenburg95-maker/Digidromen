@@ -40,12 +40,16 @@ export const StepOrganization: React.FC<Props> = ({
       ) : mode === "fixed" && selected ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Organisatie
+            Naam organisatie (bedrijf / stichting)
           </p>
           <p className="mt-1 font-medium text-slate-900">{selected.name}</p>
           {selected.city ? (
             <p className="text-slate-600">{selected.city}</p>
           ) : null}
+          <p className="mt-2 text-xs leading-relaxed text-slate-500">
+            Dit is de naam van jouw organisatie, niet je persoonlijke naam. Klopt dit
+            niet? Pas het aan onder Instellingen · Profiel · Organisatiegegevens.
+          </p>
         </div>
       ) : mode === "select" ? (
         <div>
@@ -56,8 +60,11 @@ export const StepOrganization: React.FC<Props> = ({
             </p>
           ) : (
             <>
-              <label htmlFor="order-organization" className="sr-only">
-                Organisatie
+              <label
+                htmlFor="order-organization"
+                className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400"
+              >
+                Naam organisatie (bedrijf / stichting)
               </label>
               <select
                 id="order-organization"

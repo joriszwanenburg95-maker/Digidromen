@@ -83,6 +83,9 @@ export const StepConfirm: React.FC<Props> = ({
             value={`${productFields.connector_type} ${productFields.connector_wattage}`.trim()}
           />
         ) : null}
+        {scenario !== "laptop_replacement" && productFields.replacement_reason ? (
+          <Row label="Reden" value={productFields.replacement_reason} />
+        ) : null}
         <Row
           label="Adres"
           value={`${delivery.delivery_address}, ${delivery.postal_code} ${delivery.city}`}

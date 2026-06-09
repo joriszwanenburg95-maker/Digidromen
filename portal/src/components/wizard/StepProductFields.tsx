@@ -52,6 +52,65 @@ function TextField({
   );
 }
 
+function QuantityField({
+  error,
+  label,
+  helper,
+  value,
+  onChange,
+}: {
+  error?: string;
+  label: string;
+  helper?: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const dec = () => onChange(Math.max(1, (Number(value) || 1) - 1));
+  const inc = () => onChange(Math.max(1, (Number(value) || 1) + 1));
+  return (
+    <div className="space-y-1">
+      <label className="block text-sm font-medium text-digidromen-dark/72">
+        {label}
+        <span className="ml-1 text-red-500">*</span>
+      </label>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={dec}
+          aria-label="Aantal verlagen"
+          className="flex size-11 shrink-0 items-center justify-center rounded-[16px] border border-digidromen-cream bg-white text-lg font-semibold text-digidromen-dark hover:bg-digidromen-cream/60"
+        >
+          −
+        </button>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          value={value}
+          onChange={(event) =>
+            onChange(Math.max(1, Number.parseInt(event.target.value, 10) || 1))
+          }
+          className={`min-h-11 w-20 rounded-[18px] border bg-white px-3 py-2 text-center text-sm font-semibold text-digidromen-dark [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-digidromen-orange/25 ${
+            error ? "border-red-400" : "border-digidromen-cream focus:border-digidromen-orange"
+          }`}
+        />
+        <button
+          type="button"
+          onClick={inc}
+          aria-label="Aantal verhogen"
+          className="flex size-11 shrink-0 items-center justify-center rounded-[16px] border border-digidromen-cream bg-white text-lg font-semibold text-digidromen-dark hover:bg-digidromen-cream/60"
+        >
+          +
+        </button>
+      </div>
+      {helper ? (
+        <p className="text-xs leading-relaxed text-digidromen-dark/52">{helper}</p>
+      ) : null}
+      {error ? <p className="text-xs text-red-500">{error}</p> : null}
+    </div>
+  );
+}
+
 function TextAreaField({
   error,
   label,
@@ -102,15 +161,12 @@ export const StepProductFields: React.FC<Props> = ({
           </p>
         ) : null}
 
-        <TextField
-          required
-          type="number"
+        <QuantityField
           label="Aantal pakketten"
+          helper="Hoeveel complete laptoppakketten heb je nodig?"
           value={values.quantity}
           error={errors.quantity}
-          onChange={(value) =>
-            onChange("quantity", Math.max(1, Number.parseInt(value, 10) || 1))
-          }
+          onChange={(value) => onChange("quantity", value)}
         />
       </div>
     );
@@ -138,6 +194,11 @@ export const StepProductFields: React.FC<Props> = ({
           error={errors.defect_description}
           onChange={(value) => onChange("defect_description", value)}
         />
+
+        <p className="rounded-2xl bg-digidromen-warm px-4 py-3 text-xs leading-relaxed text-digidromen-dark/58">
+          Omdat een laptop een uniek serienummer heeft, doe je één aanvraag per
+          laptop. Meerdere laptops? Maak dan per laptop een aparte aanvraag.
+        </p>
       </div>
     );
   }
@@ -146,26 +207,19 @@ export const StepProductFields: React.FC<Props> = ({
     return (
       <div className="space-y-4">
         <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
-          Gegevens defecte voedingskabel
+          Welke voedingskabel?
         </h2>
 
-        <TextField
-          required
-          label="Serienummer (SRN) van laptop"
-          value={values.serial_number}
-          error={errors.serial_number}
-          onChange={(value) => onChange("serial_number", value)}
-        />
-
         <p className="rounded-2xl bg-digidromen-orange-light px-4 py-3 text-xs leading-relaxed text-digidromen-dark/68">
-          Vul het <strong>connector type</strong> en <strong>wattage</strong> in.
-          Foto-upload is in deze versie nog niet aangesloten.
+          Vul het <strong>connectortype</strong> en <strong>wattage</strong> in. Het
+          aantal hieronder geldt <strong>per connectortype/wattage</strong>. Heb je
+          kabels van verschillende types nodig? Doe dan een aparte aanvraag per type.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
             required
-            label="Connector type"
+            label="Connectortype"
             value={values.connector_type}
             error={errors.connector_type}
             onChange={(value) => onChange("connector_type", value)}
@@ -183,64 +237,69 @@ export const StepProductFields: React.FC<Props> = ({
         {errors.connector_type ? (
           <p className="text-xs text-red-500">{errors.connector_type}</p>
         ) : null}
+
+        <QuantityField
+          label="Aantal kabels (van dit type)"
+          helper="Hoeveel kabels van dit connectortype/wattage heb je nodig?"
+          value={values.quantity}
+          error={errors.quantity}
+          onChange={(value) => onChange("quantity", value)}
+        />
+
+        <TextField
+          label="Serienummer laptop (optioneel)"
+          value={values.serial_number}
+          onChange={(value) => onChange("serial_number", value)}
+        />
+
+        <TextAreaField
+          label="Reden van vervanging (optioneel)"
+          value={values.replacement_reason}
+          onChange={(value) => onChange("replacement_reason", value)}
+        />
       </div>
     );
   }
 
-  if (scenario === "mouse_replacement") {
-    return (
-      <div className="space-y-4">
-        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
-          Vervanging muis
-        </h2>
-        <p className="text-sm leading-relaxed text-digidromen-dark/58">
-          Voor deze bestelling hoeven geen extra gegevens te worden ingevuld. Ga verder naar levering.
-        </p>
-      </div>
-    );
-  }
+  // Accessoires (muis, rugzak, headset, powerbank): vrij aantal + optionele reden.
+  const accessoryTitles: Record<
+    "mouse_replacement" | "backpack_replacement" | "headset_replacement" | "powerbank_replacement",
+    { title: string; helper: string }
+  > = {
+    mouse_replacement: { title: "Vervanging muis", helper: "Hoeveel muizen heb je nodig?" },
+    backpack_replacement: { title: "Vervanging rugzak", helper: "Hoeveel rugzakken heb je nodig?" },
+    headset_replacement: { title: "Vervanging headset", helper: "Hoeveel headsets heb je nodig?" },
+    powerbank_replacement: { title: "Vervanging powerbank", helper: "Hoeveel powerbanks heb je nodig?" },
+  };
 
-  if (scenario === "backpack_replacement") {
-    return (
-      <div className="space-y-4">
-        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
-          Vervanging rugzak
-        </h2>
-        <p className="text-sm leading-relaxed text-digidromen-dark/58">
-          Voor deze bestelling hoeven geen extra gegevens te worden ingevuld. Ga verder naar levering.
-        </p>
-      </div>
-    );
-  }
+  const accessory = accessoryTitles[scenario];
 
-  if (scenario === "headset_replacement") {
-    return (
-      <div className="space-y-4">
-        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
-          Vervanging headset
-        </h2>
-        <p className="text-sm leading-relaxed text-digidromen-dark/58">
-          Voor deze bestelling hoeven geen extra gegevens te worden ingevuld. Ga verder naar levering.
-        </p>
-      </div>
-    );
-  }
+  return (
+    <div className="space-y-4">
+      <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
+        {accessory.title}
+      </h2>
 
-  if (scenario === "powerbank_replacement") {
-    return (
-      <div className="space-y-4">
-        <h2 className="font-heading text-xl font-semibold text-digidromen-dark">
-          Vervanging powerbank
-        </h2>
-        <p className="text-sm leading-relaxed text-digidromen-dark/58">
-          Voor deze bestelling hoeven geen extra gegevens te worden ingevuld. Ga verder naar levering.
-        </p>
-      </div>
-    );
-  }
+      <QuantityField
+        label="Aantal"
+        helper={accessory.helper}
+        value={values.quantity}
+        error={errors.quantity}
+        onChange={(value) => onChange("quantity", value)}
+      />
 
-  const _exhaustive: never = scenario;
-  return _exhaustive;
+      <TextAreaField
+        label="Reden van vervanging (optioneel)"
+        value={values.replacement_reason}
+        onChange={(value) => onChange("replacement_reason", value)}
+      />
+
+      <p className="rounded-2xl bg-digidromen-warm px-4 py-3 text-xs leading-relaxed text-digidromen-dark/58">
+        Een reden is niet verplicht. Vul alleen iets in als het helpt bij de
+        beoordeling.
+      </p>
+    </div>
+  );
 };
 
 export function validateProductFields(
