@@ -1,12 +1,22 @@
 # E-mailnotificaties
 
-Twee soorten mails, beide via **Resend**:
+Mails gaan via **Resend** en worden altijd eerst in `email_outbox` geplaatst
+(gebundeld per ontvanger + type), zodat meerdere acties vlak na elkaar in één
+mail komen i.p.v. losse mails.
 
-1. **Order-bevestiging** — gebundeld per besteller. Bij indienen zet een DB-trigger
-   een regel in `email_outbox`. De edge function `process-email-outbox` draait elke
-   ~15 min en stuurt één verzamelmail per besteller voor alle openstaande
-   bevestigingen. Meerdere bestellingen vlak na elkaar → één mail.
-2. **Bestelvenster open** — `notify-ordering-window` draait dagelijks en mailt
+Order-mails (trigger `enqueue_order_email` op `orders`):
+
+1. **Bevestiging** — bij indienen (`ingediend`). → naar de besteller.
+2. **Goedkeuring** — bij accorderen (`geaccordeerd`). → naar de besteller.
+3. **Update** — bij `geleverd` of bij het zetten/wijzigen van de verzend-/
+   bezorgdatum (`delivery_date`). → naar de besteller, met de leverdatum.
+
+`process-email-outbox` draait elke ~15 min, bundelt openstaande regels per
+ontvanger + type tot één mail en markeert ze als verzonden.
+
+Periodiek:
+
+4. **Bestelvenster open** — `notify-ordering-window` draait dagelijks en mailt
    hulporganisaties op de openingsdag uit Instellingen
    (`portal_config.ordering_windows.open_day`). Dedupe via `email_send_log`
    (één keer per maand per ontvanger).

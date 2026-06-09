@@ -47,9 +47,7 @@ const allStatusTabs: StatusTab[] = [
   { key: "all", label: "Alle" },
   { key: "concept", label: "Concept" },
   { key: "ingediend", label: "Ingediend" },
-  { key: "te_accorderen", label: "Te accorderen" },
   { key: "geaccordeerd", label: "Geaccordeerd" },
-  { key: "in_voorbereiding", label: "Voorbereiding" },
   { key: "geleverd", label: "Geleverd" },
   { key: "afgesloten", label: "Afgesloten" },
   { key: "afgewezen", label: "Afgewezen" },
@@ -456,16 +454,15 @@ const Orders: React.FC = () => {
             Er {pendingApprovalCount === 1 ? "staat" : "staan"}{" "}
             <strong>{pendingApprovalCount}</strong>{" "}
             {pendingApprovalCount === 1 ? "bestelling" : "bestellingen"} met status{" "}
-            <strong>Te accorderen</strong>. Open de bestelling en kies onderaan{" "}
-            <strong>Accorderen</strong> of <strong>Afwijzen</strong> (na eventueel eerst{" "}
-            <strong>Ter accordering</strong> bij status &quot;Ingediend&quot;).
+            <strong>Ingediend</strong>. Open de bestelling en kies{" "}
+            <strong>Accorderen</strong> of <strong>Afwijzen</strong>.
           </p>
           <button
             type="button"
-            onClick={() => setFilter("te_accorderen")}
+            onClick={() => setFilter("ingediend")}
             className="mt-2 text-sm font-semibold text-amber-900 underline hover:no-underline"
           >
-            Toon alleen te accorderen bestellingen →
+            Toon alleen in te dienen bestellingen →
           </button>
         </div>
       ) : null}

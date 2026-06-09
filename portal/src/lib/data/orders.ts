@@ -79,12 +79,12 @@ export async function listOrders(scope: OrderScope): Promise<OrderListRow[]> {
   });
 }
 
-/** Count orders that need approval (te_accorderen). Staff/admin only. */
+/** Count orders that need approval. Na de afslanking is dat status 'ingediend'. */
 export async function countAwaitingApproval(): Promise<number> {
   const { count, error } = await getSupabaseClient()
     .from("orders")
     .select("*", { count: "exact", head: true })
-    .eq("status", "te_accorderen");
+    .eq("status", "ingediend");
   if (error) throw error;
   return count ?? 0;
 }

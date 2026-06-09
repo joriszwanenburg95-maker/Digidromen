@@ -170,8 +170,13 @@ const DeliveryDateSection: React.FC<{
   return (
     <div className="rounded-xl border border-slate-200 p-4">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        Bezorgdatum
+        Verzend-/bezorgdatum
       </p>
+      {canEdit ? (
+        <p className="mt-0.5 text-xs text-slate-400">
+          Als je deze datum opslaat, krijgt de besteller automatisch een update-mail.
+        </p>
+      ) : null}
 
       {editing && canEdit ? (
         <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -448,10 +453,10 @@ const OrderDetail: React.FC = () => {
         </div>
 
         <div className="flex max-w-xl flex-col items-end gap-2">
-          {nextStatuses.length > 0 ? (
+          {nextStatuses.length > 0 && order.status === "ingediend" ? (
             <p className="text-right text-xs text-slate-500">
-              Bij status <strong>Ingediend</strong>: kies eerst <strong>Ter accordering</strong>. Daarna bij{" "}
-              <strong>Te accorderen</strong>: <strong>Accorderen</strong> of <strong>Afwijzen</strong>.
+              Beoordeel de aanvraag: <strong>Accorderen</strong> of <strong>Afwijzen</strong>.
+              De besteller krijgt automatisch een bevestiging.
             </p>
           ) : null}
           <div className="flex flex-wrap justify-end gap-2">

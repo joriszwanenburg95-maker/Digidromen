@@ -12,11 +12,12 @@ export type RepairStatus = Database["public"]["Enums"]["repair_status"];
 
 const BADGE_FALLBACK = "bg-slate-100 text-slate-700";
 
+// Afgeslankte bestelportal: bestellingen hoeven alleen geaccordeerd te worden.
+// Eén klik vanaf "Ingediend" → "Geaccordeerd" (of afwijzen). Daarna kan de
+// beheerder een leverdatum vullen (= update naar besteller) en afronden.
 const ORDER_FLOW_STAFF: Partial<Record<OrderStatus, OrderStatus[]>> = {
-  ingediend: ["te_accorderen", "afgewezen"],
-  te_accorderen: ["geaccordeerd", "afgewezen"],
-  geaccordeerd: ["in_voorbereiding", "afgewezen"],
-  in_voorbereiding: ["geleverd"],
+  ingediend: ["geaccordeerd", "afgewezen"],
+  geaccordeerd: ["geleverd"],
   geleverd: ["afgesloten"],
 };
 

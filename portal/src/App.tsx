@@ -42,11 +42,17 @@ const RouteGuard: React.FC<{ children: React.ReactElement }> = ({ children }) =>
   return children;
 };
 
-// Hulporganisatie heeft één hoofdpagina (de webshop): stuur /dashboard door
-// naar /orders zodat "Start" en "Aanvragen" samen één tabblad zijn.
+// Afgeslankte bestelportal: het dashboard ("Start"/"Regie") is gearchiveerd voor
+// hulporganisatie, medewerker en beheerder. Zij landen direct op de bestellingen.
+// Service partner houdt voorlopig zijn werkvoorraad-dashboard.
 const DashboardRoute: React.FC = () => {
   const { user } = useAuth();
-  if (user?.role === "help_org") {
+  const role = user?.role;
+  if (
+    role === "help_org" ||
+    role === "digidromen_staff" ||
+    role === "digidromen_admin"
+  ) {
     return <Navigate to="/orders" replace />;
   }
   return <Dashboard />;
