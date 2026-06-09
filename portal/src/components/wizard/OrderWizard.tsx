@@ -88,7 +88,12 @@ export const OrderWizard: React.FC<Props> = ({ onClose, initialScenario = null }
     role as (typeof STAFF_ORDER_ROLES)[number],
   );
 
-  const [step, setStep] = useState(0);
+  // Hulporganisaties zijn al bekend via login: sla de "Voor wie?"-stap over.
+  // Staff/admin bestellen namens anderen en kiezen die organisatie wél eerst.
+  const firstStep = isStaffOrderer ? 0 : 1;
+  const [step, setStep] = useState(
+    isStaffOrderer ? 0 : initialScenario ? 2 : 1,
+  );
   const [orderOrganizationId, setOrderOrganizationId] = useState("");
   const [scenario, setScenario] = useState<ProductScenario | null>(initialScenario);
   const [productFields, setProductFields] =
@@ -597,14 +602,17 @@ export const OrderWizard: React.FC<Props> = ({ onClose, initialScenario = null }
 
         <div ref={contentScrollRef} className="min-h-0 flex-1 overscroll-contain overflow-y-auto">
           <div className="flex gap-1 px-5 pt-4 sm:px-7">
-            {STEP_LABELS.map((label, index) => (
-              <div
-                key={label}
-                className={`h-1 flex-1 rounded-full transition-colors ${
-                  index <= step ? "bg-digidromen-orange" : "bg-digidromen-cream"
-                }`}
-              />
-            ))}
+            {STEP_LABELS.slice(firstStep).map((label, i) => {
+              const absIndex = i + firstStep;
+              return (
+                <div
+                  key={label}
+                  className={`h-1 flex-1 rounded-full transition-colors ${
+                    absIndex <= step ? "bg-digidromen-orange" : "bg-digidromen-cream"
+                  }`}
+                />
+              );
+            })}
           </div>
 
           <div className="px-5 py-6 sm:px-7">
@@ -689,10 +697,10 @@ export const OrderWizard: React.FC<Props> = ({ onClose, initialScenario = null }
             <div className="flex justify-between gap-3">
             <button
               type="button"
-              onClick={step === 0 ? onClose : () => setStep((current) => current - 1)}
+              onClick={step === firstStep ? onClose : () => setStep((current) => current - 1)}
               className="min-h-11 rounded-[18px] border border-digidromen-cream px-4 py-2 text-sm font-medium text-digidromen-dark/62 hover:bg-digidromen-cream/60"
             >
-              {step === 0 ? "Annuleren" : "Vorige"}
+              {step === firstStep ? "Annuleren" : "Vorige"}
             </button>
             <button
               type="button"
