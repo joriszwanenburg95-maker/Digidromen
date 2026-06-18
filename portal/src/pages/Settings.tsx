@@ -684,7 +684,33 @@ const Settings: React.FC = () => {
         if (error) {
           throw error;
         }
-        setOrgNotice("Organisatie aangemaakt.");
+
+        // Nieuwe hulporganisatie = klant-onboarding: koppel meteen de eerste
+        // besteller (de opgegeven contactpersoon) en stuur een activatiemail
+        // (magic link) zodat die persoon kan inloggen.
+        if (payload.type === "help_org") {
+          try {
+            await callAdminFunction({
+              action: "invite",
+              email: payload.contact_email,
+              name: payload.contact_name,
+              role: "help_org",
+              organizationId: id,
+            });
+            setOrgNotice(
+              `Organisatie aangemaakt. ${payload.contact_name} ontvangt een e-mail om het account te activeren.`,
+            );
+            await loadUsers();
+            await queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+          } catch (inviteErr: unknown) {
+            // Org staat er; alleen de uitnodiging faalde (bijv. e-mail bestaat al).
+            setOrgNotice(
+              `Organisatie aangemaakt, maar de uitnodiging kon niet worden verstuurd: ${getErrorMessage(inviteErr, "onbekende fout")}. Nodig de gebruiker handmatig uit via Gebruikers.`,
+            );
+          }
+        } else {
+          setOrgNotice("Organisatie aangemaakt.");
+        }
       }
 
       closeOrgForm();
@@ -1356,14 +1382,14 @@ const Settings: React.FC = () => {
                 <input
                   value={orgForm.contactName}
                   onChange={(event) => setOrgForm((prev) => ({ ...prev, contactName: event.target.value }))}
-                  placeholder="Contactpersoon"
+                  placeholder={orgForm.type === "help_org" ? "Naam eerste besteller" : "Contactpersoon"}
                   className={formInputCls}
                 />
                 <input
                   type="email"
                   value={orgForm.contactEmail}
                   onChange={(event) => setOrgForm((prev) => ({ ...prev, contactEmail: event.target.value }))}
-                  placeholder="Contact email"
+                  placeholder={orgForm.type === "help_org" ? "E-mail eerste besteller" : "Contact email"}
                   className={formInputCls}
                 />
                 <label className="flex items-center gap-3 rounded-xl border border-digidromen-cream bg-digidromen-cream/30 p-3 text-sm text-digidromen-dark/80">
@@ -1376,6 +1402,13 @@ const Settings: React.FC = () => {
                   Actief
                 </label>
               </div>
+              {orgForm.type === "help_org" && !editingOrgId ? (
+                <p className="rounded-xl bg-digidromen-orange-light px-4 py-3 text-xs leading-relaxed text-digidromen-dark/70">
+                  Deze persoon wordt de eerste besteller van de hulporganisatie en
+                  ontvangt automatisch een e-mail om het account te activeren (via een
+                  magic link). Extra collega's kun je later toevoegen onder Gebruikers.
+                </p>
+              ) : null}
               <div className="flex gap-3">
                 <LoadingButton
                   onClick={() => void handleSaveOrg()}
@@ -1384,7 +1417,7 @@ const Settings: React.FC = () => {
                   disabled={orgSaving}
                   className="rounded-[20px] bg-digidromen-primary text-white"
                 >
-                  {editingOrgId ? "Opslaan" : "Aanmaken"}
+                  {editingOrgId ? "Opslaan" : orgForm.type === "help_org" ? "Aanmaken & uitnodigen" : "Aanmaken"}
                 </LoadingButton>
                 <button
                   onClick={closeOrgForm}
