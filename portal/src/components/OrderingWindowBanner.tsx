@@ -39,7 +39,11 @@ export const OrderingWindowBanner: React.FC = () => {
       <CalendarClock size={16} className="shrink-0" />
       <span>
         <strong>Bestellen is momenteel niet mogelijk.</strong>{' '}
-        Het bestelvenster opent op {data.nextOpenDate} (dag {data.openDay} t/m {data.closeDay} van de maand).
+        {data.enabled ? (
+          <>Het bestelvenster opent op {data.nextOpenDate} (dag {data.openDay} t/m {data.closeDay} van de maand).</>
+        ) : (
+          <>Het bestelvenster is tijdelijk gesloten. Je ontvangt een e-mail zodra je weer kunt bestellen.</>
+        )}
       </span>
     </div>
   );

@@ -290,6 +290,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email,
         options: {
           emailRedirectTo: window.location.origin + "/dashboard",
+          // Geen self-service registratie: alleen bestaande (uitgenodigde)
+          // gebruikers krijgen een magic link. Voorkomt ongewenste accounts.
+          shouldCreateUser: false,
         },
       });
 

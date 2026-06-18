@@ -14,7 +14,9 @@ const Login: React.FC = () => {
   } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loginMode, setLoginMode] = useState<"magic" | "password">("password");
+  // Klanten (hulporganisaties) worden per uitnodiging/magic link aangemeld en
+  // hebben geen wachtwoord; magic link is daarom de standaard inlogmethode.
+  const [loginMode, setLoginMode] = useState<"magic" | "password">("magic");
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

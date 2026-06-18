@@ -423,6 +423,7 @@ const OrderDetail: React.FC = () => {
   }
 
   const role: Role = (user?.role as Role) ?? "help_org";
+  const isHelpOrg = role === "help_org";
   const nextStatuses = orderWorkflow.nextStates(role, order.status);
   const timelineEvents: TimelineEvent[] = workflowEvents.map((event) => ({
     id: event.id,
@@ -499,18 +500,24 @@ const OrderDetail: React.FC = () => {
             ) : null}
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Prioriteit</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{order.priority}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Regels</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{order.order_lines?.length ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Klant</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{order.organizations?.name ?? "Onbekend"}</p>
-              </div>
+              {!isHelpOrg ? (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Prioriteit</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{order.priority}</p>
+                </div>
+              ) : null}
+              {!isHelpOrg ? (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Regels</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{order.order_lines?.length ?? 0}</p>
+                </div>
+              ) : null}
+              {!isHelpOrg ? (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Klant</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{order.organizations?.name ?? "Onbekend"}</p>
+                </div>
+              ) : null}
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bijgewerkt</p>
                 <p className="mt-1 text-sm font-semibold text-slate-800">{formatDate(order.updated_at)}</p>
@@ -645,7 +652,7 @@ const OrderDetail: React.FC = () => {
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <h3 className="mb-4 flex items-center text-lg font-bold text-slate-900">
               <Clock size={18} className="mr-2 text-digidromen-orange" />
-              Zaaksamenvatting
+              {isHelpOrg ? "Overzicht" : "Zaaksamenvatting"}
             </h3>
             <dl className="space-y-3 text-sm">
               {order.scheduled_delivery_date ? (
@@ -654,10 +661,12 @@ const OrderDetail: React.FC = () => {
                   <dd className="font-semibold text-slate-800">{order.scheduled_delivery_date}</dd>
                 </div>
               ) : null}
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Servicepartner</dt>
-                <dd className="font-semibold text-slate-800">{order.service_partner?.name ?? "-"}</dd>
-              </div>
+              {!isHelpOrg ? (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Servicepartner</dt>
+                  <dd className="font-semibold text-slate-800">{order.service_partner?.name ?? "-"}</dd>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Bijgewerkt</dt>
                 <dd className="font-semibold text-slate-800">{formatDateTime(order.updated_at)}</dd>

@@ -213,6 +213,7 @@ const Settings: React.FC = () => {
   const [orderingWindowOpen, setOrderingWindowOpen] = useState<number>(1);
   const [orderingWindowClose, setOrderingWindowClose] = useState<number>(7);
   const [orderingWindowForceOpen, setOrderingWindowForceOpen] = useState(false);
+  const [orderingWindowEnabled, setOrderingWindowEnabled] = useState(true);
   const [orderingWindowDirty, setOrderingWindowDirty] = useState(false);
   const [orderingWindowSaving, setOrderingWindowSaving] = useState(false);
   const [orderingWindowError, setOrderingWindowError] = useState<string | null>(null);
@@ -400,10 +401,12 @@ const Settings: React.FC = () => {
       open_day?: number;
       close_day?: number;
       force_open_help_org?: boolean;
+      enabled?: boolean;
     };
     setOrderingWindowOpen(value.open_day ?? 1);
     setOrderingWindowClose(value.close_day ?? 7);
     setOrderingWindowForceOpen(value.force_open_help_org ?? false);
+    setOrderingWindowEnabled(value.enabled ?? true);
   }, [orderingWindowsRow, orderingWindowDirty]);
 
   const loadUsers = useCallback(async () => {
@@ -1656,6 +1659,23 @@ const Settings: React.FC = () => {
               Hulporganisaties kunnen alleen bestellen tussen dag <strong className="text-digidromen-dark">{orderingWindowOpen}</strong> en dag <strong className="text-digidromen-dark">{orderingWindowClose}</strong> van elke maand.
               Buiten dit venster is de bestelknop geblokkeerd, tenzij je het venster hieronder handmatig opent.
             </p>
+            <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-digidromen-cream bg-surface p-4">
+              <input
+                type="checkbox"
+                checked={orderingWindowEnabled}
+                onChange={(e) => {
+                  setOrderingWindowDirty(true);
+                  setOrderingWindowEnabled(e.target.checked);
+                }}
+                className="mt-1 h-4 w-4 rounded border-digidromen-cream text-digidromen-primary focus:ring-digidromen-primary"
+              />
+              <span className="text-sm text-digidromen-dark/80">
+                <strong className="text-digidromen-dark">Bestelvenster ingeschakeld</strong>
+                <span className="mt-1 block text-digidromen-dark/60">
+                  Staat dit aan, dan opent het venster automatisch op de openingsdag (en gaat er een openingsmail naar de hulporganisaties). Zet het uit om het bestellen volledig te sluiten — ook binnen de vaste dagen — bijvoorbeeld als er geen voorraad is.
+                </span>
+              </span>
+            </label>
             <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-digidromen-orange/20 bg-digidromen-orange-light/70 p-4">
               <input
                 type="checkbox"
@@ -1740,6 +1760,7 @@ const Settings: React.FC = () => {
                         ? prev.admin_bypass
                         : true,
                     force_open_help_org: orderingWindowForceOpen,
+                    enabled: orderingWindowEnabled,
                   };
 
                   const { data: updated, error } = await getSupabaseClient()

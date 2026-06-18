@@ -63,6 +63,15 @@ Deno.serve(async (req) => {
     const cfg = (cfgRow?.value ?? {}) as Record<string, unknown>;
     const openDay = Number(cfg.open_day ?? 1);
     const closeDay = Number(cfg.close_day ?? 7);
+    const enabled = cfg.enabled === undefined ? true : Boolean(cfg.enabled);
+
+    // Bestelvenster uitgeschakeld door beheer → geen openingsmail.
+    if (!enabled) {
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "bestelvenster staat uit (enabled=false)" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const { day, month, year } = amsterdamDateParts();
     if (!force && day !== openDay) {

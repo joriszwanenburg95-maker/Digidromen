@@ -514,7 +514,8 @@ const Orders: React.FC = () => {
         </div>
       ) : null}
 
-      {!isHelpOrg ? <OrderingWindowBanner /> : null}
+      {/* Banner self-gate't intern op help_org; toon hem dus op de webshoppagina. */}
+      <OrderingWindowBanner />
 
       <div className={`flex gap-1.5 overflow-x-auto rounded-xl p-1 ${isHelpOrg ? "bg-white shadow-sm border border-digidromen-cream" : "bg-digidromen-cream"}`}>
         {statusTabs.map((tab) => (

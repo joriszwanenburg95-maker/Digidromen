@@ -12,6 +12,8 @@ export interface OrderingWindowStatus {
   bypassActive: boolean;
   /** Beheerder heeft venster voor hulporganisaties geforceerd open (kalender buiten bereik). */
   forcedOpenHelpOrg: boolean;
+  /** Bestelvenster is door beheer ingeschakeld (false = volledig uit). */
+  enabled: boolean;
   /** Dag waarop venster opent (huidige maand) */
   nextOpenDate: string;
 }
@@ -31,12 +33,13 @@ export function useOrderingWindow(): {
       if (error) throw error;
 
       const row = Array.isArray(data) ? data[0] : data;
-      const { is_open, open_day, close_day, today_day, forced_open_help_org } = row as {
+      const { is_open, open_day, close_day, today_day, forced_open_help_org, enabled } = row as {
         is_open: boolean;
         open_day: number;
         close_day: number;
         today_day: number;
         forced_open_help_org?: boolean;
+        enabled?: boolean;
       };
 
       // Bereken wanneer het venster volgende keer opent
@@ -58,6 +61,7 @@ export function useOrderingWindow(): {
         todayDay: today_day,
         bypassActive: isAdmin,
         forcedOpenHelpOrg: forced_open_help_org ?? false,
+        enabled: enabled ?? true,
         nextOpenDate,
       };
     },

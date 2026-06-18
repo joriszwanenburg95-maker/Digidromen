@@ -67,7 +67,7 @@ interface Props {
 export const OrderWizard: React.FC<Props> = ({ onClose, initialScenario = null }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { draftId, isSaving, saveDraft, scheduleSave, submitDraft, discardDraft } =
+  const { draftId, saveDraft, scheduleSave, submitDraft, discardDraft } =
     useOrderDraft();
 
   const wizardBootstrapped = useRef(false);
@@ -681,13 +681,6 @@ export const OrderWizard: React.FC<Props> = ({ onClose, initialScenario = null }
                   void handleSubmit();
                 }}
               />
-            ) : null}
-
-            {draftId ? (
-              <p className="mt-4 text-xs text-digidromen-dark/35">
-                Concept-id: {draftId}
-                {isSaving ? " · opslaan..." : ""}
-              </p>
             ) : null}
           </div>
         </div>
