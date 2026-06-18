@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownToLine, CalendarDays, HeartHandshake, Package, ShoppingCart } from "lucide-react";
+import { ArrowDownToLine, CalendarDays, FileSpreadsheet, FileText, HeartHandshake, Package, ShoppingCart } from "lucide-react";
 
-import { LoadingButton } from "../components/LoadingButton";
 import { downloadWorkbook } from "../lib/export";
 import { downloadTextFile, formatDate } from "../lib/format";
 import { queryKeys } from "../lib/queryKeys";
@@ -99,13 +98,15 @@ const Reports: React.FC = () => {
     0,
   );
 
-  const exportCards = [
+  const exportGroups = [
     {
-      key: "orders-excel",
-      title: "Orders in Excel",
-      description: "Volledig overzicht van orderstatussen, prioriteit en geplande leverdatums.",
-      tone: "bg-digidromen-orange text-white",
-      action: () =>
+      key: "orders",
+      title: "Orders",
+      description: "Statussen, prioriteit en geplande leverdatums.",
+      icon: ShoppingCart,
+      accent: "text-digidromen-orange bg-digidromen-orange-light",
+      count: orders.length,
+      excel: () =>
         downloadWorkbook(
           "orders.xlsx",
           "Orders",
@@ -119,13 +120,7 @@ const Reports: React.FC = () => {
             aangemaakt_op: order.created_at,
           })),
         ),
-    },
-    {
-      key: "orders-csv",
-      title: "Orders in CSV",
-      description: "Lichtgewicht export voor delen met finance, BI of externe tooling.",
-      tone: "bg-white text-slate-900 border border-slate-200",
-      action: () =>
+      csv: () =>
         downloadTextFile(
           "orders.csv",
           buildCsv([
@@ -142,11 +137,13 @@ const Reports: React.FC = () => {
         ),
     },
     {
-      key: "donations-excel",
-      title: "Donaties in Excel",
-      description: "Batchstatus, donor en refurbish-opbrengst in een rapportagebestand.",
-      tone: "bg-emerald-600 text-white",
-      action: () =>
+      key: "donations",
+      title: "Donaties",
+      description: "Batchstatus, donor en refurbish-opbrengst.",
+      icon: HeartHandshake,
+      accent: "text-emerald-700 bg-emerald-50",
+      count: donations.length,
+      excel: () =>
         downloadWorkbook(
           "donations.xlsx",
           "Donations",
@@ -160,13 +157,7 @@ const Reports: React.FC = () => {
             afgekeurd: donation.rejected_count ?? 0,
           })),
         ),
-    },
-    {
-      key: "donations-csv",
-      title: "Donaties in CSV",
-      description: "Snelle export voor operationele afstemming met servicepartners.",
-      tone: "bg-white text-slate-900 border border-slate-200",
-      action: () =>
+      csv: () =>
         downloadTextFile(
           "donations.csv",
           buildCsv([
@@ -277,29 +268,56 @@ const Reports: React.FC = () => {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        {exportCards.map((card) => (
-          <article key={card.key} className={`rounded-[24px] p-5 shadow-sm ${card.tone}`}>
-            <div className="flex h-full flex-col justify-between gap-5">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">Export</p>
-                <h3 className="text-xl font-bold">{card.title}</h3>
-                <p className="text-sm leading-6 opacity-80">{card.description}</p>
-              </div>
-              <LoadingButton
-                onClick={() => { void runExport(card.key, card.action); }}
-                isLoading={activeExport === card.key}
-                isSuccess={lastExport === card.key}
-                loadingLabel="Voorbereiden..."
-                successLabel="Gedownload"
-                variant={card.tone.includes("bg-white") ? "secondary" : "primary"}
-                className={card.tone.includes("bg-white") ? "self-start" : "self-start border-white/10 bg-white/10 text-white hover:bg-white/15"}
-              >
-                Download export
-              </LoadingButton>
-            </div>
-          </article>
-        ))}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Exports</h3>
+            <p className="text-xs text-slate-500">Download orders en donaties als Excel of CSV.</p>
+          </div>
+        </div>
+        <ul className="divide-y divide-slate-100">
+          {exportGroups.map((group) => {
+            const excelKey = `${group.key}-excel`;
+            const csvKey = `${group.key}-csv`;
+            const Icon = group.icon;
+            return (
+              <li key={group.key} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${group.accent}`}>
+                    <Icon size={16} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {group.title}
+                      <span className="ml-2 text-xs font-medium text-slate-400">{group.count}</span>
+                    </p>
+                    <p className="truncate text-xs text-slate-500">{group.description}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { void runExport(excelKey, group.excel); }}
+                    disabled={activeExport === excelKey}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <FileSpreadsheet size={14} className="text-emerald-600" />
+                    {activeExport === excelKey ? "..." : lastExport === excelKey ? "Gedownload" : "Excel"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { void runExport(csvKey, group.csv); }}
+                    disabled={activeExport === csvKey}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <FileText size={14} className="text-slate-500" />
+                    {activeExport === csvKey ? "..." : lastExport === csvKey ? "Gedownload" : "CSV"}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">

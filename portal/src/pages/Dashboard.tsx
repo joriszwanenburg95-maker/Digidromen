@@ -197,7 +197,7 @@ const NeedHelpPanel: React.FC = () => (
 
 const WarehouseHeader: React.FC<{ firstName: string }> = ({ firstName }) => (
   <div className="rounded-2xl bg-digidromen-dark p-6">
-    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-digidromen-blue">
+    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-digidromen-yellow">
       Werkvoorraad
     </p>
     <h2 className="mt-1 font-heading text-xl font-bold text-white">
