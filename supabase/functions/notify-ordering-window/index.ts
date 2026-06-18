@@ -125,9 +125,9 @@ Deno.serve(async (req) => {
       heading: "Het bestelvenster is open",
       intro: `Je kunt nu aanvragen plaatsen, tot en met dag ${closeDay} van de maand.`,
       bodyHtml: `
-        <p style="margin:0 0 16px;">Vanaf vandaag kun je in de Digidromen webshop laptoppakketten en vervangingen aanvragen voor je organisatie.</p>
-        <p style="margin:0 0 20px;">Wacht niet te lang: het venster sluit weer op dag ${closeDay} van de maand.</p>
-        <a href="${PORTAL_URL}/orders" style="display:inline-block;background:#EE7219;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px;padding:12px 22px;border-radius:14px;">Open de webshop</a>`,
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#3b3f44;">Vanaf vandaag kun je in de Digidromen webshop laptoppakketten en vervangingen aanvragen voor je organisatie.</p>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#3b3f44;">Wacht niet te lang: het venster sluit weer op dag ${closeDay} van de maand.</p>`,
+      cta: { label: "Open de webshop", url: `${PORTAL_URL}/orders` },
       footnote: "Je ontvangt deze mail omdat je gebruiker bent van een hulporganisatie in de Digidromen portal.",
     });
 
