@@ -164,8 +164,8 @@ export const roleSurface: Record<Role, RoleSurfaceConfig> = {
     orderLabel: "Bestellingen",
     nav: [
       nav.orders("Bestellingen"),
-      nav.organizations(),
-      nav.settings("Instellingen"),
+      { ...nav.organizations(), group: "beheer" },
+      { ...nav.settings("Instellingen"), group: "beheer" },
     ],
     pageTitle: {
       "/orders": "Bestellingen",
@@ -179,8 +179,8 @@ export const roleSurface: Record<Role, RoleSurfaceConfig> = {
     orderLabel: "Bestellingen",
     nav: [
       nav.orders("Bestellingen"),
-      nav.organizations(),
-      nav.settings("Instellingen"),
+      { ...nav.organizations(), group: "beheer" },
+      { ...nav.settings("Instellingen"), group: "beheer" },
       nav.users(),
       nav.auditLog(),
     ],

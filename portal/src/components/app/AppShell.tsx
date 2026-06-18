@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { AppTopbar } from "@/components/app/AppTopbar";
+import { WebshopHeader } from "@/components/app/WebshopHeader";
 import { CommandMenu } from "@/components/app/CommandMenu";
 import { Toaster } from "@/components/ui/sonner";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -14,7 +15,7 @@ import { getPageTitle, getSurface } from "@/lib/roleSurface";
 import type { Role } from "@/types";
 
 export function AppShell() {
-  const { user, logout, supabaseConfigured } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const [commandOpen, setCommandOpen] = useState(false);
 
@@ -41,20 +42,29 @@ export function AppShell() {
     retry: false,
   });
 
-  const statusCopy = supabaseConfigured
-    ? "Verbonden met Supabase"
-    : "Supabase-configuratie ontbreekt";
+  // Hulporganisatie (klant): lichte webshop-header, geen back-office-sidebar.
+  if (role === "help_org") {
+    return (
+      <div className="min-h-dvh bg-background">
+        <WebshopHeader
+          role={role}
+          surface={surface}
+          userName={user?.name}
+          userEmail={user?.email}
+          onLogout={logout}
+        />
+        <main className="motion-safe:animate-content-in mx-auto max-w-6xl px-4 py-6 lg:px-8">
+          <Outlet />
+        </main>
+        <Toaster position="top-right" richColors closeButton />
+      </div>
+    );
+  }
 
+  // Medewerker/beheerder: back-office met sidebar.
   return (
     <SidebarProvider>
-      <AppSidebar
-        role={role}
-        surface={surface}
-        userName={user?.name}
-        userEmail={user?.email}
-        statusCopy={statusCopy}
-        supabaseConfigured={supabaseConfigured}
-      />
+      <AppSidebar surface={surface} />
       <SidebarInset>
         <AppTopbar
           pageTitle={pageTitle}

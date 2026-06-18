@@ -1,10 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { CheckCircle2 } from "lucide-react";
 
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -15,18 +13,11 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { roleLabels, type RoleSurfaceConfig } from "@/lib/roleSurface";
-import type { Role } from "@/types";
+import type { RoleSurfaceConfig } from "@/lib/roleSurface";
 
 interface AppSidebarProps {
-  role: Role;
   surface: RoleSurfaceConfig;
-  userName?: string;
-  userEmail?: string;
-  statusCopy: string;
-  supabaseConfigured: boolean;
 }
 
 function isActivePath(pathname: string, path: string) {
@@ -93,14 +84,7 @@ function AppSidebarNav({
   );
 }
 
-export function AppSidebar({
-  role,
-  surface,
-  userName,
-  userEmail,
-  statusCopy,
-  supabaseConfigured,
-}: AppSidebarProps) {
+export function AppSidebar({ surface }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" className="border-sidebar-border">
       <SidebarHeader className="gap-4 p-4">
@@ -119,31 +103,11 @@ export function AppSidebar({
             <span className="block text-xs text-white/48">{surface.homeLabel}</span>
           </span>
         </Link>
-
-        <div className="motion-safe:animate-shell-in rounded-xl border border-white/10 bg-white/8 px-3 py-3 group-data-[collapsible=icon]:hidden">
-          <Badge className="bg-digidromen-yellow text-digidromen-dark hover:bg-digidromen-yellow">
-            {roleLabels[role]}
-          </Badge>
-          <p className="mt-2 truncate text-sm font-semibold text-white">{userName ?? "Gebruiker"}</p>
-          <p className="truncate text-xs text-white/45">{userEmail}</p>
-        </div>
       </SidebarHeader>
 
       <SidebarContent>
         <AppSidebarNav surface={surface} />
       </SidebarContent>
-
-      <SidebarFooter className="p-4 group-data-[collapsible=icon]:items-center">
-        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-[11px] text-white/48 transition-colors duration-200 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
-          <CheckCircle2
-            className={cn(
-              "size-4 shrink-0",
-              supabaseConfigured ? "text-digidromen-blue" : "text-digidromen-orange",
-            )}
-          />
-          <span className="truncate group-data-[collapsible=icon]:hidden">{statusCopy}</span>
-        </div>
-      </SidebarFooter>
     </Sidebar>
   );
 }
