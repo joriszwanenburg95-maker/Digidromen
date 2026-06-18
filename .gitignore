@@ -19,3 +19,37 @@ supabase/.temp/
 supabase/functions/.env
 # Alleen map "Context" in projectroot (niet portal/src/context)
 /Context/
+
+# AI-assistent tooling (lokale artefacten, niet committen)
+/skills/
+/skills-lock.json
+/.adal/
+/.agents/
+/.augment/
+/.bob/
+/.claude/
+/.codebuddy/
+/.commandcode/
+/.continue/
+/.cortex/
+/.crush/
+/.factory/
+/.goose/
+/.iflow/
+/.junie/
+/.kilocode/
+/.kiro/
+/.kode/
+/.mcpjam/
+/.mux/
+/.neovate/
+/.openhands/
+/.pi/
+/.pochi/
+/.qoder/
+/.qwen/
+/.roo/
+/.trae/
+/.vibe/
+/.windsurf/
+/.zencoder/
