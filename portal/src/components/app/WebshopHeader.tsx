@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Building2, LogOut, UserRound } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,10 +35,9 @@ export function WebshopHeader({ role, surface, userName, userEmail, onLogout }: 
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Primaire bestemming(en) in de balk; account-gerelateerde items (settings)
-  // verhuizen naar het account-menu.
-  const primaryNav = surface.nav.filter((item) => item.key !== "settings");
-  const accountItem = surface.nav.find((item) => item.key === "settings");
+  // Alle bestemmingen zichtbaar in de balk (Webshop + Mijn organisatie). Voor
+  // een 2-item-webshop is dat duidelijker dan items in een menu verstoppen.
+  const primaryNav = surface.nav;
 
   return (
     <header className="motion-safe:animate-topbar-in sticky top-0 z-20 border-b border-border bg-background/92 px-4 py-3 backdrop-blur lg:px-8">
@@ -92,15 +91,6 @@ export function WebshopHeader({ role, surface, userName, userEmail, onLogout }: 
                 {roleLabels[role]}
               </span>
             </DropdownMenuLabel>
-            {accountItem ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => navigate(accountItem.path)}>
-                  <Building2 className="size-4" />
-                  {accountItem.label}
-                </DropdownMenuItem>
-              </>
-            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={(event) => {
