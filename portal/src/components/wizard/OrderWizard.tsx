@@ -478,19 +478,13 @@ export const OrderWizard: React.FC<Props> = ({ onClose, initialScenario = null }
     const connectorWattageTrim = productFields.connector_wattage.trim();
     const replacementReasonTrim = productFields.replacement_reason.trim();
 
-    if (scenario === "laptop_replacement" && (!serialTrim || !defectTrim)) {
-      setSubmitError("Serienummer en klachtomschrijving zijn verplicht.");
+    // Eén bron van waarheid: dezelfde scenario-validatie als stap 2 (productRules).
+    const fieldErrors = validateProductFields(scenario, productFields);
+    const firstFieldError = Object.values(fieldErrors).find(Boolean);
+    if (firstFieldError) {
+      setErrors((prev) => ({ ...prev, ...fieldErrors }));
+      setSubmitError(firstFieldError);
       return;
-    }
-
-    if (scenario === "cable_replacement") {
-      // Serienummer is optioneel: het aantal geldt per connectortype/wattage.
-      if (!connectorTypeTrim || !connectorWattageTrim) {
-        setSubmitError(
-          "Connectortype en wattage zijn verplicht voor een voedingskabel.",
-        );
-        return;
-      }
     }
 
     const effectiveOrgId =

@@ -190,7 +190,7 @@ export function useOrderDraft() {
       if (error) throw error;
       if (!updatedRows?.length) {
         throw new Error(
-          'Kon de bestelling niet indienen: geen open concept meer met dit id. Vernieuw de pagina en start zo nodig een nieuwe bestelling.'
+          'Kon de bestelling niet indienen. Mogelijk is de aanvraag al ingediend of heb je er geen toegang (meer) toe. Vernieuw de pagina en start zo nodig een nieuwe bestelling.'
         );
       }
 
