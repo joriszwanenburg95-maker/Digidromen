@@ -62,8 +62,9 @@ export const StepDelivery: React.FC<Props> = ({
       )}
 
       <p className="rounded-2xl bg-digidromen-warm px-4 py-3 text-xs leading-relaxed text-digidromen-dark/58">
-        De exacte bezorgdatum wordt later door de servicepartner ingevuld en is
-        daarna zichtbaar in de bestelling.
+        Laat je dit leeg, dan gaan we uit van "zo spoedig mogelijk". De exacte
+        bezorgdatum bevestigt Digidromen later; die is daarna zichtbaar in je
+        bestelling.
       </p>
     </div>
   );

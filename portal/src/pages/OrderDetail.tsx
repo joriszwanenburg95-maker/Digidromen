@@ -94,6 +94,9 @@ const PreferredDeliverySection: React.FC<{
   return (
     <div className="rounded-xl border border-slate-200 p-4">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Gewenste leverdatum</p>
+      <p className="mt-0.5 text-xs text-slate-400">
+        Ter indicatie. Standaard zo spoedig mogelijk; Digidromen bevestigt de definitieve verzend-/bezorgdatum.
+      </p>
       {editing && canEdit ? (
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <input
@@ -113,11 +116,11 @@ const PreferredDeliverySection: React.FC<{
         <div className="mt-1 flex items-center justify-between gap-4">
           <p className="text-sm font-medium text-slate-800">
             {preferredDate ? new Date(preferredDate).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })
-              : <span className="italic text-slate-400">Nog niet ingevuld</span>}
+              : "Zo spoedig mogelijk"}
           </p>
           {canEdit ? (
             <button type="button" onClick={() => setEditing(true)} className="text-xs text-digidromen-primary hover:underline">
-              {preferredDate ? "Wijzigen" : "Invullen"}
+              {preferredDate ? "Wijzigen" : "Specifieke datum kiezen"}
             </button>
           ) : null}
         </div>
