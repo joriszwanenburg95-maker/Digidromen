@@ -10,5 +10,12 @@ portal/dist-ssr/
 
 supabase/.temp/
 .vercel
+
+# Secrets / env (nooit committen)
+.env
+.env.*
+!.env.example
+!**/.env.local.example
+supabase/functions/.env
 # Alleen map "Context" in projectroot (niet portal/src/context)
 /Context/
