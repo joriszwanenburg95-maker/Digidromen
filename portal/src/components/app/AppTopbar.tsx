@@ -16,7 +16,6 @@ import { roleLabels } from "@/lib/roleSurface";
 import type { Role } from "@/types";
 
 interface AppTopbarProps {
-  pageTitle: string;
   role: Role;
   userName?: string;
   userEmail?: string;
@@ -26,7 +25,6 @@ interface AppTopbarProps {
 }
 
 export function AppTopbar({
-  pageTitle,
   role,
   userName,
   userEmail,
@@ -41,18 +39,13 @@ export function AppTopbar({
       <div className="flex min-h-11 items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <SidebarTrigger aria-label="Menu openen" className="size-10 rounded-full lg:size-9" />
-          <div className="flex min-w-0 items-center gap-3">
-            <img
-              src="/Digidromen logo.png"
-              alt="Digidromen"
-              className="h-9 w-auto object-contain md:hidden"
-            />
-            <div className="min-w-0">
-              <h1 className="truncate font-heading text-lg font-semibold text-foreground">
-                {pageTitle}
-              </h1>
-            </div>
-          </div>
+          {/* Logo alleen op mobiel: daar is de sidebar ingeklapt. De paginanaam
+              staat al in de sidebar (actief item) én in de paginakop zelf. */}
+          <img
+            src="/Digidromen logo.png"
+            alt="Digidromen"
+            className="h-9 w-auto object-contain md:hidden"
+          />
         </div>
 
         <div className="flex items-center gap-2">

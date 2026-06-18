@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { AppSidebar } from "@/components/app/AppSidebar";
@@ -11,17 +11,15 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useAuth } from "@/context/AuthContext";
 import { getSupabaseClient } from "@/lib/supabase";
 import { queryKeys } from "@/lib/queryKeys";
-import { getPageTitle, getSurface } from "@/lib/roleSurface";
+import { getSurface } from "@/lib/roleSurface";
 import type { Role } from "@/types";
 
 export function AppShell() {
   const { user, logout } = useAuth();
-  const location = useLocation();
   const [commandOpen, setCommandOpen] = useState(false);
 
   const role: Role = user?.role ?? "help_org";
   const surface = useMemo(() => getSurface(role), [role]);
-  const pageTitle = getPageTitle(role, location.pathname);
   const canReadNotifications = role === "digidromen_admin" || role === "digidromen_staff";
 
   const { data: unreadCount = 0 } = useQuery<number>({
@@ -67,7 +65,6 @@ export function AppShell() {
       <AppSidebar surface={surface} />
       <SidebarInset>
         <AppTopbar
-          pageTitle={pageTitle}
           role={role}
           userName={user?.name}
           userEmail={user?.email}
