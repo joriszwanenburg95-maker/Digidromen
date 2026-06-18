@@ -1,9 +1,20 @@
-// Gedeelde e-mailhelper: verzendt via Resend en wikkelt content in een
-// gebrande Digidromen-layout (inline styles i.v.m. e-mailclients).
+// Gedeelde e-mailhelper: verzendt via Brevo (transactionele e-mail-API) en
+// wikkelt content in een gebrande Digidromen-layout (inline styles i.v.m.
+// e-mailclients).
 
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
 // Afzender: stel in via secret EMAIL_FROM, bijv. "Digidromen <bestellingen@digidromen.nl>".
-const EMAIL_FROM = Deno.env.get("EMAIL_FROM") ?? "Digidromen <onboarding@resend.dev>";
+// Het e-mailadres moet een geverifieerde afzender/domein in Brevo zijn.
+const EMAIL_FROM = Deno.env.get("EMAIL_FROM") ?? "Digidromen <bestellingen@digidromen.nl>";
+
+/** Splits "Naam <adres@domein.nl>" (of een kaal adres) in naam + e-mail. */
+function parseFrom(value: string): { name: string; email: string } {
+  const match = value.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  if (match) {
+    return { name: match[1] || "Digidromen", email: match[2].trim() };
+  }
+  return { name: "Digidromen", email: value.trim() };
+}
 
 const BRAND = {
   orange: "#EE7219",
@@ -14,7 +25,7 @@ const BRAND = {
 };
 
 export function emailConfigured(): boolean {
-  return Boolean(RESEND_API_KEY);
+  return Boolean(BREVO_API_KEY);
 }
 
 export async function sendEmail(opts: {
@@ -22,25 +33,27 @@ export async function sendEmail(opts: {
   subject: string;
   html: string;
 }): Promise<void> {
-  if (!RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY ontbreekt (zet de Supabase-secret).");
+  if (!BREVO_API_KEY) {
+    throw new Error("BREVO_API_KEY ontbreekt (zet de Supabase-secret).");
   }
-  const res = await fetch("https://api.resend.com/emails", {
+  const sender = parseFrom(EMAIL_FROM);
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "api-key": BREVO_API_KEY,
       "Content-Type": "application/json",
+      Accept: "application/json",
     },
     body: JSON.stringify({
-      from: EMAIL_FROM,
-      to: [opts.to],
+      sender,
+      to: [{ email: opts.to }],
       subject: opts.subject,
-      html: opts.html,
+      htmlContent: opts.html,
     }),
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Resend ${res.status}: ${text}`);
+    throw new Error(`Brevo ${res.status}: ${text}`);
   }
 }
 

@@ -1,8 +1,8 @@
 -- ════════════════════════════════════════════════════════════════════════
 -- Go-live: plan de e-mailtaken met pg_cron.
 -- NIET in de migrations-map: voer dit handmatig uit (Supabase SQL editor) NA:
---   1. domein geverifieerd in Resend
---   2. secrets gezet:  supabase secrets set RESEND_API_KEY=... EMAIL_FROM="Digidromen <bestellingen@digidromen.nl>" CRON_SECRET=<sterke-string>
+--   1. domein geverifieerd in Brevo (SPF/DKIM) + afzenderadres geverifieerd
+--   2. secrets gezet:  supabase secrets set BREVO_API_KEY=... EMAIL_FROM="Digidromen <bestellingen@digidromen.nl>" CRON_SECRET=<sterke-string>
 --   3. functies gedeployed:
 --        supabase functions deploy process-email-outbox --no-verify-jwt
 --        supabase functions deploy notify-ordering-window --no-verify-jwt

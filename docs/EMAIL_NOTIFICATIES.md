@@ -1,6 +1,6 @@
 # E-mailnotificaties
 
-Mails gaan via **Resend** en worden altijd eerst in `email_outbox` geplaatst
+Mails gaan via **Brevo** (transactionele e-mail-API) en worden altijd eerst in `email_outbox` geplaatst
 (gebundeld per ontvanger + type), zodat meerdere acties vlak na elkaar in één
 mail komen i.p.v. losse mails.
 
@@ -33,11 +33,13 @@ Periodiek:
 
 ## Go-live (eenmalig)
 
-1. **Domein verifiëren** in Resend (bijv. `digidromen.nl`) en een API-key maken.
+1. **Domein verifiëren** in Brevo (bijv. `digidromen.nl`: SPF/DKIM/DMARC) en een
+   transactionele **API-key** (v3) aanmaken. Voeg het afzenderadres
+   (`bestellingen@digidromen.nl`) toe als geverifieerde afzender.
 2. **Secrets zetten:**
    ```bash
    supabase secrets set \
-     RESEND_API_KEY=re_xxx \
+     BREVO_API_KEY=xkeysib-xxx \
      EMAIL_FROM="Digidromen <bestellingen@digidromen.nl>" \
      CRON_SECRET=<sterke-willekeurige-string> \
      PORTAL_URL=https://digidromenportal.vercel.app
@@ -54,4 +56,4 @@ Periodiek:
 - Verzamelmail nu draaien: `curl -X POST .../functions/v1/process-email-outbox -H "x-cron-secret: <CRON_SECRET>"`
 - Bestelvenster-mail forceren: `.../functions/v1/notify-ordering-window?force=1` (met `x-cron-secret`).
 
-Zonder `RESEND_API_KEY` doen de functies niets (ze geven `skipped` terug) — veilig.
+Zonder `BREVO_API_KEY` doen de functies niets (ze geven `skipped` terug) — veilig.

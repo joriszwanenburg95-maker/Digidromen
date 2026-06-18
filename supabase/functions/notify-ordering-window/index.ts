@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
 
     if (!emailConfigured()) {
       return new Response(
-        JSON.stringify({ skipped: true, reason: "RESEND_API_KEY niet ingesteld" }),
+        JSON.stringify({ skipped: true, reason: "BREVO_API_KEY niet ingesteld" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
