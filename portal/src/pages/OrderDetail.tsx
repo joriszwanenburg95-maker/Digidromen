@@ -244,6 +244,8 @@ const OrderDetail: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"status" | "berichten" | "documenten">("status");
   const [message, setMessage] = useState("");
   const [documentName, setDocumentName] = useState("");
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   const { data: order, isLoading } = useQuery({
     queryKey: [
@@ -319,13 +321,23 @@ const OrderDetail: React.FC = () => {
   });
 
   const transitionMutation = useMutation({
-    mutationFn: async (nextStatus: string) => {
+    mutationFn: async (args: { nextStatus: string; rejectionReason?: string }) => {
+      const { nextStatus, rejectionReason } = args;
+      const reasonTrim = rejectionReason?.trim() ?? "";
+
+      // rejection_reason staat (nog) niet in de gegenereerde types; bouw de
+      // payload los op en cast bij de update.
+      const updatePayload: Record<string, unknown> = {
+        status: nextStatus as OrderStatus,
+        updated_at: new Date().toISOString(),
+      };
+      if (nextStatus === "afgewezen") {
+        updatePayload.rejection_reason = reasonTrim ? reasonTrim : null;
+      }
+
       const { error } = await getSupabaseClient()
         .from("orders")
-        .update({
-          status: nextStatus as OrderStatus,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload as never)
         .eq("id", id!);
       if (error) throw error;
 
@@ -335,13 +347,18 @@ const OrderDetail: React.FC = () => {
         await logOrderMovements(id!, orderLines, user?.id);
       }
 
+      const description =
+        nextStatus === "afgewezen" && reasonTrim
+          ? `${user?.name ?? "Gebruiker"} heeft de aanvraag afgewezen. Reden: ${reasonTrim}`
+          : `${user?.name ?? "Gebruiker"} heeft de status bijgewerkt naar ${nextStatus}.`;
+
       const { error: eventError } = await getSupabaseClient().from("workflow_events").insert({
         id: crypto.randomUUID(),
         case_id: id!,
         case_type: "order",
         status: nextStatus,
         title: `Status gewijzigd naar ${nextStatus}`,
-        description: `${user?.name ?? "Gebruiker"} heeft de status bijgewerkt naar ${nextStatus}.`,
+        description,
         actor_name: user?.name ?? "Onbekend",
         actor_role: user?.role ?? "digidromen_staff",
         created_at: new Date().toISOString(),
@@ -350,6 +367,8 @@ const OrderDetail: React.FC = () => {
       if (eventError) throw eventError;
     },
     onSuccess: () => {
+      setRejectOpen(false);
+      setRejectReason("");
       void queryClient.invalidateQueries({ queryKey: queryKeys.orders.detail(id!) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all });
@@ -468,7 +487,11 @@ const OrderDetail: React.FC = () => {
               <button
                 key={status}
                 disabled={transitionMutation.isPending}
-                onClick={() => transitionMutation.mutate(status)}
+                onClick={() =>
+                  status === "afgewezen"
+                    ? setRejectOpen(true)
+                    : transitionMutation.mutate({ nextStatus: status })
+                }
                 className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 ${orderWorkflow.buttonClass(status)}`}
               >
                 {status === "afgewezen" ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
@@ -476,6 +499,49 @@ const OrderDetail: React.FC = () => {
               </button>
             ))}
           </div>
+
+          {rejectOpen ? (
+            <div className="mt-2 w-full max-w-md rounded-xl border border-red-200 bg-red-50/60 p-4">
+              <p className="text-sm font-semibold text-slate-800">Aanvraag afwijzen</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Geef optioneel een reden mee. Deze komt in de afwijzingsmail aan de besteller.
+                Laat je het leeg, dan sturen we een nette mail zonder specifieke reden.
+              </p>
+              <textarea
+                rows={3}
+                value={rejectReason}
+                onChange={(event) => setRejectReason(event.target.value)}
+                placeholder="Reden van afwijzing (optioneel)"
+                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+              />
+              <div className="mt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRejectOpen(false);
+                    setRejectReason("");
+                  }}
+                  className="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800"
+                >
+                  Annuleren
+                </button>
+                <button
+                  type="button"
+                  disabled={transitionMutation.isPending}
+                  onClick={() =>
+                    transitionMutation.mutate({
+                      nextStatus: "afgewezen",
+                      rejectionReason: rejectReason,
+                    })
+                  }
+                  className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                >
+                  <XCircle size={14} />
+                  {transitionMutation.isPending ? "Bezig..." : "Bevestig afwijzing"}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
