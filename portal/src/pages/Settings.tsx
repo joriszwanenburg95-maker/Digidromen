@@ -953,16 +953,18 @@ const Settings: React.FC = () => {
                     <p className="mb-1 text-xs text-digidromen-dark/50">
                       De officiële naam van je organisatie of bedrijf — niet je
                       persoonlijke naam. Deze naam staat op je aanvragen en leveringen.
+                      {isHelpOrgUser ? " Beheerd door Digidromen; neem contact op om dit te wijzigen." : ""}
                     </p>
                     <input
                       id="ho-name"
                       value={helpOrgSelfForm.name}
+                      disabled={isHelpOrgUser}
                       onChange={(e) => {
                         setHelpOrgSelfForm((p) => ({ ...p, name: e.target.value }));
                         setHelpOrgSelfError(null);
                         setHelpOrgSelfNotice(null);
                       }}
-                      className={inputCls}
+                      className={inputCls + (isHelpOrgUser ? " cursor-not-allowed bg-digidromen-cream/40 text-digidromen-dark/50" : "")}
                     />
                   </div>
                   <div>
@@ -972,12 +974,13 @@ const Settings: React.FC = () => {
                     <input
                       id="ho-contact"
                       value={helpOrgSelfForm.contact_name}
+                      disabled={isHelpOrgUser}
                       onChange={(e) => {
                         setHelpOrgSelfForm((p) => ({ ...p, contact_name: e.target.value }));
                         setHelpOrgSelfError(null);
                         setHelpOrgSelfNotice(null);
                       }}
-                      className={inputCls}
+                      className={inputCls + (isHelpOrgUser ? " cursor-not-allowed bg-digidromen-cream/40 text-digidromen-dark/50" : "")}
                     />
                   </div>
                   <div>
@@ -988,12 +991,13 @@ const Settings: React.FC = () => {
                       id="ho-email"
                       type="email"
                       value={helpOrgSelfForm.contact_email}
+                      disabled={isHelpOrgUser}
                       onChange={(e) => {
                         setHelpOrgSelfForm((p) => ({ ...p, contact_email: e.target.value }));
                         setHelpOrgSelfError(null);
                         setHelpOrgSelfNotice(null);
                       }}
-                      className={inputCls}
+                      className={inputCls + (isHelpOrgUser ? " cursor-not-allowed bg-digidromen-cream/40 text-digidromen-dark/50" : "")}
                     />
                   </div>
                   <div className="md:col-span-2">
