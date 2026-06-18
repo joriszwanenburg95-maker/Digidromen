@@ -43,14 +43,15 @@ interface StatusTab {
   matchStatuses?: string[];
 }
 
+// Beheerder/medewerker: actiegerichte inbox. Concepten (niet-ingediende drafts)
+// worden niet getoond — daar valt niets te beoordelen.
 const allStatusTabs: StatusTab[] = [
-  { key: "all", label: "Alle" },
-  { key: "concept", label: "Concept" },
-  { key: "ingediend", label: "Ingediend" },
-  { key: "geaccordeerd", label: "Geaccordeerd" },
+  { key: "te_beoordelen", label: "Te beoordelen", matchStatuses: ["ingediend", "te_accorderen"] },
+  { key: "goedgekeurd", label: "Goedgekeurd", matchStatuses: ["geaccordeerd", "in_voorbereiding"] },
   { key: "geleverd", label: "Geleverd" },
-  { key: "afgesloten", label: "Afgesloten" },
+  { key: "afgerond", label: "Afgerond", matchStatuses: ["afgesloten"] },
   { key: "afgewezen", label: "Afgewezen" },
+  { key: "all", label: "Alle" },
 ];
 
 const helpOrgStatusTabs: StatusTab[] = [
@@ -347,17 +348,25 @@ const Orders: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const role: Role = (user?.role as Role) ?? "help_org";
+  const surface = getSurface(role);
+  const isHelpOrg = role === "help_org";
+  const isServicePartner = role === "service_partner";
+  const isStaff = role === "digidromen_admin" || role === "digidromen_staff";
+  // Beheerder/medewerker landen op de actie-inbox; overige rollen op "Alle".
+  const defaultStatusTab = isStaff ? "te_beoordelen" : "all";
+
   const [showWizard, setShowWizard] = useState(false);
   const [wizardScenario, setWizardScenario] = useState<ProductScenario | null>(
     null,
   );
   const [statusFilter, setStatusFilter] = useState<string>(
-    () => searchParams.get("status") ?? "all",
+    () => searchParams.get("status") ?? defaultStatusTab,
   );
 
   useEffect(() => {
-    setStatusFilter(searchParams.get("status") ?? "all");
-  }, [searchParams]);
+    setStatusFilter(searchParams.get("status") ?? defaultStatusTab);
+  }, [searchParams, defaultStatusTab]);
 
   useEffect(() => {
     if (searchParams.get("new") === "1") {
@@ -367,19 +376,19 @@ const Orders: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const role: Role = (user?.role as Role) ?? "help_org";
-  const surface = getSurface(role);
-  const isHelpOrg = role === "help_org";
-  const isServicePartner = role === "service_partner";
-  const isStaff = role === "digidromen_admin" || role === "digidromen_staff";
-
   const statusTabs = useMemo(() => getStatusTabs(role), [role]);
 
-  const { data: displayOrders = [], isLoading } = useQuery({
+  const { data: allOrders = [], isLoading } = useQuery({
     queryKey: queryKeys.orders.list(),
     queryFn: () => listOrders({ role, organizationId: user?.organizationId }),
     enabled: !!user,
   });
+
+  // Concepten (niet-ingediende drafts) tonen we niet aan beheerder/medewerker.
+  const displayOrders = useMemo(
+    () => (isHelpOrg ? allOrders : allOrders.filter((o: OrderListRow) => o.status !== "concept")),
+    [allOrders, isHelpOrg],
+  );
 
   const { data: pendingApprovalCount = 0 } = useQuery({
     queryKey: ["orders", "te-accorderen-count"] as const,
@@ -459,7 +468,7 @@ const Orders: React.FC = () => {
           </p>
           <button
             type="button"
-            onClick={() => setFilter("ingediend")}
+            onClick={() => setFilter("te_beoordelen")}
             className="mt-2 text-sm font-semibold text-amber-900 underline hover:no-underline"
           >
             Toon alleen in te dienen bestellingen →
@@ -529,6 +538,11 @@ const Orders: React.FC = () => {
             }`}
           >
             {tab.label}
+            {tab.key === "te_beoordelen" && pendingApprovalCount > 0 ? (
+              <span className="ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-digidromen-orange px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                {pendingApprovalCount}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>

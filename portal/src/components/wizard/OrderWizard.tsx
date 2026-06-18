@@ -551,7 +551,7 @@ export const OrderWizard: React.FC<Props> = ({ onClose, initialScenario = null }
 
       const orderId = await submitDraft(lines, savedId);
       clearOrderWizardSession(savedId);
-      navigate(`/orders/${orderId}`);
+      navigate(`/orders/${orderId}`, { state: { justSubmitted: true } });
       onClose();
     } catch (error) {
       setSubmitError(

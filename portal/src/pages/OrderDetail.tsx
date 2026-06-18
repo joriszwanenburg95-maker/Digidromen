@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -239,6 +239,10 @@ const DeliveryDateSection: React.FC<{
 const OrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [showSubmitNotice, setShowSubmitNotice] = useState(
+    () => (location.state as { justSubmitted?: boolean } | null)?.justSubmitted === true,
+  );
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"status" | "berichten" | "documenten">("status");
@@ -457,6 +461,26 @@ const OrderDetail: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {showSubmitNotice && isHelpOrg ? (
+        <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+          <div className="flex-1">
+            <p className="font-semibold">Je aanvraag is ingediend!</p>
+            <p className="mt-0.5 text-emerald-800">
+              Je ontvangt binnen ongeveer 15 minuten een bevestigingsmail. Niets ontvangen?
+              Kijk dan even in je spam-/ongewenste-mailmap. De status volg je hier in de webshop.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSubmitNotice(false)}
+            className="shrink-0 text-emerald-700 hover:text-emerald-900"
+            aria-label="Melding sluiten"
+          >
+            <XCircle size={16} />
+          </button>
+        </div>
+      ) : null}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/orders")} className="flex items-center text-slate-500 hover:text-slate-700">
